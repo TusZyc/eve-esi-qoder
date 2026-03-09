@@ -20,4 +20,12 @@ class AuthServiceProvider extends ServiceProvider
     {
         //
     }
+
+    /**
+     * Get the login path for the application.
+     */
+    public function loginUrl(): string
+    {
+        return route('auth.guide');
+    }
 }
