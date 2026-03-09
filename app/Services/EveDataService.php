@@ -49,11 +49,11 @@ class EveDataService
         $this->itemDatabase = Cache::remember('eve_item_database', 3600, function() {
             if (file_exists($this->dataPath)) {
                 $data = json_decode(file_get_contents($this->dataPath), true);
-                // 转换为 id => name 的格式
+                // 转换为 id => name 的格式（键名统一为整数）
                 $database = [];
                 foreach ($data as $item) {
                     if (isset($item['id']) && isset($item['name'])) {
-                        $database[$item['id']] = $item['name'];
+                        $database[(int) $item['id']] = $item['name'];
                     }
                 }
                 return $database;

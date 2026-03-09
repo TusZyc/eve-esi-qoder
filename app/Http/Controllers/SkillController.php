@@ -40,7 +40,9 @@ class SkillController extends Controller
             
             foreach ($skillsData['skills'] as &$skill) {
                 $skillId = $skill['skill_id'] ?? 0;
-                $skill['skill_name'] = $skillNames[$skillId] ?? '未知技能';
+                // 确保 skillId 是整数，与数组键名匹配
+                $skillId = (int) $skillId;
+                $skill['skill_name'] = $skillNames[$skillId] ?? EveHelper::getNameById($skillId, 'skill');
             }
         }
         
