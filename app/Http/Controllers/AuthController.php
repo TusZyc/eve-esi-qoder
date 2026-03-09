@@ -128,10 +128,8 @@ class AuthController extends Controller
         
         Log::info('请求 Token 端点：' . $tokenUrl);
         
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/x-www-form-urlencoded',
-            'Accept' => 'application/json',
-        ])->post($tokenUrl, [
+        // 国服 OAuth2 需要在 body 中传递 client_id
+        $response = Http::asForm()->post($tokenUrl, [
             'grant_type' => 'authorization_code',
             'code' => $code,
             'client_id' => $clientId,
