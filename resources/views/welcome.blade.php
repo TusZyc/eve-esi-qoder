@@ -34,13 +34,13 @@
 
                     @if(session('error'))
                         <div class="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-4">
-                            {{ session('error') }}
+                            ❌ {{ session('error') }}
                         </div>
                     @endif
 
                     @if(session('success'))
                         <div class="bg-green-500/20 border border-green-500 text-green-200 px-4 py-3 rounded-lg mb-4">
-                            {{ session('success') }}
+                            ✅ {{ session('success') }}
                         </div>
                     @endif
 
@@ -50,6 +50,9 @@
                            class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-lg transition-all eve-glow hover:scale-105">
                             🔐 使用 EVE 账号登录
                         </a>
+                        <p class="text-xs text-blue-300 mt-4">
+                            点击后将跳转到网易通行证授权页面
+                        </p>
                     </div>
 
                     <div class="text-center mt-6">
