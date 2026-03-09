@@ -55,11 +55,15 @@ class SkillController extends Controller
         $totalSP = $skillsData['total_sp'] ?? 0;
         $unallocatedSP = $skillsData['unallocated_sp'] ?? 0;
         
-        // 计算训练总时间
+        // 计算训练总剩余时间（所有未完成技能的剩余时间总和）
         $trainingTimeRemaining = 0;
+        $now = time();
         if (!empty($skillQueue)) {
             foreach ($skillQueue as $queueItem) {
-                $trainingTimeRemaining += ($queueItem['finish_date_total'] ?? 0) - time();
+                $finishDate = isset($queueItem['finish_date']) ? strtotime($queueItem['finish_date']) : 0;
+                if ($finishDate > $now) {
+                    $trainingTimeRemaining += ($finishDate - $now);
+                }
             }
         }
         

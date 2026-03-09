@@ -115,23 +115,51 @@
                                 </div>
                                 <div class="text-right">
                                     @php
-                                        $startDate = isset($queueItem['start_date']) ? strtotime($queueItem['start_date']) : time();
-                                        $finishDate = isset($queueItem['finish_date']) ? strtotime($queueItem['finish_date']) : time();
-                                        $timeRemaining = max(0, $finishDate - time());
-                                        $elapsed = time() - $startDate;
-                                        $total = max(1, $finishDate - $startDate);
-                                        $progress = min(100, ($elapsed / $total) * 100);
+                                        $now = time();
+                                        $startDate = isset($queueItem['start_date']) ? strtotime($queueItem['start_date']) : $now;
+                                        $finishDate = isset($queueItem['finish_date']) ? strtotime($queueItem['finish_date']) : $now;
+                                        $totalTime = max(1, $finishDate - $startDate);
+                                        
+                                        // 计算已训练时间：只有正在训练的技能才有已训练时间
+                                        if ($now < $startDate) {
+                                            // 技能还没开始（在队列中等待）
+                                            $elapsed = 0;
+                                            $timeRemaining = $finishDate - $now;
+                                            $status = 'waiting';
+                                        } elseif ($now > $finishDate) {
+                                            // 技能已完成
+                                            $elapsed = $totalTime;
+                                            $timeRemaining = 0;
+                                            $status = 'completed';
+                                        } else {
+                                            // 技能正在训练中
+                                            $elapsed = $now - $startDate;
+                                            $timeRemaining = $finishDate - $now;
+                                            $status = 'training';
+                                        }
+                                        
+                                        $progress = min(100, max(0, ($elapsed / $totalTime) * 100));
                                     @endphp
                                     
-                                    @if($timeRemaining > 0)
+                                    @if($status === 'training')
                                         <div class="text-green-400 font-semibold">
-                                            进行中
+                                            训练中
                                         </div>
                                         <div class="text-sm text-blue-300 mt-1">
                                             剩余：{{ gmdate('d\天 H\时 i\分', $timeRemaining) }}
                                         </div>
                                         <div class="text-xs text-blue-400 mt-1">
-                                            完成时间：{{ date('Y-m-d H:i', $finishDate) }}
+                                            完成：{{ date('Y-m-d H:i', $finishDate) }}
+                                        </div>
+                                    @elseif($status === 'waiting')
+                                        <div class="text-blue-400 font-semibold">
+                                            等待中
+                                        </div>
+                                        <div class="text-sm text-blue-300 mt-1">
+                                            开始：{{ date('Y-m-d H:i', $startDate) }}
+                                        </div>
+                                        <div class="text-xs text-blue-400 mt-1">
+                                            完成：{{ date('Y-m-d H:i', $finishDate) }}
                                         </div>
                                     @else
                                         <div class="text-yellow-400 font-semibold">
@@ -167,11 +195,11 @@
                                 </div>
                                 <div>
                                     <span class="text-blue-300">已训练：</span>
-                                    <span class="text-green-400">{{ gmdate('d\天 H\时 i\分', $elapsed) }}</span>
+                                    <span class="text-green-400">{{ $elapsed > 0 ? gmdate('d\天 H\时 i\分', $elapsed) : '-' }}</span>
                                 </div>
                                 <div>
                                     <span class="text-blue-300">剩余时间：</span>
-                                    <span class="text-yellow-400">{{ gmdate('d\天 H\时 i\分', $timeRemaining) }}</span>
+                                    <span class="text-yellow-400">{{ $timeRemaining > 0 ? gmdate('d\天 H\时 i\分', $timeRemaining) : '-' }}</span>
                                 </div>
                             </div>
                         </div>
