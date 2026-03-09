@@ -129,9 +129,9 @@
                 
                 <form action="{{ route('auth.callback') }}" method="GET" class="space-y-4">
                     <div>
-                        <label class="block text-sm text-blue-300 mb-2">授权码（code）：</label>
-                        <input type="text" name="code" id="codeInput"
-                               placeholder="粘贴授权码（不包含 code=）"
+                        <label class="block text-sm text-blue-300 mb-2">授权后的完整 URL：</label>
+                        <input type="text" name="callback_url" id="callbackUrlInput"
+                               placeholder="https://ali-esi.evepc.163.com/ui/oauth2-redirect.html?code=XXX&state=XXX"
                                class="w-full bg-black/30 border border-blue-500/50 rounded-lg p-3 text-white font-mono" />
                         <p class="text-xs text-blue-400 mt-2">
                             💡 授权后 URL 格式：https://.../oauth2-redirect.html?<strong class="text-yellow-400">code=ABC123...</strong>&state=...
