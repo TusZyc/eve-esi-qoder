@@ -20,21 +20,17 @@ class AuthController extends Controller
     
     /**
      * 处理授权码提交
-     * 
-     * 流程：
-     * 1. 从用户提交的 URL 中提取 code
-     * 2. 用 code 换取 token
-     * 3. 用 token 获取角色信息
-     * 4. 登录用户并跳转到仪表盘
      */
     public function callback(Request $request)
     {
         Log::info('=== OAuth2 授权开始 ===');
+        Log::info('请求参数：' . json_encode($request->all()));
         
-        // 获取用户粘贴的 URL（GET 参数）
+        // 获取用户粘贴的 URL
         $callbackUrl = $request->query('callback_url');
         
         if (empty($callbackUrl)) {
+            Log::error('缺少 callback_url 参数');
             return redirect()->route('auth.guide')
                 ->with('error', '请提供授权后的完整 URL');
         }
@@ -48,14 +44,14 @@ class AuthController extends Controller
                 ->with('error', '无法从 URL 中提取授权码（code）。请确保 URL 格式正确：https://.../oauth2-redirect.html?code=XXX&state=XXX');
         }
         
-        Log::info('Code 提取成功', ['code' => substr($code, 0, 20) . '...']);
+        Log::info('Code 提取成功：' . substr($code, 0, 20) . '...');
         
         // 用 code 换取 Token
         Log::info('正在换取 Token...');
         $tokenData = $this->getAccessToken($code);
         
         if (empty($tokenData['access_token'])) {
-            Log::error('Token 换取失败', ['response' => $tokenData]);
+            Log::error('Token 换取失败：' . json_encode($tokenData));
             $errorMsg = $tokenData['error_description'] ?? $tokenData['error'] ?? '未知错误';
             return redirect()->route('auth.guide')
                 ->with('error', '授权码无效或已过期，请重新授权。错误信息：' . $errorMsg);
@@ -69,15 +65,16 @@ class AuthController extends Controller
             ->get('https://login.evepc.163.com/oauth/verify');
         
         if ($characterResponse->failed()) {
-            Log::error('获取角色信息失败', ['status' => $characterResponse->status()]);
+            Log::error('获取角色信息失败：' . $characterResponse->body());
             return redirect()->route('auth.guide')
                 ->with('error', '获取角色信息失败：' . $characterResponse->body());
         }
         
         $characterData = $characterResponse->json();
-        Log::info('✅ 角色信息获取成功：' . $characterData['CharacterName']);
+        Log::info('✅ 角色信息获取成功：' . $characterData['CharacterName'] . ' (ID: ' . $characterData['CharacterID'] . ')');
         
         // 查找或创建用户
+        Log::info('正在查找或创建用户...');
         $user = User::firstOrCreate(
             ['eve_character_id' => $characterData['CharacterID']],
             [
@@ -86,8 +83,10 @@ class AuthController extends Controller
                 'password' => bcrypt(bin2hex(random_bytes(16))),
             ]
         );
+        Log::info('用户 ' . ($user->wasRecentlyCreated ? '已创建' : '已找到') . ', ID: ' . $user->id);
         
         // 更新 Token 信息
+        Log::info('正在更新 Token 信息...');
         $user->update([
             'access_token' => $tokenData['access_token'],
             'refresh_token' => $tokenData['refresh_token'] ?? null,
@@ -99,9 +98,12 @@ class AuthController extends Controller
         Log::info('✅ 用户数据已保存');
         
         // 登录用户
+        Log::info('正在登录用户...');
         Auth::login($user);
-        Log::info('✅ 用户已登录，跳转到仪表盘');
+        Log::info('✅ 用户已登录，Auth ID: ' . Auth::id());
         
+        // 重定向到仪表盘
+        Log::info('正在重定向到仪表盘...');
         return redirect()->route('dashboard')
             ->with('success', '欢迎，' . $characterData['CharacterName'] . '! 授权成功！');
     }
@@ -124,9 +126,8 @@ class AuthController extends Controller
         $tokenUrl = config('esi.oauth_url') . 'token';
         $clientId = config('esi.client_id');
         
-        Log::info('请求 Token 端点', ['url' => $tokenUrl]);
+        Log::info('请求 Token 端点：' . $tokenUrl);
         
-        // 发送 POST 请求（国服不需要 Client Secret）
         $response = Http::withHeaders([
             'Content-Type' => 'application/x-www-form-urlencoded',
             'Accept' => 'application/json',
@@ -136,10 +137,7 @@ class AuthController extends Controller
             'client_id' => $clientId,
         ]);
         
-        Log::info('Token 响应', [
-            'status' => $response->status(),
-            'success' => $response->ok(),
-        ]);
+        Log::info('Token 响应状态：' . $response->status());
         
         if ($response->failed()) {
             return [
