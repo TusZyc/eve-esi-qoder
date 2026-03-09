@@ -115,7 +115,7 @@
                                             进行中
                                         </div>
                                         <div class="text-sm text-blue-300 mt-1">
-                                            剩余：{{ app('App\Http\Controllers\SkillController')->formatTime($timeRemaining) }}
+                                            剩余：{{ gmdate('d\天 H\时 i\分', $timeRemaining) }}
                                         </div>
                                         <div class="text-xs text-blue-400 mt-1">
                                             完成时间：{{ date('Y-m-d H:i', $finishDate) }}
@@ -154,11 +154,11 @@
                                 </div>
                                 <div>
                                     <span class="text-blue-300">已训练：</span>
-                                    <span class="text-green-400">{{ app('App\Http\Controllers\SkillController')->formatTime($elapsed) }}</span>
+                                    <span class="text-green-400">{{ gmdate('d\天 H\时 i\分', $elapsed) }}</span>
                                 </div>
                                 <div>
                                     <span class="text-blue-300">剩余时间：</span>
-                                    <span class="text-yellow-400">{{ app('App\Http\Controllers\SkillController')->formatTime($timeRemaining) }}</span>
+                                    <span class="text-yellow-400">{{ gmdate('d\天 H\时 i\分', $timeRemaining) }}</span>
                                 </div>
                             </div>
                         </div>
