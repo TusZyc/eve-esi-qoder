@@ -221,12 +221,13 @@
                                             $spForLevel = [0, 0, 250, 1414, 8000, 45255];
                                             $currentLevel = $skill['active_level'] ?? $skill['trained_level'] ?? 0;
                                             $currentSP = $skill['skill_points_in_skill'] ?? $skill['trained_skill_points'] ?? 0;
-                                            $nextLevelSP = $spForLevel[$currentLevel + 1] ?? $currentSP;
+                                            $nextLevelSP = $spForLevel[$currentLevel + 1] ?? 45255;
                                             $prevLevelSP = $spForLevel[$currentLevel] ?? 0;
-                                            $progress = $currentLevel >= 5 ? 100 : (($currentSP - $prevLevelSP) / ($nextLevelSP - $prevLevelSP)) * 100;
+                                            $denominator = $nextLevelSP - $prevLevelSP;
+                                            $progress = $currentLevel >= 5 ? 100 : ($denominator > 0 ? (($currentSP - $prevLevelSP) / $denominator) * 100 : 0);
                                         @endphp
                                         <div class="mt-2 w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ min(100, $progress) }}%"></div>
+                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ min(100, max(0, $progress)) }}%"></div>
                                         </div>
                                     </div>
                                 @endforeach
