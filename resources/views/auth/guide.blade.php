@@ -241,14 +241,14 @@
                 'esi-characters.read_titles.v1',
             ];
             
-            // 构建授权 URL
+            // 构建授权 URL（按照 3V 的参数顺序）
             const authUrl = `https://login.evepc.163.com/v2/oauth/authorize?` +
                 `response_type=code&` +
                 `client_id=${clientId}&` +
                 `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+                `device_id=${deviceId}&` +
                 `state=${state}&` +
-                `scope=${encodeURIComponent(scopes.join(' '))}&` +
-                `device_id=${deviceId}`;
+                `scope=${encodeURIComponent(scopes.join(' '))}`;
             
             // 保存 state 到 sessionStorage
             sessionStorage.setItem('esi_state', state);
