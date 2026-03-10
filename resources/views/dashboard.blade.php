@@ -45,16 +45,20 @@
 </head>
 <body class="eve-bg min-h-screen text-white">
     <!-- 导航栏 -->
+    <!-- 导航栏 -->
     <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-3">
+        <div class="container mx-auto px-4 py-2">
             <!-- 第一行：标题和欢迎语 -->
-            <div class="flex justify-between items-center mb-3">
-                <a href="{{ route('dashboard') }}" class="text-xl font-bold">🚀 EVE ESI</a>
-                <div class="flex items-center space-x-4">
-                    <span class="text-blue-200">欢迎，{{ $user->name }}</span>
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center space-x-2">
+                    <span class="text-lg">🚀</span>
+                    <a href="{{ route('dashboard') }}" class="text-lg font-bold">EVE ESI</a>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-blue-200">欢迎，{{ $user->name }}</span>
                     <form action="{{ route('auth.logout') }}" method="POST" class="inline">
                         @csrf
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm">
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs">
                             登出
                         </button>
                     </form>
@@ -62,37 +66,30 @@
             </div>
             
             <!-- 第二行：栏目导航 -->
-            <div class="grid grid-cols-4 gap-3">
-            <a href="{{ route('dashboard') }}" 
-               class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-xl p-6 text-center hover:bg-blue-600/30 transition-all eve-glow">
-                <div class="text-3xl mb-2">📊</div>
-                <div class="font-semibold">仪表盘</div>
-            </a>
-            <a href="{{ route('skills.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📚</div>
-                <div class="font-semibold">技能队列</div>
-            </a>
-            <a href="{{ route('assets.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📦</div>
-                <div class="font-semibold">我的资产</div>
-            </a>
-            <a href="{{ route('characters.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">👥</div>
-                <div class="font-semibold">角色管理</div>
-            </a>
+            <div class="grid grid-cols-4 gap-2">
+                <a href="{{ route('dashboard') }}" 
+                   class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-lg py-3 text-center hover:bg-blue-600/30 transition-all">
+                    <div class="text-xl mb-1">📊</div>
+                    <div class="text-xs font-semibold">仪表盘</div>
+                </a>
+                <a href="{{ route('skills.index') }}" 
+                   class="bg-white/10 backdrop-blur-lg rounded-lg py-3 text-center hover:bg-white/20 transition-all">
+                    <div class="text-xl mb-1">📚</div>
+                    <div class="text-xs font-semibold">技能队列</div>
+                </a>
+                <a href="{{ route('assets.index') }}" 
+                   class="bg-white/10 backdrop-blur-lg rounded-lg py-3 text-center hover:bg-white/20 transition-all">
+                    <div class="text-xl mb-1">📦</div>
+                    <div class="text-xs font-semibold">我的资产</div>
+                </a>
+                <a href="{{ route('characters.index') }}" 
+                   class="bg-white/10 backdrop-blur-lg rounded-lg py-3 text-center hover:bg-white/20 transition-all">
+                    <div class="text-xl mb-1">👥</div>
+                    <div class="text-xs font-semibold">角色管理</div>
+                </a>
             </div>
         </div>
     </nav>
-
-    <div class="container mx-auto px-4 py-8">
-        <!-- 服务器状态 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
-            <h2 class="text-xl font-semibold mb-4">📡 服务器状态</h2>
-            <div id="server-status-content">
-                <!-- 骨架屏 -->
                 <div class="grid md:grid-cols-3 gap-4">
                     <div class="text-center">
                         <div class="skeleton h-10 w-24 mx-auto mb-2"></div>
@@ -382,6 +379,9 @@
                     showError('skills-content', '📚', title, message);
                 }
             } catch (error) {
+                console.error('加载技能数据失败:', error);
+                showError('skills-content', '📚', '加载失败', '网络错误，请刷新页面重试');
+            }
         }
 
         // 页面加载完成后开始异步加载数据
