@@ -12,8 +12,6 @@
         .eve-glow {
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
         }
-        
-        /* 骨架屏动画 */
         @keyframes shimmer {
             0% { background-position: -1000px 0; }
             100% { background-position: 1000px 0; }
@@ -24,11 +22,10 @@
             animation: shimmer 2s infinite;
             border-radius: 4px;
         }
-        .skeleton-circle {
-            border-radius: 50%;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        
-        /* 加载动画 */
         .loading-spinner {
             border: 3px solid rgba(255,255,255,0.1);
             border-radius: 50%;
@@ -37,14 +34,9 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
     <!-- 导航栏 -->
     <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div class="container mx-auto px-4 py-2">
@@ -57,7 +49,6 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <!-- 导航图标 -->
                     <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="技能队列">
                         <div class="text-2xl">📚</div>
                     </a>
@@ -77,28 +68,8 @@
             </div>
         </div>
     </nav>
-            <a href="{{ route('dashboard') }}" 
-               class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-xl p-6 text-center hover:bg-blue-600/30 transition-all eve-glow">
-                <div class="text-3xl mb-2">📊</div>
-                <div class="font-semibold">仪表盘</div>
-            </a>
-            <a href="{{ route('skills.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📚</div>
-                <div class="font-semibold">技能队列</div>
-            </a>
-            <a href="{{ route('assets.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📦</div>
-                <div class="font-semibold">我的资产</div>
-            </a>
-            <a href="{{ route('characters.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">👥</div>
-                <div class="font-semibold">角色管理</div>
-            </a>
-        </div>
 
+    <div class="container mx-auto px-4 py-8">
         <!-- 服务器状态 -->
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
             <h2 class="text-xl font-semibold mb-4">📡 服务器状态</h2>
@@ -125,21 +96,17 @@
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
             <h2 class="text-xl font-semibold mb-4">👤 角色信息</h2>
             <div id="character-info-content">
-                <div class="grid grid-cols-3 gap-4">
-                    <!-- 骨架屏 -->
-                    <div>
+                <!-- 骨架屏 -->
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="text-center">
                         <div class="skeleton h-4 w-20 mb-2"></div>
                         <div class="skeleton h-6 w-32"></div>
                     </div>
-                    <div>
+                    <div class="text-center">
                         <div class="skeleton h-4 w-20 mb-2"></div>
                         <div class="skeleton h-6 w-32"></div>
                     </div>
-                    <div>
-                        <div class="skeleton h-4 w-20 mb-2"></div>
-                        <div class="skeleton h-6 w-32"></div>
-                    </div>
-                    <div>
+                    <div class="text-center">
                         <div class="skeleton h-4 w-20 mb-2"></div>
                         <div class="skeleton h-6 w-32"></div>
                     </div>
@@ -168,22 +135,6 @@
                 </div>
             </div>
         </div>
-
-                <!-- 骨架屏 -->
-                <div class="space-y-3">
-                    <div class="bg-white/5 rounded-lg p-4">
-                        <div class="skeleton h-5 w-3/4 mb-2"></div>
-                        <div class="skeleton h-2 w-full mb-1"></div>
-                        <div class="skeleton h-2 w-1/2"></div>
-                    </div>
-                    <div class="bg-white/5 rounded-lg p-4">
-                        <div class="skeleton h-5 w-3/4 mb-2"></div>
-                        <div class="skeleton h-2 w-full mb-1"></div>
-                        <div class="skeleton h-2 w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- JavaScript 异步加载数据 -->
@@ -192,7 +143,6 @@
         const API_ENDPOINTS = {
             serverStatus: '{{ route("api.dashboard.server-status") }}',
             skills: '{{ route("api.dashboard.skills") }}',
-            skillQueue: '{{ route("api.dashboard.skill-queue") }}',
             characterInfo: '{{ route("api.dashboard.character-info") }}',
         };
 
@@ -236,7 +186,6 @@
                     const data = result.data;
                     const container = document.getElementById('character-info-content');
                     
-                    // 联盟信息（可能为空）
                     const allianceDisplay = data.has_alliance 
                         ? `${data.alliance_name} <span class="text-sm text-blue-400">(ID: ${data.alliance_id})</span>`
                         : `<span class="text-blue-400">无联盟</span>`;
@@ -275,7 +224,7 @@
                         'Accept': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    credentials: 'same-origin', // 重要！携带 Cookie（Session）
+                    credentials: 'same-origin',
                 });
                 
                 const result = await response.json();
@@ -284,12 +233,10 @@
                     const data = result.data;
                     const container = document.getElementById('server-status-content');
                     
-                    // 根据 VIP 状态和玩家数决定显示颜色
                     let playerColor = 'text-green-400';
                     let statusBadge = '';
                     
                     if (data.vip) {
-                        // VIP 模式 - GM 测试中，未正式开服
                         playerColor = 'text-yellow-400';
                         statusBadge = `
                             <div class="text-center md:col-span-3 mt-4">
@@ -358,10 +305,9 @@
                         'Accept': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    credentials: 'same-origin', // 重要！携带 Cookie（Session）
+                    credentials: 'same-origin',
                 });
                 
-                // 检查是否是 401 未授权（Token 过期）
                 if (response.status === 401) {
                     showError('skills-content', '🔐', '未授权', '会话已过期，请刷新页面重新登录');
                     return;
@@ -394,6 +340,9 @@
                     showError('skills-content', '📚', title, message);
                 }
             } catch (error) {
+                console.error('加载技能数据失败:', error);
+                showError('skills-content', '📚', '加载失败', '网络错误，请刷新页面重试');
+            }
         }
 
         // 页面加载完成后开始异步加载数据
