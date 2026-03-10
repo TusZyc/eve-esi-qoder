@@ -47,7 +47,7 @@
     <!-- 导航栏 -->
     <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div class="container mx-auto px-4 py-4">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center mb-4">
                 <a href="{{ route('dashboard') }}" class="text-xl font-bold">🚀 EVE ESI</a>
                 <div class="flex items-center space-x-4">
                     <span class="text-blue-200">欢迎，{{ $user->name }}</span>
@@ -59,12 +59,9 @@
                     </form>
                 </div>
             </div>
-        </div>
-    </nav>
-
-    <div class="container mx-auto px-4 py-8">
-        <!-- 栏目导航 -->
-        <div class="grid grid-cols-4 gap-4 mb-8">
+            
+            <!-- 栏目导航 -->
+            <div class="grid grid-cols-4 gap-4">
             <a href="{{ route('dashboard') }}" 
                class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-xl p-6 text-center hover:bg-blue-600/30 transition-all eve-glow">
                 <div class="text-3xl mb-2">📊</div>
@@ -180,7 +177,6 @@
         const API_ENDPOINTS = {
             serverStatus: '{{ route("api.dashboard.server-status") }}',
             skills: '{{ route("api.dashboard.skills") }}',
-            skillQueue: '{{ route("api.dashboard.skill-queue") }}',
             characterInfo: '{{ route("api.dashboard.character-info") }}',
         };
 
