@@ -125,22 +125,26 @@
             <h2 class="text-xl font-semibold mb-4">👤 角色信息</h2>
             <div id="character-info-content">
                 <!-- 骨架屏 -->
-                <div class="grid md:grid-cols-4 gap-4">
+                <div class="grid md:grid-cols-5 gap-4">
                     <div class="text-center">
-                        <div class="skeleton h-4 w-20 mb-2"></div>
-                        <div class="skeleton h-6 w-32"></div>
+                        <div class="skeleton h-3 w-16 mb-2"></div>
+                        <div class="skeleton h-5 w-28"></div>
                     </div>
                     <div class="text-center">
-                        <div class="skeleton h-4 w-20 mb-2"></div>
-                        <div class="skeleton h-6 w-32"></div>
+                        <div class="skeleton h-3 w-16 mb-2"></div>
+                        <div class="skeleton h-5 w-28"></div>
                     </div>
                     <div class="text-center">
-                        <div class="skeleton h-4 w-20 mb-2"></div>
-                        <div class="skeleton h-6 w-32"></div>
+                        <div class="skeleton h-3 w-16 mb-2"></div>
+                        <div class="skeleton h-5 w-28"></div>
                     </div>
                     <div class="text-center">
-                        <div class="skeleton h-4 w-20 mb-2"></div>
-                        <div class="skeleton h-6 w-32"></div>
+                        <div class="skeleton h-3 w-16 mb-2"></div>
+                        <div class="skeleton h-5 w-28"></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="skeleton h-3 w-16 mb-2"></div>
+                        <div class="skeleton h-5 w-28"></div>
                     </div>
                 </div>
             </div>
@@ -177,6 +181,7 @@
             skills: '{{ route("api.dashboard.skills") }}',
             characterInfo: '{{ route("api.dashboard.character-info") }}',
             characterLocation: '{{ route("api.dashboard.character-location") }}',
+            characterOnline: '{{ route("api.dashboard.character-online") }}',
         };
 
         // 工具函数：格式化数字
@@ -323,25 +328,35 @@
                         : `<span class="text-blue-400">无联盟</span>`;
                     
                     container.innerHTML = `
-                        <div class="grid md:grid-cols-4 gap-4">
+                        <div class="grid md:grid-cols-5 gap-4">
                             <div class="text-center">
                                 <div class="text-xs text-blue-300 mb-1">角色</div>
-                                <div class="text-xl font-bold text-blue-400">${data.character_name}<span class="text-xs text-blue-400 ml-2">(ID: ${data.character_id})</span></div>
+                                <div class="text-lg font-bold text-blue-400">${data.character_name}<span class="text-xs text-blue-400 ml-1">(ID: ${data.character_id})</span></div>
                             </div>
                             <div class="text-center">
                                 <div class="text-xs text-blue-300 mb-1">军团</div>
-                                <div class="text-xl font-bold text-purple-400">${data.corporation_name}<span class="text-xs text-purple-400 ml-2">(ID: ${data.corporation_id})</span></div>
+                                <div class="text-lg font-bold text-purple-400">${data.corporation_name}<span class="text-xs text-purple-400 ml-1">(ID: ${data.corporation_id})</span></div>
                             </div>
                             <div class="text-center">
                                 <div class="text-xs text-blue-300 mb-1">联盟</div>
-                                <div class="text-xl font-bold text-green-400">${allianceDisplay}</div>
+                                <div class="text-lg font-bold text-green-400">${allianceDisplay}</div>
                             </div>
                             <div class="text-center" id="location-content">
                                 <div class="text-xs text-blue-300 mb-1">当前位置</div>
                                 <div class="loading-spinner inline-block"></div>
                             </div>
+                            <div class="text-center" id="online-content">
+                                <div class="text-xs text-blue-300 mb-1">在线状态</div>
+                                <div class="loading-spinner inline-block"></div>
+                            </div>
                         </div>
                     `;
+                    
+                    // 加载位置信息
+                    loadCharacterLocation();
+                    
+                    // 加载在线状态
+                    loadCharacterOnline();
                     
                     // 加载位置信息
                     loadCharacterLocation();
@@ -373,20 +388,63 @@
                     const locationText = result.data.location_display || '未停靠';
                     container.innerHTML = `
                         <div class="text-xs text-blue-300 mb-1">当前位置</div>
-                        <div class="text-xl font-bold text-yellow-400">${locationText}</div>
+                        <div class="text-lg font-bold text-yellow-400">${locationText}</div>
                     `;
                 } else {
                     container.innerHTML = `
-                        <div class="text-sm text-blue-200 mb-1">当前位置</div>
-                        <div class="text-lg font-semibold text-blue-400">未停靠</div>
+                        <div class="text-xs text-blue-300 mb-1">当前位置</div>
+                        <div class="text-lg font-bold text-blue-400">未停靠</div>
                     `;
                 }
             } catch (error) {
                 console.error('加载位置信息失败:', error);
                 const container = document.getElementById('location-content');
                 container.innerHTML = `
-                    <div class="text-sm text-blue-200 mb-1">当前位置</div>
-                    <div class="text-lg font-semibold text-blue-400">未停靠</div>
+                    <div class="text-xs text-blue-300 mb-1">当前位置</div>
+                    <div class="text-lg font-bold text-blue-400">未停靠</div>
+                `;
+            }
+        }
+
+        // 加载角色在线状态
+        async function loadCharacterOnline() {
+            try {
+                const response = await fetch(API_ENDPOINTS.characterOnline, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+                
+                const result = await response.json();
+                const container = document.getElementById('online-content');
+                
+                if (result.success && result.data) {
+                    const isOnline = result.data.is_online;
+                    const displayText = result.data.display_text || (isOnline ? '在线' : '离线');
+                    const colorClass = isOnline ? 'text-green-400' : 'text-red-400';
+                    const indicatorClass = isOnline ? 'online' : 'offline';
+                    
+                    container.innerHTML = `
+                        <div class="text-xs text-blue-300 mb-1">在线状态</div>
+                        <div class="text-lg font-bold ${colorClass}">
+                            <span class="status-dot ${indicatorClass}"></span>${displayText}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-xs text-blue-300 mb-1">在线状态</div>
+                        <div class="text-lg font-bold text-blue-400">未知</div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载在线状态失败:', error);
+                const container = document.getElementById('online-content');
+                container.innerHTML = `
+                    <div class="text-xs text-blue-300 mb-1">在线状态</div>
+                    <div class="text-lg font-bold text-blue-400">未知</div>
                 `;
             }
         }
