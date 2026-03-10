@@ -88,22 +88,25 @@
         <!-- 角色信息 -->
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
             <h2 class="text-xl font-semibold mb-4">👤 角色信息</h2>
-            <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                    <div class="text-sm text-blue-200">角色名称</div>
-                    <div class="text-lg">{{ $user->name }}</div>
-                </div>
-                <div>
-                    <div class="text-sm text-blue-200">角色 ID</div>
-                    <div class="text-lg">{{ $user->eve_character_id ?? '未绑定' }}</div>
-                </div>
-                <div>
-                    <div class="text-sm text-blue-200">军团 ID</div>
-                    <div class="text-lg">{{ $user->corporation_id ?? '-' }}</div>
-                </div>
-                <div>
-                    <div class="text-sm text-blue-200">联盟 ID</div>
-                    <div class="text-lg">{{ $user->alliance_id ?? '-' }}</div>
+            <div id="character-info-content">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <!-- 骨架屏 -->
+                    <div>
+                        <div class="skeleton h-4 w-20 mb-2"></div>
+                        <div class="skeleton h-6 w-32"></div>
+                    </div>
+                    <div>
+                        <div class="skeleton h-4 w-20 mb-2"></div>
+                        <div class="skeleton h-6 w-32"></div>
+                    </div>
+                    <div>
+                        <div class="skeleton h-4 w-20 mb-2"></div>
+                        <div class="skeleton h-6 w-32"></div>
+                    </div>
+                    <div>
+                        <div class="skeleton h-4 w-20 mb-2"></div>
+                        <div class="skeleton h-6 w-32"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -200,6 +203,7 @@
             serverStatus: '{{ route("api.dashboard.server-status") }}',
             skills: '{{ route("api.dashboard.skills") }}',
             skillQueue: '{{ route("api.dashboard.skill-queue") }}',
+            characterInfo: '{{ route("api.dashboard.character-info") }}',
         };
 
         // 工具函数：格式化数字
@@ -217,6 +221,63 @@
                     <p class="text-blue-400 text-sm">${message}</p>
                 </div>
             `;
+        }
+
+        // 加载角色信息
+        async function loadCharacterInfo() {
+            try {
+                const response = await fetch(API_ENDPOINTS.characterInfo, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+                
+                if (response.status === 401) {
+                    showError('character-info-content', '🔐', '未授权', '会话已过期，请刷新页面重新登录');
+                    return;
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    const container = document.getElementById('character-info-content');
+                    
+                    // 联盟信息（可能为空）
+                    const allianceDisplay = data.has_alliance 
+                        ? `<div class="text-lg">${data.alliance_name} <span class="text-sm text-blue-400">(ID: ${data.alliance_id})</span></div>`
+                        : `<div class="text-lg text-blue-400">无联盟</div>`;
+                    
+                    container.innerHTML = `
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-sm text-blue-200">角色名称</div>
+                                <div class="text-lg">${data.character_name}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-blue-200">角色 ID</div>
+                                <div class="text-lg">${data.character_id}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-blue-200">军团</div>
+                                <div class="text-lg">${data.corporation_name} <span class="text-sm text-blue-400">(ID: ${data.corporation_id})</span></div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-blue-200">联盟</div>
+                                ${allianceDisplay}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    showError('character-info-content', '⚠️', '加载失败', result.message || '无法获取角色信息');
+                }
+            } catch (error) {
+                console.error('加载角色信息失败:', error);
+                showError('character-info-content', '⚠️', '加载失败', '网络错误，请刷新页面重试');
+            }
         }
 
         // 加载服务器状态
@@ -431,6 +492,7 @@
             
             // 并行加载所有数据
             Promise.all([
+                loadCharacterInfo(),
                 loadServerStatus(),
                 loadSkills(),
                 loadSkillQueue(),

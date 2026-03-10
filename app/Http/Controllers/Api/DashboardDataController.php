@@ -99,6 +99,118 @@ class DashboardDataController extends Controller
     }
     
     /**
+     * 获取角色信息（军团、联盟等）
+     */
+    public function characterInfo(Request $request)
+    {
+        $user = $request->user();
+        
+        Log::info('👤 [API] 请求角色信息', [
+            'user_id' => $user->id ?? 'null',
+            'character_id' => $user->eve_character_id ?? 'null',
+        ]);
+        
+        if (!$user || !$user->eve_character_id) {
+            Log::warning('👤 [API] 未授权或无角色', ['user_id' => $user->id ?? 'null']);
+            return response()->json([
+                'success' => false,
+                'error' => 'unauthorized',
+                'message' => '未授权，请重新登录',
+            ], 401);
+        }
+        
+        if (empty($user->access_token)) {
+            Log::warning('👤 [API] 缺少 Access Token', ['user_id' => $user->id]);
+            return response()->json([
+                'success' => false,
+                'error' => 'no_token',
+                'message' => '缺少访问令牌',
+            ], 401);
+        }
+        
+        try {
+            Log::info('👤 [API] 请求 EVE API 角色信息');
+            
+            // 获取角色公开信息（包含军团和联盟 ID）
+            $characterResponse = Http::timeout(10)
+                ->withToken($user->access_token)
+                ->get(config('esi.base_url') . "characters/{$user->eve_character_id}/");
+            
+            if ($characterResponse->failed()) {
+                Log::error('👤 [API] 角色信息获取失败', [
+                    'status' => $characterResponse->status(),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => 'eve_api_error',
+                    'message' => 'EVE API 错误：HTTP ' . $characterResponse->status(),
+                ], $characterResponse->status());
+            }
+            
+            $character = $characterResponse->json();
+            
+            $corporationId = $character['corporation_id'] ?? null;
+            $allianceId = $character['alliance_id'] ?? null; // 可能为 null（无联盟）
+            
+            Log::info('👤 [API] 角色信息获取成功', [
+                'corporation_id' => $corporationId,
+                'alliance_id' => $allianceId,
+            ]);
+            
+            // 批量查询军团和联盟名称
+            $names = [];
+            $idsToQuery = [];
+            
+            if ($corporationId) {
+                $idsToQuery[] = $corporationId;
+            }
+            if ($allianceId) {
+                $idsToQuery[] = $allianceId;
+            }
+            
+            if (!empty($idsToQuery)) {
+                $namesResponse = Http::timeout(10)
+                    ->post(config('esi.base_url') . 'universe/names/', $idsToQuery);
+                
+                if ($namesResponse->ok()) {
+                    $namesResult = $namesResponse->json();
+                    foreach ($namesResult as $item) {
+                        $names[$item['id']] = $item['name'];
+                    }
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'character_id' => $user->eve_character_id,
+                    'character_name' => $character['name'] ?? $user->name,
+                    'corporation_id' => $corporationId,
+                    'corporation_name' => $names[$corporationId] ?? '未知军团',
+                    'alliance_id' => $allianceId,
+                    'alliance_name' => $allianceId ? ($names[$allianceId] ?? '未知联盟') : null,
+                    'has_alliance' => $allianceId !== null,
+                ],
+            ]);
+            
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('👤 [API] 角色信息连接失败：' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'connection_timeout',
+                'message' => '连接超时，EVE API 可能不可用',
+            ], 503);
+        } catch (\Exception $e) {
+            Log::error('👤 [API] 角色信息请求异常：' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'unknown_error',
+                'message' => '未知错误',
+            ], 500);
+        }
+    }
+    
+    /**
      * 获取状态文本描述
      */
     private function getStatusText(bool $isVip, int $players): string
