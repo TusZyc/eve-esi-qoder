@@ -46,12 +46,13 @@
 <body class="eve-bg min-h-screen text-white">
     <!-- 导航栏 -->
     <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-4">
-            <div class="flex justify-between items-center mb-4">
+        <div class="container mx-auto px-4 py-3">
+            <!-- 第一行：标题和欢迎语 -->
+            <div class="flex justify-between items-center mb-3">
                 <a href="{{ route('dashboard') }}" class="text-xl font-bold">🚀 EVE ESI</a>
                 <div class="flex items-center space-x-4">
                     <span class="text-blue-200">欢迎，{{ $user->name }}</span>
-                    <form action="{{ route('auth.logout') }}" method="POST">
+                    <form action="{{ route('auth.logout') }}" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm">
                             登出
@@ -60,8 +61,8 @@
                 </div>
             </div>
             
-            <!-- 栏目导航 -->
-            <div class="grid grid-cols-4 gap-4">
+            <!-- 第二行：栏目导航 -->
+            <div class="grid grid-cols-4 gap-3">
             <a href="{{ route('dashboard') }}" 
                class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-xl p-6 text-center hover:bg-blue-600/30 transition-all eve-glow">
                 <div class="text-3xl mb-2">📊</div>
@@ -82,8 +83,11 @@
                 <div class="text-3xl mb-2">👥</div>
                 <div class="font-semibold">角色管理</div>
             </a>
+            </div>
         </div>
+    </nav>
 
+    <div class="container mx-auto px-4 py-8">
         <!-- 服务器状态 -->
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
             <h2 class="text-xl font-semibold mb-4">📡 服务器状态</h2>
