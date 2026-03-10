@@ -31,8 +31,6 @@ class AutoRefreshEveToken
             Log::info('🔄 [AutoRefreshToken] 检测到 Token 需要刷新', [
                 'user_id' => $user->id,
                 'character' => $user->name,
-                'expires_at' => $user->getTokenExpiryFormatted(),
-                'remaining_seconds' => $user->getTokenRemainingSeconds(),
             ]);
             
             $this->refreshToken($user);
