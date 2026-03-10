@@ -63,6 +63,30 @@
     </nav>
 
     <div class="container mx-auto px-4 py-8">
+        <!-- 栏目导航 -->
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <a href="{{ route('dashboard') }}" 
+               class="bg-blue-600/20 backdrop-blur-lg border border-blue-500/50 rounded-xl p-6 text-center hover:bg-blue-600/30 transition-all eve-glow">
+                <div class="text-3xl mb-2">📊</div>
+                <div class="font-semibold">仪表盘</div>
+            </a>
+            <a href="{{ route('skills.index') }}" 
+               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
+                <div class="text-3xl mb-2">📚</div>
+                <div class="font-semibold">技能队列</div>
+            </a>
+            <a href="{{ route('assets.index') }}" 
+               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
+                <div class="text-3xl mb-2">📦</div>
+                <div class="font-semibold">我的资产</div>
+            </a>
+            <a href="{{ route('characters.index') }}" 
+               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
+                <div class="text-3xl mb-2">👥</div>
+                <div class="font-semibold">角色管理</div>
+            </a>
+        </div>
+
         <!-- 服务器状态 -->
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
             <h2 class="text-xl font-semibold mb-4">📡 服务器状态</h2>
@@ -133,52 +157,6 @@
             </div>
         </div>
 
-        <!-- 技能队列 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
-            <h2 class="text-xl font-semibold mb-4">⏳ 技能队列</h2>
-            <div id="skill-queue-content">
-                <!-- 骨架屏 -->
-                <div class="space-y-3">
-                    <div class="bg-white/5 rounded-lg p-4">
-                        <div class="skeleton h-5 w-3/4 mb-2"></div>
-                        <div class="skeleton h-2 w-full mb-1"></div>
-                        <div class="skeleton h-2 w-1/2"></div>
-                    </div>
-                    <div class="bg-white/5 rounded-lg p-4">
-                        <div class="skeleton h-5 w-3/4 mb-2"></div>
-                        <div class="skeleton h-2 w-full mb-1"></div>
-                        <div class="skeleton h-2 w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 快捷操作 -->
-        <div class="grid md:grid-cols-4 gap-4 mt-8">
-            <a href="{{ route('skills.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📚</div>
-                <div class="font-semibold">技能队列</div>
-            </a>
-            <a href="{{ route('assets.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">📦</div>
-                <div class="font-semibold">我的资产</div>
-            </a>
-            <a href="{{ route('characters.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow">
-                <div class="text-3xl mb-2">👥</div>
-                <div class="font-semibold">角色管理</div>
-            </a>
-            <a href="{{ route('wallet.index') }}" 
-               class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center hover:bg-white/20 transition-all eve-glow opacity-50 cursor-not-allowed"
-               title="即将推出">
-                <div class="text-3xl mb-2">💰</div>
-                <div class="font-semibold">钱包查询</div>
-                <div class="text-xs text-blue-400 mt-1">开发中</div>
-            </a>
-        </div>
-            <div id="skill-queue-content">
                 <!-- 骨架屏 -->
                 <div class="space-y-3">
                     <div class="bg-white/5 rounded-lg p-4">
@@ -404,82 +382,6 @@
                     showError('skills-content', '📚', title, message);
                 }
             } catch (error) {
-                console.error('加载技能数据失败:', error);
-                showError('skills-content', '📚', '加载失败', '网络错误，请刷新页面重试');
-            }
-        }
-
-        // 加载技能队列
-        async function loadSkillQueue() {
-            try {
-                const response = await fetch(API_ENDPOINTS.skillQueue, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    credentials: 'same-origin', // 重要！携带 Cookie（Session）
-                });
-                
-                // 检查是否是 401 未授权（Token 过期）
-                if (response.status === 401) {
-                    showError('skill-queue-content', '🔐', '未授权', '会话已过期，请刷新页面重新登录');
-                    return;
-                }
-                
-                const result = await response.json();
-                
-                if (result.success && result.data && result.data.length > 0) {
-                    const queue = result.data.slice(0, 5); // 只显示前 5 个
-                    const container = document.getElementById('skill-queue-content');
-                    
-                    let html = '<div class="space-y-3">';
-                    queue.forEach((item, index) => {
-                        const progress = item.progress && item.completion 
-                            ? (item.progress / item.completion * 100).toFixed(1) 
-                            : 0;
-                        
-                        html += `
-                            <div class="bg-white/5 rounded-lg p-4">
-                                <div class="flex justify-between items-center mb-2">
-                                    <div>
-                                        <span class="font-medium">${index + 1}. ${item.skill_name || '未知技能'}</span>
-                                        <span class="text-xs text-blue-300 ml-2">(ID: ${item.skill_id || 'N/A'})</span>
-                                    </div>
-                                    <span class="text-sm text-blue-200">等级 ${item.finished_level || 0}</span>
-                                </div>
-                                <div class="w-full bg-white/10 rounded-full h-2">
-                                    <div class="bg-blue-500 h-2 rounded-full" style="width: ${progress}%"></div>
-                                </div>
-                                <div class="text-xs text-blue-300 mt-1">进度：${progress}%</div>
-                            </div>
-                        `;
-                    });
-                    html += '</div>';
-                    
-                    if (result.data.length > 5) {
-                        html += `<div class="text-center mt-4 text-sm text-blue-400">还有 ${result.data.length - 5} 个技能在队列中...</div>`;
-                    }
-                    
-                    container.innerHTML = html;
-                } else if (result.success && (!result.data || result.data.length === 0)) {
-                    const container = document.getElementById('skill-queue-content');
-                    container.innerHTML = `
-                        <div class="text-center py-8">
-                            <div class="text-5xl mb-4">⏳</div>
-                            <p class="text-blue-300">技能队列为空</p>
-                            <p class="text-blue-400 text-sm mt-2">当前没有正在训练的技能</p>
-                        </div>
-                    `;
-                } else {
-                    let title = result.error === 'connection_timeout' ? '无法获取技能队列' : '技能队列暂时不可用';
-                    let message = result.error === 'connection_timeout' ? '服务器重启期间，技能队列数据可能无法访问' : '请稍后再试';
-                    showError('skill-queue-content', '⏳', title, message);
-                }
-            } catch (error) {
-                console.error('加载技能队列失败:', error);
-                showError('skill-queue-content', '⏳', '加载失败', '网络错误，请刷新页面重试');
-            }
         }
 
         // 页面加载完成后开始异步加载数据
@@ -491,7 +393,6 @@
                 loadCharacterInfo(),
                 loadServerStatus(),
                 loadSkills(),
-                loadSkillQueue(),
             ]).then(() => {
                 console.log('✅ 所有数据加载完成');
             }).catch(error => {
