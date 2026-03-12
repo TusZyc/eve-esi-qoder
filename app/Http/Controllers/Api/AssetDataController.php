@@ -6,134 +6,98 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
 
-/**
- * 资产数据 API 控制器
- * 
- * 提供角色资产查询接口
- */
 class AssetDataController extends Controller
 {
     /**
-     * 获取角色资产列表
+     * 获取角色资产列表（按地点分组 + 树形层级）
      */
     public function index(Request $request)
     {
         $user = $request->user();
-        
-        Log::info('📦 [API] 请求资产数据', [
-            'user_id' => $user->id ?? 'null',
-            'character_id' => $user->eve_character_id ?? 'null',
-        ]);
-        
-        // 检查用户是否登录
+
         if (!$user || !$user->eve_character_id) {
-            Log::warning('📦 [API] 未授权或无角色', ['user_id' => $user->id ?? 'null']);
             return response()->json([
                 'success' => false,
                 'error' => 'unauthorized',
                 'message' => '未授权，请重新登录',
             ], 401);
         }
-        
-        // 检查是否有 Access Token
+
         if (empty($user->access_token)) {
-            Log::warning('📦 [API] 缺少 Access Token', ['user_id' => $user->id]);
             return response()->json([
                 'success' => false,
                 'error' => 'no_token',
                 'message' => '缺少访问令牌',
             ], 401);
         }
-        
+
         try {
-            Log::info('📦 [API] 请求 EVE API 资产数据');
-            
-            // 从 EVE API 获取资产列表
-            $assetsResponse = Http::timeout(15)
-                ->withToken($user->access_token)
-                ->get(config('esi.base_url') . "characters/{$user->eve_character_id}/assets/");
-            
-            if ($assetsResponse->failed()) {
-                Log::error('📦 [API] 资产数据获取失败', [
-                    'status' => $assetsResponse->status(),
-                    'body' => $assetsResponse->body(),
-                ]);
-                
-                // Token 过期或权限不足
-                if ($assetsResponse->status() === 401 || $assetsResponse->status() === 403) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'token_expired',
-                        'message' => 'Token 已过期或权限不足',
-                    ], 401);
-                }
-                
+            $assets = $this->fetchAllAssets($user);
+
+            if ($assets === null) {
                 return response()->json([
                     'success' => false,
                     'error' => 'eve_api_error',
-                    'message' => 'EVE API 错误：HTTP ' . $assetsResponse->status(),
-                ], $assetsResponse->status());
+                    'message' => 'EVE API 请求失败',
+                ], 502);
             }
-            
-            $assets = $assetsResponse->json();
-            Log::info('📦 [API] 资产数据获取成功', ['count' => count($assets)]);
-            
-            // 如果没有资产
+
             if (empty($assets)) {
                 return response()->json([
                     'success' => true,
-                    'data' => [
-                        'assets' => [],
-                        'summary' => [
-                            'total_assets' => 0,
-                            'total_value' => 0,
-                            'total_volume' => 0,
-                            'locations_count' => 0,
-                        ],
-                    ],
+                    'data' => ['locations' => []],
                 ]);
             }
-            
-            // 批量查询物品名称
-            $typeIds = array_unique(array_column($assets, 'type_id'));
-            Log::info('📦 [API] 查询物品名称', ['count' => count($typeIds)]);
+
+            $typeIds = array_values(array_unique(array_column($assets, 'type_id')));
             $typeNames = EveHelper::getNamesByIds($typeIds, 'item');
-            
-            // 批量查询位置名称
-            $locationIds = array_unique(array_column($assets, 'location_id'));
-            Log::info('📦 [API] 查询位置名称', ['count' => count($locationIds)]);
-            $locationNames = $this->getLocationNames($locationIds, $user->access_token);
-            
-            // 格式化资产数据
-            $formattedAssets = $this->formatAssets($assets, $typeNames, $locationNames);
-            
-            // 计算统计信息
-            $summary = $this->calculateSummary($formattedAssets);
-            
-            Log::info('📦 [API] 资产数据处理完成', [
-                'total_assets' => $summary['total_assets'],
-                'locations_count' => $summary['locations_count'],
-            ]);
-            
+            $typeDetails = $this->getTypeDetails($typeIds);
+
+            $groupIds = [];
+            foreach ($typeDetails as $detail) {
+                if (!empty($detail['group_id'])) {
+                    $groupIds[] = $detail['group_id'];
+                }
+            }
+            $groupIds = array_values(array_unique($groupIds));
+            $groupNames = $this->getGroupNames($groupIds);
+
+            $itemIdSet = [];
+            foreach ($assets as $asset) {
+                $itemIdSet[$asset['item_id']] = true;
+            }
+
+            $topLocationIds = [];
+            foreach ($assets as $asset) {
+                $locType = $asset['location_type'] ?? 'other';
+                if ($locType === 'station' || $locType === 'solar_system') {
+                    $topLocationIds[$asset['location_id']] = true;
+                } elseif ($locType === 'other' && !isset($itemIdSet[$asset['location_id']])) {
+                    $topLocationIds[$asset['location_id']] = true;
+                }
+            }
+            $topLocationIds = array_keys($topLocationIds);
+            $locationNames = $this->getLocationNames($topLocationIds, $user->access_token);
+
+            $locations = $this->buildAssetTree($assets, $typeNames, $typeDetails, $groupNames, $locationNames, $itemIdSet);
+
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'assets' => $formattedAssets,
-                    'summary' => $summary,
-                ],
+                'data' => ['locations' => $locations],
             ]);
-            
+
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::error('📦 [API] 资产数据连接失败：' . $e->getMessage());
+            Log::error('[Assets] 连接失败：' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'connection_timeout',
                 'message' => '连接超时，EVE API 可能不可用',
             ], 503);
         } catch (\Exception $e) {
-            Log::error('📦 [API] 资产数据请求异常：' . $e->getMessage());
+            Log::error('[Assets] 异常：' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'unknown_error',
@@ -141,76 +105,254 @@ class AssetDataController extends Controller
             ], 500);
         }
     }
-    
-    /**
-     * 批量获取位置名称
-     */
+
+    private function fetchAllAssets($user): ?array
+    {
+        $baseUrl = config('esi.base_url') . "characters/{$user->eve_character_id}/assets/";
+
+        $response = Http::timeout(15)
+            ->withToken($user->access_token)
+            ->get($baseUrl, ['page' => 1]);
+
+        if ($response->failed()) {
+            Log::error('[Assets] 资产获取失败', ['status' => $response->status()]);
+            if ($response->status() === 401 || $response->status() === 403) {
+                return null;
+            }
+            return null;
+        }
+
+        $allAssets = $response->json();
+        $totalPages = (int) ($response->header('X-Pages') ?? 1);
+
+        for ($page = 2; $page <= $totalPages; $page++) {
+            $pageResponse = Http::timeout(15)
+                ->withToken($user->access_token)
+                ->get($baseUrl, ['page' => $page]);
+            if ($pageResponse->ok()) {
+                $allAssets = array_merge($allAssets, $pageResponse->json());
+            }
+        }
+
+        Log::info('[Assets] 获取资产完成', ['count' => count($allAssets), 'pages' => $totalPages]);
+        return $allAssets;
+    }
+
+    private function getTypeDetails(array $typeIds): array
+    {
+        $details = [];
+        $uncached = [];
+
+        foreach ($typeIds as $typeId) {
+            $cached = Cache::get("eve_type_{$typeId}");
+            if ($cached !== null) {
+                $details[$typeId] = $cached;
+            } else {
+                $uncached[] = $typeId;
+            }
+        }
+
+        foreach ($uncached as $typeId) {
+            try {
+                $response = Http::timeout(5)
+                    ->get(config('esi.base_url') . "universe/types/{$typeId}/");
+                if ($response->ok()) {
+                    $data = $response->json();
+                    $detail = [
+                        'volume' => $data['volume'] ?? 0,
+                        'group_id' => $data['group_id'] ?? 0,
+                    ];
+                } else {
+                    $detail = ['volume' => 0, 'group_id' => 0];
+                }
+            } catch (\Exception $e) {
+                $detail = ['volume' => 0, 'group_id' => 0];
+            }
+            Cache::put("eve_type_{$typeId}", $detail, 86400);
+            $details[$typeId] = $detail;
+        }
+
+        return $details;
+    }
+
+    private function getGroupNames(array $groupIds): array
+    {
+        $names = [];
+        $uncached = [];
+
+        foreach ($groupIds as $groupId) {
+            $cached = Cache::get("eve_group_{$groupId}");
+            if ($cached !== null) {
+                $names[$groupId] = $cached;
+            } else {
+                $uncached[] = $groupId;
+            }
+        }
+
+        foreach ($uncached as $groupId) {
+            try {
+                $response = Http::timeout(5)
+                    ->get(config('esi.base_url') . "universe/groups/{$groupId}/");
+                if ($response->ok()) {
+                    $data = $response->json();
+                    $name = $data['name'] ?? '';
+                } else {
+                    $name = '';
+                }
+            } catch (\Exception $e) {
+                $name = '';
+            }
+            Cache::put("eve_group_{$groupId}", $name, 86400);
+            $names[$groupId] = $name;
+        }
+
+        return $names;
+    }
+
     private function getLocationNames(array $locationIds, string $accessToken): array
     {
         $names = [];
-        
-        try {
-            // 使用批量查询接口
-            $response = Http::timeout(10)
-                ->withToken($accessToken)
-                ->post(config('esi.base_url') . 'universe/names/', $locationIds);
-            
-            if ($response->ok()) {
-                $result = $response->json();
-                foreach ($result as $item) {
-                    $names[$item['id']] = $item['name'];
-                }
-            }
-        } catch (\Exception $e) {
-            Log::warning('📦 [API] 位置名称查询失败：' . $e->getMessage());
+        if (empty($locationIds)) {
+            return $names;
         }
-        
+
+        $normalIds = [];
+        $structureIds = [];
+        foreach ($locationIds as $id) {
+            if ($id > 1000000000000) {
+                $structureIds[] = $id;
+            } else {
+                $normalIds[] = $id;
+            }
+        }
+
+        if (!empty($normalIds)) {
+            try {
+                $response = Http::timeout(10)
+                    ->post(config('esi.base_url') . 'universe/names/', $normalIds);
+                if ($response->ok()) {
+                    foreach ($response->json() as $item) {
+                        $names[$item['id']] = $item['name'];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('[Assets] 位置名称批量查询失败：' . $e->getMessage());
+            }
+        }
+
+        foreach ($structureIds as $structureId) {
+            try {
+                $response = Http::timeout(5)
+                    ->withToken($accessToken)
+                    ->get(config('esi.base_url') . "universe/structures/{$structureId}/");
+                if ($response->ok()) {
+                    $data = $response->json();
+                    $names[$structureId] = $data['name'] ?? "建筑 {$structureId}";
+                } else {
+                    $names[$structureId] = "未知建筑 (ID: {$structureId})";
+                }
+            } catch (\Exception $e) {
+                $names[$structureId] = "未知建筑 (ID: {$structureId})";
+            }
+        }
+
         return $names;
     }
-    
-    /**
-     * 格式化资产数据
-     */
-    private function formatAssets(array $assets, array $typeNames, array $locationNames): array
-    {
-        $formatted = [];
-        
+
+    private function buildAssetTree(
+        array $assets,
+        array $typeNames,
+        array $typeDetails,
+        array $groupNames,
+        array $locationNames,
+        array $itemIdSet
+    ): array {
+        // 步骤 1: 构建 itemMap
+        $itemMap = [];
         foreach ($assets as $asset) {
             $typeId = $asset['type_id'];
-            $locationId = $asset['location_id'];
-            
-            $formatted[] = [
+            $detail = $typeDetails[$typeId] ?? ['volume' => 0, 'group_id' => 0];
+            $groupId = $detail['group_id'];
+
+            $itemMap[$asset['item_id']] = [
+                'item_id' => $asset['item_id'],
                 'type_id' => $typeId,
                 'type_name' => $typeNames[$typeId] ?? '未知物品',
-                'location_id' => $locationId,
-                'location_name' => $locationNames[$locationId] ?? '未知位置',
-                'location_flag' => $asset['location_flag'] ?? 'Unknown',
                 'quantity' => $asset['quantity'] ?? 1,
+                'location_flag' => $asset['location_flag'] ?? 'Unknown',
+                'location_id' => $asset['location_id'],
+                'location_type' => $asset['location_type'] ?? 'other',
                 'is_singleton' => $asset['is_singleton'] ?? false,
-                'volume' => 0, // 体积数据需要从物品数据库查询
-                'price' => 0,  // 价格数据需要从市场 API 查询
-                'total_value' => 0,
+                'volume' => $detail['volume'],
+                'group_name' => $groupNames[$groupId] ?? '',
+                'children' => [],
             ];
         }
-        
-        return $formatted;
-    }
-    
-    /**
-     * 计算统计信息
-     */
-    private function calculateSummary(array $assets): array
-    {
-        $totalAssets = count($assets);
-        $totalQuantity = array_sum(array_column($assets, 'quantity'));
-        $locations = array_unique(array_column($assets, 'location_id'));
-        
-        return [
-            'total_assets' => $totalAssets,           // 物品种类数
-            'total_quantity' => $totalQuantity,       // 物品总数量
-            'total_value' => 0,                       // 总价值（待实现）
-            'total_volume' => 0,                      // 总体积（待实现）
-            'locations_count' => count($locations),   // 位置数量
-        ];
+
+        // 步骤 2: 挂载子节点，收集顶层节点
+        $childOf = []; // parentId => [childItemId, ...]
+        $topLevelIds = [];
+
+        foreach ($itemMap as $itemId => $item) {
+            if ($item['location_type'] === 'other' && isset($itemMap[$item['location_id']])) {
+                $childOf[$item['location_id']][] = $itemId;
+            } else {
+                $topLevelIds[] = $itemId;
+            }
+        }
+
+        // 步骤 3: 递归构建节点
+        $buildNode = function ($itemId) use (&$buildNode, &$itemMap, &$childOf) {
+            $node = $itemMap[$itemId];
+            $node['children'] = [];
+            if (isset($childOf[$itemId])) {
+                foreach ($childOf[$itemId] as $childId) {
+                    $node['children'][] = $buildNode($childId);
+                }
+            }
+            // 移除内部字段
+            unset($node['location_id'], $node['location_type']);
+            return $node;
+        };
+
+        // 步骤 4: 按 location_id 分组
+        $locationGroups = [];
+        foreach ($topLevelIds as $itemId) {
+            $locId = $itemMap[$itemId]['location_id'];
+            $locationGroups[$locId][] = $itemId;
+        }
+
+        $locations = [];
+        foreach ($locationGroups as $locId => $itemIds) {
+            $items = [];
+            foreach ($itemIds as $itemId) {
+                $items[] = $buildNode($itemId);
+            }
+
+            $countAll = 0;
+            $countItems = function ($list) use (&$countItems, &$countAll) {
+                foreach ($list as $item) {
+                    $countAll++;
+                    if (!empty($item['children'])) {
+                        $countItems($item['children']);
+                    }
+                }
+            };
+            $countItems($items);
+
+            $locations[] = [
+                'location_id' => $locId,
+                'location_name' => $locationNames[$locId] ?? "未知位置 (ID: {$locId})",
+                'item_count' => $countAll,
+                'items' => $items,
+            ];
+        }
+
+        // 按物品数量降序排列
+        usort($locations, function ($a, $b) {
+            return $b['item_count'] - $a['item_count'];
+        });
+
+        return $locations;
     }
 }

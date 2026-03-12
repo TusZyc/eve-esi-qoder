@@ -23,7 +23,7 @@
                     <span class="text-2xl">🚀</span>
                     <div>
                         <a href="{{ route('dashboard') }}" class="text-xl font-bold">EVE ESI</a>
-                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ ->name }}</span>
+                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name }}</span>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -74,26 +74,26 @@
             <div class="bg-white/5 rounded-lg p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <div class="text-2xl font-bold text-blue-400">{{ ->name }}</div>
+                        <div class="text-2xl font-bold text-blue-400">{{ $user->name }}</div>
                         <div class="text-sm text-blue-300 mt-2">
-                            角色 ID：{{ ->eve_character_id }}
+                            角色 ID：{{ $user->eve_character_id }}
                         </div>
-                        @if(->corporation_id)
+                        @if($user->corporation_id)
                         <div class="text-sm text-blue-300 mt-1">
-                            军团 ID：{{ ->corporation_id }}
-                        </div>
-                        @endif
-                        @if(->alliance_id)
-                        <div class="text-sm text-blue-300 mt-1">
-                            联盟 ID：{{ ->alliance_id }}
+                            军团 ID：{{ $user->corporation_id }}
                         </div>
                         @endif
+                        @if($user->alliance_id)
                         <div class="text-sm text-blue-300 mt-1">
-                            Token 过期：{{ ->token_expires_at ? \Carbon\Carbon::parse(->token_expires_at)->format('Y-m-d H:i:s') : '未知' }}
+                            联盟 ID：{{ $user->alliance_id }}
+                        </div>
+                        @endif
+                        <div class="text-sm text-blue-300 mt-1">
+                            Token 过期：{{ $user->token_expires_at ? \Carbon\Carbon::parse($user->token_expires_at)->format('Y-m-d H:i:s') : '未知' }}
                         </div>
                     </div>
                     <div class="flex space-x-2">
-                        <a href="{{ route('characters.show', ->eve_character_id) }}" 
+                        <a href="{{ route('characters.show', $user->eve_character_id) }}" 
                            class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm">
                             查看详情
                         </a>
