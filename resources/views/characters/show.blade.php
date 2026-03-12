@@ -69,7 +69,7 @@
                     @if(isset($character['birthday']))
                     <div>
                         <div class="text-sm text-blue-300">创建日期</div>
-                        <div class="text-lg text-white">{{ $character['birthday'] }}</div>
+                        <div class="text-lg text-white">{{ $character['birthday_beijing'] ?? $character['birthday'] }} <span class="text-xs text-blue-300/60">北京时间</span></div>
                     </div>
                     @endif
                     @if(isset($character['gender']))
@@ -90,20 +90,20 @@
                 <div class="space-y-4">
                     @if(isset($character['corporation_id']))
                     <div>
-                        <div class="text-sm text-blue-300">军团 ID</div>
-                        <div class="text-lg text-purple-400">{{ $character['corporation_id'] }}</div>
+                        <div class="text-sm text-blue-300">军团</div>
+                        <div class="text-lg text-purple-400">{{ $character['corporation_name'] ?? $character['corporation_id'] }}</div>
                     </div>
                     @endif
                     @if(isset($character['alliance_id']))
                     <div>
-                        <div class="text-sm text-blue-300">联盟 ID</div>
-                        <div class="text-lg text-green-400">{{ $character['alliance_id'] }}</div>
+                        <div class="text-sm text-blue-300">联盟</div>
+                        <div class="text-lg text-green-400">{{ $character['alliance_name'] ?? $character['alliance_id'] }}</div>
                     </div>
                     @endif
                     @if(isset($character['description']))
                     <div>
                         <div class="text-sm text-blue-300">角色描述</div>
-                        <div class="text-sm text-white/80 mt-1">{{ strip_tags($character['description']) }}</div>
+                        <div class="text-sm text-white/80 mt-1">{!! $character['description_html'] ?? e($character['description']) !!}</div>
                     </div>
                     @endif
                 </div>

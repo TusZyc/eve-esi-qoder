@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 
 class CharacterController extends Controller
 {
@@ -44,7 +46,37 @@ class CharacterController extends Controller
         }
         
         $character = $response->json();
-        
+
+        // 创建日期转北京时间
+        if (!empty($character['birthday'])) {
+            $character['birthday_beijing'] = Carbon::parse($character['birthday'])
+                ->timezone('Asia/Shanghai')
+                ->format('Y-m-d H:i:s');
+        }
+
+        // 军团和联盟ID转名称
+        $idsToResolve = [];
+        if (!empty($character['corporation_id'])) {
+            $idsToResolve[] = $character['corporation_id'];
+        }
+        if (!empty($character['alliance_id'])) {
+            $idsToResolve[] = $character['alliance_id'];
+        }
+        if (!empty($idsToResolve)) {
+            $resolvedNames = $this->resolveNames($idsToResolve);
+            if (!empty($character['corporation_id'])) {
+                $character['corporation_name'] = $resolvedNames[$character['corporation_id']] ?? null;
+            }
+            if (!empty($character['alliance_id'])) {
+                $character['alliance_name'] = $resolvedNames[$character['alliance_id']] ?? null;
+            }
+        }
+
+        // 角色描述解码
+        if (!empty($character['description'])) {
+            $character['description_html'] = $this->decodeEveDescription($character['description']);
+        }
+
         return view('characters.show', compact('character'));
     }
     
@@ -125,5 +157,83 @@ class CharacterController extends Controller
         }
         
         return response()->json($response->json());
+    }
+
+    /**
+     * 通过 ESI universe/names 接口批量解析ID为名称
+     */
+    private function resolveNames(array $ids): array
+    {
+        $names = [];
+        $uncached = [];
+
+        foreach ($ids as $id) {
+            $cached = Cache::get("eve_name_{$id}");
+            if ($cached !== null) {
+                $names[$id] = $cached;
+            } else {
+                $uncached[] = $id;
+            }
+        }
+
+        if (!empty($uncached)) {
+            try {
+                $response = Http::timeout(10)
+                    ->post(config('esi.base_url') . 'universe/names/', array_values($uncached));
+                if ($response->ok()) {
+                    foreach ($response->json() as $item) {
+                        $names[$item['id']] = $item['name'];
+                        Cache::put("eve_name_{$item['id']}", $item['name'], 86400);
+                    }
+                }
+            } catch (\Exception $e) {
+                // fallback: 不影响页面显示
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * 解码 EVE 角色描述：处理 Python unicode 字面量、HTML 实体和 EVE 特有标签
+     */
+    private function decodeEveDescription(string $desc): string
+    {
+        // 去掉 Python u'...' 包装
+        if (preg_match("/^u'(.*)'$/s", $desc, $m)) {
+            $desc = $m[1];
+        } elseif (preg_match('/^u"(.*)"$/s', $desc, $m)) {
+            $desc = $m[1];
+        }
+
+        // 解码 \uXXXX unicode 转义 → 中文
+        $desc = preg_replace_callback('/\\\\u([0-9a-fA-F]{4})/', function ($m) {
+            return mb_convert_encoding(pack('H*', $m[1]), 'UTF-8', 'UCS-2BE');
+        }, $desc);
+
+        // 解码 \xNN 十六进制转义 → UTF-8 字符
+        $desc = preg_replace_callback('/\\\\x([0-9a-fA-F]{2})/', function ($m) {
+            return chr(hexdec($m[1]));
+        }, $desc);
+
+        // 解码 HTML 实体
+        $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // EVE 用 <font> 标签做颜色，转为 span
+        $desc = preg_replace('/<font\s+size="?\d+"?\s*color="?(#[0-9a-fA-F]+)"?\s*>/i', '<span style="color:$1">', $desc);
+        $desc = preg_replace('/<font\s+color="?(#[0-9a-fA-F]+)"?\s*>/i', '<span style="color:$1">', $desc);
+        $desc = str_ireplace('</font>', '</span>', $desc);
+
+        // EVE <a href="showinfo:..."> 链接去掉，只保留文本
+        $desc = preg_replace('/<a\s+href="showinfo:[^"]*">/i', '', $desc);
+        $desc = str_ireplace('</a>', '', $desc);
+
+        // <br> 换行保留
+        $desc = preg_replace('/<br\s*\/?>/i', '<br>', $desc);
+
+        // 清理其余不安全标签，只保留安全的 HTML
+        $desc = strip_tags($desc, '<br><span><b><i><u><p>');
+
+        return $desc;
     }
 }
