@@ -29,8 +29,8 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
 });
 
-// API 路由（异步数据加载）
-Route::middleware(['auth', 'eve.refresh'])->prefix('api/dashboard')->group(function () {
+// API 路由（异步数据加载，添加速率限制）
+Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboard')->group(function () {
     Route::get('/server-status', [DashboardDataController::class, 'serverStatus'])->name('api.dashboard.server-status');
     Route::get('/skills', [DashboardDataController::class, 'skills'])->name('api.dashboard.skills');
     Route::get('/skill-queue', [DashboardDataController::class, 'skillQueue'])->name('api.dashboard.skill-queue');
