@@ -7,107 +7,123 @@ use Illuminate\Support\Facades\Http;
 
 class CharacterController extends Controller
 {
-    public function index(Request )
+    /**
+     * 角色列表
+     */
+    public function index(Request $request)
     {
-         = ->user();
-
-         = null;
-        if (->eve_character_id) {
-             = Http::timeout(10)
-                ->withToken(->access_token)
-                ->get(config('esi.base_url') . 'characters/' . ->eve_character_id . '/assets/');
-
-            if (->ok()) {
-                 = ->json();
+        $user = $request->user();
+        
+        // 获取角色资产概览
+        $assets = null;
+        if ($user->eve_character_id) {
+            $response = Http::withToken($user->access_token)
+                ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/assets/');
+            
+            if ($response->ok()) {
+                $assets = $response->json();
             }
         }
-
+        
         return view('characters.index', compact('user', 'assets'));
     }
-
-    public function show(Request , )
+    
+    /**
+     * 角色详情
+     */
+    public function show(Request $request, $characterId)
     {
-         = ->user();
-
-        // 权限校验：只能查看自己的角色
-        if ((int)  !== (int) ->eve_character_id) {
-            abort(403, '无权查看该角色信息');
-        }
-
-         = Http::timeout(10)
-            ->get(config('esi.base_url') . 'characters/' .  . '/');
-
-        if (->failed()) {
+        $user = $request->user();
+        
+        // 获取角色详细信息
+        $response = Http::get(config('esi.base_url') . 'characters/' . $characterId . '/');
+        
+        if ($response->failed()) {
             return redirect()->route('characters.index')
                 ->with('error', '获取角色信息失败');
         }
-
-         = ->json();
-
+        
+        $character = $response->json();
+        
         return view('characters.show', compact('character'));
     }
-
-    public function refresh(Request , )
+    
+    /**
+     * 刷新角色数据
+     */
+    public function refresh(Request $request, $characterId)
     {
+        // 这里可以实现强制刷新逻辑
         return redirect()->back()
             ->with('success', '数据已刷新');
     }
-
-    public function destroy(Request , )
+    
+    /**
+     * 解绑角色
+     */
+    public function destroy(Request $request, $characterId)
     {
-         = ->user();
-
-        if ((int) ->eve_character_id === (int) ) {
+        $user = $request->user();
+        
+        // 如果是当前用户，不允许删除
+        if ($user->eve_character_id == $characterId) {
             return redirect()->back()
                 ->with('error', '不能解绑当前登录的角色');
         }
-
+        
+        // 实现删除逻辑
         return redirect()->route('characters.index')
             ->with('success', '角色已解绑');
     }
-
-    public function skillQueue(Request )
+    
+    /**
+     * 技能队列
+     */
+    public function skillQueue(Request $request)
     {
-         = ->user();
-
-         = Http::timeout(10)
-            ->withToken(->access_token)
-            ->get(config('esi.base_url') . 'characters/' . ->eve_character_id . '/skillqueue/');
-
-        if (->failed()) {
+        $user = $request->user();
+        
+        $response = Http::withToken($user->access_token)
+            ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/skillqueue/');
+        
+        if ($response->failed()) {
             return response()->json(['error' => '获取技能队列失败'], 400);
         }
-
-        return response()->json(->json());
+        
+        return response()->json($response->json());
     }
-
-    public function assets(Request )
+    
+    /**
+     * 资产列表
+     */
+    public function assets(Request $request)
     {
-         = ->user();
-
-         = Http::timeout(10)
-            ->withToken(->access_token)
-            ->get(config('esi.base_url') . 'characters/' . ->eve_character_id . '/assets/');
-
-        if (->failed()) {
+        $user = $request->user();
+        
+        $response = Http::withToken($user->access_token)
+            ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/assets/');
+        
+        if ($response->failed()) {
             return response()->json(['error' => '获取资产失败'], 400);
         }
-
-        return response()->json(->json());
+        
+        return response()->json($response->json());
     }
-
-    public function wallet(Request )
+    
+    /**
+     * 钱包余额
+     */
+    public function wallet(Request $request)
     {
-         = ->user();
-
-         = Http::timeout(10)
-            ->withToken(->access_token)
-            ->get(config('esi.base_url') . 'characters/' . ->eve_character_id . '/wallet/');
-
-        if (->failed()) {
+        $user = $request->user();
+        
+        $response = Http::withToken($user->access_token)
+            ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/wallet/');
+        
+        if ($response->failed()) {
             return response()->json(['error' => '获取钱包信息失败'], 400);
         }
-
-        return response()->json(->json());
+        
+        return response()->json($response->json());
     }
 }
