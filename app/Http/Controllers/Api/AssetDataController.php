@@ -57,17 +57,7 @@ class AssetDataController extends Controller
                 }
             }
 
-            // 统计每个位置的物品数（含嵌套）
-            $countChildren = function ($itemId) use (&$countChildren, &$childOf) {
-                $count = 0;
-                if (isset($childOf[$itemId])) {
-                    foreach ($childOf[$itemId] as $childId) {
-                        $count += 1 + $countChildren($childId);
-                    }
-                }
-                return $count;
-            };
-
+            // 统计每个位置的顶级物品数（舰船/集装箱内部物品不参与计算，以自身为1单位）
             $locationCounts = [];
             $locationTypes = []; // locId => location_type
             foreach ($topItems as $itemId => $locInfo) {
@@ -76,7 +66,7 @@ class AssetDataController extends Controller
                     $locationCounts[$locId] = 0;
                     $locationTypes[$locId] = $locInfo['location_type'];
                 }
-                $locationCounts[$locId] += 1 + $countChildren($itemId);
+                $locationCounts[$locId] += 1;
             }
 
             // 过滤掉 0 物品的位置
