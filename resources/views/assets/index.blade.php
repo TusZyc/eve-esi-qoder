@@ -22,11 +22,15 @@
             animation: shimmer 2s infinite;
             border-radius: 4px;
         }
-        .tree-line {
-            border-left: 1px dashed rgba(255,255,255,0.15);
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
         }
-        details > summary { cursor: pointer; list-style: none; }
-        details > summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body class="eve-bg min-h-screen text-white">
@@ -61,37 +65,43 @@
                 <p class="text-blue-300">查看和管理你的角色资产</p>
             </div>
             <div>
-                <input type="text" id="search-input" placeholder="搜索物品名称..."
-                       class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-blue-300 focus:outline-none focus:border-blue-400 w-64">
+                <input type="text" id="search-input" placeholder="搜索物品名称（至少2个字）..."
+                       class="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-blue-300 focus:outline-none focus:border-blue-400 w-72">
             </div>
         </div>
 
         <div id="asset-container">
-            <!-- 骨架屏 -->
             <div id="skeleton-loader">
                 <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-4">
                     <div class="skeleton h-6 w-1/3 mb-4"></div>
-                    <div class="skeleton h-4 w-full mb-2"></div>
                     <div class="skeleton h-4 w-full mb-2"></div>
                     <div class="skeleton h-4 w-3/4"></div>
                 </div>
                 <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-4">
                     <div class="skeleton h-6 w-1/4 mb-4"></div>
                     <div class="skeleton h-4 w-full mb-2"></div>
-                    <div class="skeleton h-4 w-full mb-2"></div>
                 </div>
             </div>
-
             <div id="asset-list" class="hidden"></div>
         </div>
     </div>
 
     <script>
-        const API_ENDPOINT = '/api/dashboard/assets';
-        let allLocations = [];
-        const expandedSet = new Set();
+        const API_LOCATIONS = '/api/dashboard/assets/locations';
+        const API_LOCATION_ITEMS = '/api/dashboard/assets/location/';
+        const API_SEARCH = '/api/dashboard/assets/search';
+
+        let allSolarSystems = [];
+        let searchResults = null;
+        const locationItems = {};
+        const locationLoading = {};
+        const locationLoaded = {};
+        const expandedSystems = new Set();
+        const expandedLocations = new Set();
+        const expandedItems = new Set();
         let searchKeyword = '';
         let debounceTimer = null;
+        let isSearchLoading = false;
 
         const FLAG_NAMES = {
             'Hangar':'机库','CargoHold':'货柜仓','DroneBay':'无人机仓',
@@ -108,231 +118,364 @@
             'RigSlot0':'改装件1','RigSlot1':'改装件2','RigSlot2':'改装件3',
         };
 
-        function flagName(flag) {
-            return FLAG_NAMES[flag] || flag;
-        }
-
+        function flagName(flag) { return FLAG_NAMES[flag] || flag; }
         function formatNumber(num) {
             if (num === null || num === undefined) return '0';
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
-
         function formatVolume(vol) {
             if (!vol || vol === 0) return '0 m\u00B3';
             if (vol >= 1000) return formatNumber(Math.round(vol)) + ' m\u00B3';
             if (vol >= 0.1) return vol.toFixed(1) + ' m\u00B3';
             return vol.toFixed(2) + ' m\u00B3';
         }
-
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = String(str);
             return div.innerHTML;
         }
 
-        // 树形搜索：返回过滤后的 locations
-        function filterLocations(locations, keyword) {
-            if (!keyword) return locations;
-            const kw = keyword.toLowerCase();
-            const result = [];
-
-            for (const loc of locations) {
-                const filteredItems = filterItems(loc.items, kw);
-                if (filteredItems.length > 0 || loc.location_name.toLowerCase().includes(kw)) {
-                    result.push({
-                        ...loc,
-                        items: filteredItems.length > 0 ? filteredItems : loc.items,
-                    });
-                }
-            }
-            return result;
+        function toggleSystem(systemId) {
+            if (expandedSystems.has(systemId)) expandedSystems.delete(systemId);
+            else expandedSystems.add(systemId);
+            render();
         }
 
-        function filterItems(items, kw) {
-            const result = [];
-            for (const item of items) {
-                const nameMatch = item.type_name.toLowerCase().includes(kw);
-                const groupMatch = item.group_name && item.group_name.toLowerCase().includes(kw);
-                const childFiltered = item.children ? filterItems(item.children, kw) : [];
-
-                if (nameMatch || groupMatch) {
-                    result.push(item); // 父匹配，保留整个子树
-                } else if (childFiltered.length > 0) {
-                    result.push({ ...item, children: childFiltered }); // 子匹配，保留路径
-                    expandedSet.add(item.item_id); // 自动展开
-                }
-            }
-            return result;
-        }
-
-        function toggleItem(itemId) {
-            if (expandedSet.has(itemId)) {
-                collapseRecursive(itemId);
+        function toggleLocation(locId) {
+            if (expandedLocations.has(locId)) {
+                expandedLocations.delete(locId);
             } else {
-                expandedSet.add(itemId);
+                expandedLocations.add(locId);
+                if (!locationLoaded[locId] && !locationLoading[locId]) {
+                    loadLocationItems(locId);
+                }
             }
             render();
         }
 
-        function collapseRecursive(itemId) {
-            expandedSet.delete(itemId);
-            // 找到此 item 的 children 并递归收起
-            const findAndCollapse = (items) => {
+        function toggleItem(itemId) {
+            if (expandedItems.has(itemId)) collapseItemRecursive(itemId);
+            else expandedItems.add(itemId);
+            render();
+        }
+
+        function collapseItemRecursive(itemId) {
+            expandedItems.delete(itemId);
+            const findChildren = (items) => {
                 for (const item of items) {
                     if (item.item_id === itemId && item.children) {
-                        for (const child of item.children) {
-                            collapseRecursive(child.item_id);
-                        }
+                        for (const child of item.children) collapseItemRecursive(child.item_id);
                         return;
                     }
-                    if (item.children) findAndCollapse(item.children);
+                    if (item.children) findChildren(item.children);
                 }
             };
-            for (const loc of allLocations) {
-                findAndCollapse(loc.items);
+            for (const locId of Object.keys(locationItems)) {
+                if (locationItems[locId]) findChildren(locationItems[locId]);
             }
+        }
+
+        function renderHangarSections(items) {
+            const ships = items.filter(i => i.category_id === 6);
+            const others = items.filter(i => i.category_id !== 6);
+            let html = '';
+
+            const tableHead = '<table class="w-full text-sm"><thead><tr class="border-b border-white/10 text-blue-300">'
+                + '<th class="py-2 px-3 text-left font-medium" style="min-width:100px">数量</th>'
+                + '<th class="py-2 px-3 text-left font-medium">类型</th>'
+                + '<th class="py-2 px-3 text-right font-medium" style="min-width:90px">体积</th>'
+                + '<th class="py-2 px-3 text-left font-medium" style="min-width:100px">分组</th>'
+                + '</tr></thead><tbody>';
+
+            if (ships.length > 0) {
+                html += '<div class="px-4 py-2 bg-indigo-500/10 border-b border-white/10 flex items-center gap-2">';
+                html += '<span class="text-base">🚀</span><span class="text-sm font-medium text-indigo-300">舰船机库</span>';
+                html += '<span class="text-xs text-indigo-300/60">(' + ships.length + ')</span>';
+                html += '</div>';
+                html += tableHead;
+                html += renderItemRows(ships, 0);
+                html += '</tbody></table>';
+            }
+
+            if (others.length > 0) {
+                html += '<div class="px-4 py-2 bg-emerald-500/10 border-b border-white/10 flex items-center gap-2">';
+                html += '<span class="text-base">📦</span><span class="text-sm font-medium text-emerald-300">物品机库</span>';
+                html += '<span class="text-xs text-emerald-300/60">(' + others.length + ')</span>';
+                html += '</div>';
+                html += tableHead;
+                html += renderItemRows(others, 0);
+                html += '</tbody></table>';
+            }
+
+            return html;
         }
 
         function renderItemRows(items, depth) {
             let html = '';
             for (const item of items) {
                 const hasChildren = item.children && item.children.length > 0;
-                const isExpanded = expandedSet.has(item.item_id);
+                const isExpanded = expandedItems.has(item.item_id);
                 const indent = depth * 24;
-                const isSingleton = item.is_singleton;
-                const singletonTag = isSingleton ? '' : '<span class="text-yellow-500 text-xs ml-1">(packaged)</span>';
+                const singletonTag = item.is_singleton ? '' : '<span class="text-yellow-500 text-xs ml-1">(packaged)</span>';
 
                 html += '<tr class="border-b border-white/5 hover:bg-white/5 transition-all">';
-
-                // 展开按钮 + 数量
                 html += '<td class="py-2 px-3 whitespace-nowrap" style="padding-left:' + (12 + indent) + 'px">';
                 if (hasChildren) {
                     html += '<button onclick="toggleItem(' + item.item_id + ')" class="text-blue-400 hover:text-blue-300 mr-2 w-4 inline-block text-center font-bold">';
-                    html += isExpanded ? '−' : '+';
+                    html += isExpanded ? '\u2212' : '+';
                     html += '</button>';
                 } else if (depth > 0) {
                     html += '<span class="mr-2 w-4 inline-block"></span>';
                 }
-                if (item.quantity > 1) {
-                    html += '<span class="text-blue-300">' + formatNumber(item.quantity) + '</span>';
-                } else if (!hasChildren) {
-                    html += '<span class="text-blue-300">1</span>';
-                }
+                if (item.quantity > 1) html += '<span class="text-blue-300">' + formatNumber(item.quantity) + '</span>';
+                else if (!hasChildren) html += '<span class="text-blue-300">1</span>';
                 html += '</td>';
-
-                // 类型名
                 html += '<td class="py-2 px-3">';
                 html += '<span class="' + (hasChildren ? 'text-blue-400 font-medium' : '') + '">' + escapeHtml(item.type_name) + '</span>';
                 html += singletonTag;
-                if (depth > 0) {
-                    html += '<span class="text-xs text-gray-400 ml-2">' + escapeHtml(flagName(item.location_flag)) + '</span>';
-                }
+                if (depth > 0) html += '<span class="text-xs text-gray-400 ml-2">' + escapeHtml(flagName(item.location_flag)) + '</span>';
                 html += '</td>';
-
-                // 体积
                 html += '<td class="py-2 px-3 text-right text-sm text-blue-300 whitespace-nowrap">' + formatVolume(item.volume) + '</td>';
-
-                // 分组
                 html += '<td class="py-2 px-3 text-sm text-gray-400">' + escapeHtml(item.group_name || '') + '</td>';
-
                 html += '</tr>';
 
-                // 子节点
-                if (hasChildren && isExpanded) {
-                    html += renderItemRows(item.children, depth + 1);
-                }
+                if (hasChildren && isExpanded) html += renderItemRows(item.children, depth + 1);
             }
             return html;
         }
 
-        function render() {
-            const container = document.getElementById('asset-list');
-            const locations = searchKeyword ? filterLocations(allLocations, searchKeyword) : allLocations;
-
-            if (locations.length === 0) {
-                container.innerHTML = '';
-                const emptyDiv = document.createElement('div');
-                emptyDiv.className = 'text-center py-12';
-                const icon = document.createElement('div');
-                icon.className = 'text-6xl mb-4';
-                icon.textContent = searchKeyword ? '🔍' : '📦';
-                const msg = document.createElement('p');
-                msg.className = 'text-blue-300';
-                msg.textContent = searchKeyword ? '没有找到匹配的物品' : '暂无资产数据';
-                emptyDiv.appendChild(icon);
-                emptyDiv.appendChild(msg);
-                container.appendChild(emptyDiv);
-                return;
-            }
-
-            let html = '';
-            for (const loc of locations) {
-                html += '<details open class="mb-4">';
-                html += '<summary class="bg-white/10 backdrop-blur-lg rounded-xl px-6 py-4 eve-glow flex justify-between items-center hover:bg-white/15 transition-all">';
-                html += '<div class="flex items-center">';
-                html += '<span class="mr-2 text-blue-400 font-mono">▼</span>';
-                html += '<span class="text-lg font-semibold">📍 ' + escapeHtml(loc.location_name) + '</span>';
-                html += '</div>';
-                html += '<span class="text-sm text-blue-300">' + loc.item_count + ' 件物品</span>';
-                html += '</summary>';
-
-                html += '<div class="bg-white/5 rounded-b-xl mt-0 overflow-x-auto">';
-                html += '<table class="w-full text-sm">';
-                html += '<thead><tr class="border-b border-white/10 text-blue-300">';
-                html += '<th class="py-2 px-3 text-left font-medium" style="min-width:100px">数量</th>';
-                html += '<th class="py-2 px-3 text-left font-medium">类型</th>';
-                html += '<th class="py-2 px-3 text-right font-medium" style="min-width:90px">体积</th>';
-                html += '<th class="py-2 px-3 text-left font-medium" style="min-width:100px">分组</th>';
-                html += '</tr></thead>';
-                html += '<tbody>';
-                html += renderItemRows(loc.items, 0);
-                html += '</tbody></table>';
-                html += '</div>';
-
-                html += '</details>';
-            }
-
-            container.innerHTML = html;
-
-            // 修正 details 的 summary 箭头旋转
-            container.querySelectorAll('details').forEach(det => {
-                const arrow = det.querySelector('summary .font-mono');
-                if (!arrow) return;
-                const update = () => { arrow.textContent = det.open ? '▼' : '▶'; };
-                det.addEventListener('toggle', update);
-                update();
-            });
-        }
-
-        async function loadAssets() {
+        async function loadLocationItems(locId) {
+            if (locationLoaded[locId] || locationLoading[locId]) return;
+            locationLoading[locId] = true;
+            render();
             try {
-                const response = await fetch(API_ENDPOINT, {
+                const response = await fetch(API_LOCATION_ITEMS + locId, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
                 });
+                const result = await response.json();
+                locationItems[locId] = (result.success ? result.data.items : []) || [];
+            } catch (e) {
+                console.error('加载位置物品失败:', locId, e);
+                locationItems[locId] = [];
+            }
+            locationLoaded[locId] = true;
+            locationLoading[locId] = false;
+            render();
+        }
 
+        async function searchFromBackend(keyword) {
+            if (!keyword || keyword.length < 2) {
+                searchResults = null;
+                isSearchLoading = false;
+                render();
+                return;
+            }
+            isSearchLoading = true;
+            render();
+            try {
+                const response = await fetch(API_SEARCH + '?q=' + encodeURIComponent(keyword), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                const result = await response.json();
+                searchResults = (result.success ? result.data.results : []) || [];
+            } catch (e) {
+                console.error('搜索失败:', e);
+                searchResults = [];
+            }
+            isSearchLoading = false;
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('asset-list');
+
+            if (allSolarSystems.length === 0 && !isSearchLoading) {
+                container.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">📦</div><p class="text-blue-300">暂无资产数据</p></div>';
+                return;
+            }
+
+            let html = '';
+
+            // 搜索加载中
+            if (isSearchLoading) {
+                html += '<div class="bg-blue-500/10 border border-blue-400/30 rounded-lg px-4 py-3 mb-4 flex items-center">';
+                html += '<span class="spinner mr-3" style="width:16px;height:16px;"></span>';
+                html += '<span class="text-blue-300 text-sm">正在搜索...</span>';
+                html += '</div>';
+            }
+
+            // === 搜索结果模式 ===
+            if (searchResults !== null) {
+                if (searchResults.length === 0 && !isSearchLoading) {
+                    html += '<div class="text-center py-12"><div class="text-6xl mb-4">\uD83D\uDD0D</div><p class="text-blue-300">没有找到匹配的物品</p></div>';
+                } else if (!isSearchLoading) {
+                    let totalTypes = 0;
+                    for (const r of searchResults) totalTypes += r.items.length;
+                    html += '<div class="text-sm text-blue-300/70 mb-3">在 ' + searchResults.length + ' 个位置找到 ' + totalTypes + ' 种匹配物品</div>';
+                    for (const loc of searchResults) {
+                        const locId = loc.location_id;
+                        const locExpanded = expandedLocations.has(locId);
+                        const loaded = locationLoaded[locId];
+                        const loading = locationLoading[locId];
+                        const items = locationItems[locId] || [];
+
+                        html += '<div class="bg-white/5 rounded-lg overflow-hidden mb-3">';
+                        // 位置卡片头部（可折叠）
+                        html += '<div onclick="toggleLocation(' + locId + ')" class="px-5 py-3 cursor-pointer hover:bg-white/10 transition-all flex justify-between items-center">';
+                        html += '<div class="flex items-center">';
+                        html += '<span class="mr-2 text-blue-400 font-mono text-xs">' + (locExpanded ? '\u25BC' : '\u25B6') + '</span>';
+                        html += '<span class="font-medium">\uD83C\uDFDB\uFE0F ' + escapeHtml(loc.location_name) + '</span>';
+                        html += '</div>';
+                        html += '<div class="flex items-center gap-3">';
+                        if (loading) html += '<span class="spinner" style="width:16px;height:16px;"></span>';
+                        else if (loaded) html += '<span class="text-xs text-green-400">\u2713</span>';
+                        html += '<span class="text-sm text-blue-300">找到 ' + loc.items.length + ' 种匹配</span>';
+                        html += '</div></div>';
+
+                        if (locExpanded) {
+                            html += '<div class="border-t border-white/10">';
+                            if (loading) {
+                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>加载中...</div>';
+                            } else if (loaded && items.length > 0) {
+                                // 完整树形视图（按机库分组）
+                                html += renderHangarSections(items);
+                            } else if (loaded) {
+                                html += '<div class="text-center py-4 text-blue-300/60 text-sm">该位置没有物品</div>';
+                            } else {
+                                html += '<div class="text-center py-4 text-blue-300/60 text-sm">点击展开加载</div>';
+                            }
+                            // 折叠态匹配摘要（在完整树下方显示匹配预览）
+                            if (loaded && items.length > 0) {
+                                html += '<div class="border-t border-white/10 px-5 py-2 bg-yellow-500/5">';
+                                html += '<div class="text-xs text-yellow-300/70 mb-1">匹配物品预览：</div>';
+                                html += '<div class="text-xs text-blue-300/70">';
+                                const preview = loc.items.slice(0, 5);
+                                html += preview.map(i => escapeHtml(i.type_name) + ' x' + formatNumber(i.quantity)).join('、');
+                                if (loc.items.length > 5) html += '...等 ' + loc.items.length + ' 种';
+                                html += '</div></div>';
+                            }
+                            html += '</div>';
+                        } else {
+                            // 折叠态下显示匹配物品简要预览
+                            html += '<div class="px-5 py-2 border-t border-white/5 text-xs text-blue-300/50">';
+                            const preview = loc.items.slice(0, 3);
+                            html += preview.map(i => escapeHtml(i.type_name) + ' x' + formatNumber(i.quantity)).join('、');
+                            if (loc.items.length > 3) html += '...';
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    }
+                }
+                container.innerHTML = html;
+                return;
+            }
+
+            // === 正常树形模式 ===
+            let visibleCount = 0;
+
+            for (const sys of allSolarSystems) {
+                const sysExpanded = expandedSystems.has(sys.system_id);
+                visibleCount++;
+
+                html += '<div class="mb-4">';
+                html += '<div onclick="toggleSystem(' + sys.system_id + ')" class="bg-white/10 backdrop-blur-lg rounded-xl px-6 py-4 eve-glow cursor-pointer hover:bg-white/15 transition-all flex justify-between items-center">';
+                html += '<div class="flex items-center">';
+                html += '<span class="mr-3 text-blue-400 font-mono text-sm">' + (sysExpanded ? '\u25BC' : '\u25B6') + '</span>';
+                html += '<span class="text-lg font-semibold">\u2604\uFE0F ' + escapeHtml(sys.system_name) + '</span>';
+                html += '<span class="ml-3 text-xs text-gray-400">(' + sys.locations.length + ' 个位置)</span>';
+                html += '</div>';
+                html += '<span class="text-sm text-blue-300">' + formatNumber(sys.total_items) + ' 件物品</span>';
+                html += '</div>';
+
+                if (sysExpanded) {
+                    html += '<div class="ml-6 mt-2 space-y-2">';
+                    for (const loc of sys.locations) {
+                        const locId = loc.location_id;
+                        const locExpanded = expandedLocations.has(locId);
+                        const loaded = locationLoaded[locId];
+                        const loading = locationLoading[locId];
+                        const items = locationItems[locId] || [];
+
+                        html += '<div class="bg-white/5 rounded-lg overflow-hidden">';
+                        html += '<div onclick="toggleLocation(' + locId + ')" class="px-5 py-3 cursor-pointer hover:bg-white/10 transition-all flex justify-between items-center">';
+                        html += '<div class="flex items-center">';
+                        html += '<span class="mr-2 text-blue-400 font-mono text-xs">' + (locExpanded ? '\u25BC' : '\u25B6') + '</span>';
+                        html += '<span class="font-medium">\uD83C\uDFDB\uFE0F ' + escapeHtml(loc.location_name) + '</span>';
+                        html += '</div>';
+                        html += '<div class="flex items-center gap-3">';
+                        if (loading) html += '<span class="spinner" style="width:16px;height:16px;"></span>';
+                        else if (loaded) html += '<span class="text-xs text-green-400">\u2713</span>';
+                        html += '<span class="text-sm text-blue-300">' + formatNumber(loc.item_count) + ' 件</span>';
+                        html += '</div></div>';
+
+                        if (locExpanded) {
+                            html += '<div class="border-t border-white/10">';
+                            if (loading) {
+                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>加载中...</div>';
+                            } else if (loaded && items.length > 0) {
+                                html += renderHangarSections(items);
+                            } else if (loaded) {
+                                html += '<div class="text-center py-4 text-blue-300/60 text-sm">该位置没有物品</div>';
+                            } else {
+                                html += '<div class="text-center py-4 text-blue-300/60 text-sm">点击展开加载</div>';
+                            }
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+
+            if (visibleCount === 0) {
+                html = '<div class="text-center py-12"><div class="text-6xl mb-4">📦</div><p class="text-blue-300">暂无资产数据</p></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        async function loadLocations() {
+            try {
+                const response = await fetch(API_LOCATIONS, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
                 if (response.status === 401) {
-                    showError('🔐', '未授权', '会话已过期，请刷新页面重新登录');
+                    showError('\uD83D\uDD10', '未授权', '会话已过期，请刷新页面重新登录');
                     return;
                 }
-
                 const result = await response.json();
-
                 if (result.success) {
-                    allLocations = result.data.locations || [];
+                    allSolarSystems = result.data.solar_systems || [];
                     document.getElementById('skeleton-loader').classList.add('hidden');
                     document.getElementById('asset-list').classList.remove('hidden');
+                    if (allSolarSystems.length === 1) {
+                        const sys = allSolarSystems[0];
+                        expandedSystems.add(sys.system_id);
+                        // 自动预加载：如果只有1个位置，或最大位置物品数占比>60%，自动加载
+                        if (sys.locations.length === 1) {
+                            expandedLocations.add(sys.locations[0].location_id);
+                            loadLocationItems(sys.locations[0].location_id);
+                        } else if (sys.locations.length > 1) {
+                            const maxLoc = sys.locations.reduce((a, b) => a.item_count > b.item_count ? a : b);
+                            if (maxLoc.item_count / sys.total_items > 0.6) {
+                                expandedLocations.add(maxLoc.location_id);
+                                loadLocationItems(maxLoc.location_id);
+                            }
+                        }
+                    }
                     render();
                 } else {
-                    let icon = '⚠️', title = '加载失败', message = result.message || '请稍后再试';
-                    if (result.error === 'connection_timeout') { icon = '🔄'; title = '连接超时'; message = 'EVE API 可能不可用，请稍后再试'; }
-                    else if (result.error === 'token_expired') { icon = '🔐'; title = 'Token 过期'; message = '请刷新 Token 或重新授权'; }
-                    showError(icon, title, message);
+                    showError('\u26A0\uFE0F', '加载失败', result.message || '请稍后再试');
                 }
             } catch (error) {
-                console.error('加载资产失败:', error);
-                showError('⚠️', '加载失败', '网络错误，请刷新页面重试');
+                console.error('加载位置列表失败:', error);
+                showError('\u26A0\uFE0F', '加载失败', '网络错误，请刷新页面重试');
             }
         }
 
@@ -340,22 +483,7 @@
             document.getElementById('skeleton-loader').classList.add('hidden');
             const container = document.getElementById('asset-list');
             container.classList.remove('hidden');
-            container.innerHTML = '';
-            const wrapper = document.createElement('div');
-            wrapper.className = 'text-center py-12';
-            const iconEl = document.createElement('div');
-            iconEl.className = 'text-6xl mb-4';
-            iconEl.textContent = icon;
-            const titleEl = document.createElement('p');
-            titleEl.className = 'text-xl text-blue-300 mb-2';
-            titleEl.textContent = title;
-            const msgEl = document.createElement('p');
-            msgEl.className = 'text-blue-400';
-            msgEl.textContent = message;
-            wrapper.appendChild(iconEl);
-            wrapper.appendChild(titleEl);
-            wrapper.appendChild(msgEl);
-            container.appendChild(wrapper);
+            container.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">' + icon + '</div><p class="text-xl text-blue-300 mb-2">' + escapeHtml(title) + '</p><p class="text-blue-400">' + escapeHtml(message) + '</p></div>';
         }
 
         function setupSearch() {
@@ -363,18 +491,20 @@
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
-                    const oldKw = searchKeyword;
                     searchKeyword = e.target.value.trim();
-                    if (!searchKeyword && oldKw) {
-                        expandedSet.clear(); // 清除搜索时恢复折叠
+                    if (searchKeyword && searchKeyword.length >= 2) {
+                        searchFromBackend(searchKeyword);
+                    } else {
+                        searchResults = null;
+                        expandedItems.clear();
+                        render();
                     }
-                    render();
-                }, 300);
+                }, 500);
             });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            loadAssets();
+            loadLocations();
             setupSearch();
         });
     </script>

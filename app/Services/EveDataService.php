@@ -18,6 +18,11 @@ class EveDataService
     private $dataPath;
     
     /**
+     * 站点→星系映射文件路径
+     */
+    private $stationSystemPath;
+    
+    /**
      * 数据元信息路径
      */
     private $metaPath;
@@ -28,11 +33,17 @@ class EveDataService
     private $itemDatabase = null;
     
     /**
+     * 站点→星系映射缓存
+     */
+    private $stationSystemMap = null;
+    
+    /**
      * 构造函数
      */
     public function __construct()
     {
-        $this->dataPath = base_path('data/items.json');
+        $this->dataPath = base_path('data/eve_names.json');
+        $this->stationSystemPath = base_path('data/eve_station_systems.json');
         $this->metaPath = base_path('data/evedata_meta.json');
     }
     
@@ -45,11 +56,23 @@ class EveDataService
             return $this->itemDatabase;
         }
         
-        // 从缓存获取
-        $this->itemDatabase = Cache::remember('eve_item_database', 3600, function() {
+        // 从缓存获取（缓存 2 小时）
+        $this->itemDatabase = Cache::remember('eve_names_database', 7200, function() {
+            // 优先读取新版 eve_names.json（{id: name} 格式）
             if (file_exists($this->dataPath)) {
                 $data = json_decode(file_get_contents($this->dataPath), true);
-                // 转换为 id => name 的格式（键名统一为整数）
+                if (is_array($data) && !empty($data)) {
+                    $database = [];
+                    foreach ($data as $id => $name) {
+                        $database[(int) $id] = $name;
+                    }
+                    return $database;
+                }
+            }
+            // 兜底：尝试读取旧格式 items.json
+            $oldPath = base_path('data/items.json');
+            if (file_exists($oldPath)) {
+                $data = json_decode(file_get_contents($oldPath), true);
                 $database = [];
                 foreach ($data as $item) {
                     if (isset($item['id']) && isset($item['name'])) {
@@ -62,6 +85,32 @@ class EveDataService
         });
         
         return $this->itemDatabase;
+    }
+    
+    /**
+     * 获取站点→星系ID映射表
+     */
+    public function getStationSystemMap()
+    {
+        if ($this->stationSystemMap !== null) {
+            return $this->stationSystemMap;
+        }
+        
+        $this->stationSystemMap = Cache::remember('eve_station_system_map', 7200, function() {
+            if (file_exists($this->stationSystemPath)) {
+                $data = json_decode(file_get_contents($this->stationSystemPath), true);
+                if (is_array($data)) {
+                    $map = [];
+                    foreach ($data as $stationId => $systemId) {
+                        $map[(int) $stationId] = (int) $systemId;
+                    }
+                    return $map;
+                }
+            }
+            return [];
+        });
+        
+        return $this->stationSystemMap;
     }
     
     /**
@@ -98,59 +147,56 @@ class EveDataService
     }
     
     /**
-     * 从 ceve-market.org 获取最新数据
+     * 调用 Python 脚本更新数据
      */
     public function updateData()
     {
-        Log::info('开始更新 EVE 物品数据...');
+        Log::info('开始更新 EVE 数据（调用 Python 脚本）...');
         
         try {
-            // 下载 Excel 文件
-            $excelUrl = 'https://www.ceve-market.org/dumps/evedata.xlsx';
-            $excelPath = base_path('data/evedata.xlsx');
+            $scriptPath = base_path('scripts/update_evedata.py');
+            
+            if (!file_exists($scriptPath)) {
+                Log::error('Python 脚本不存在: ' . $scriptPath);
+                return false;
+            }
             
             // 确保 data 目录存在
             if (!is_dir(base_path('data'))) {
                 mkdir(base_path('data'), 0775, true);
             }
             
-            $response = Http::timeout(120)->get($excelUrl);
+            // 执行 Python 脚本
+            $output = [];
+            $returnCode = 0;
+            exec('python3 ' . escapeshellarg($scriptPath) . ' 2>&1', $output, $returnCode);
             
-            if ($response->failed()) {
-                Log::error('下载 EVE 数据失败：' . $response->body());
+            $outputStr = implode("\n", $output);
+            
+            if ($returnCode !== 0) {
+                Log::error('Python 脚本执行失败 (code=' . $returnCode . '): ' . $outputStr);
                 return false;
             }
             
-            // 保存 Excel 文件
-            file_put_contents($excelPath, $response->body());
+            Log::info('Python 脚本执行成功: ' . $outputStr);
             
-            // 解析 Excel 文件（需要安装 phpoffice/phpspreadsheet）
-            // 为了简化，我们直接从 items.json 读取
-            $itemsPath = base_path('data/items.json');
-            if (file_exists($itemsPath)) {
-                $items = json_decode(file_get_contents($itemsPath), true);
-                
-                // 保存为 evedata.json
-                file_put_contents($this->dataPath, json_encode($items, JSON_UNESCAPED_UNICODE));
-                
-                // 更新元信息
-                $meta = [
-                    'last_updated' => date('Y-m-d H:i:s'),
-                    'source' => $excelUrl,
-                    'item_count' => count($items),
-                ];
-                file_put_contents($this->metaPath, json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-                
-                // 清除缓存
-                Cache::forget('eve_item_database');
-                $this->itemDatabase = null;
-                
-                Log::info('EVE 物品数据更新成功，共 ' . count($items) . ' 个物品');
-                return true;
+            // 清除缓存，下次请求时会自动重新加载
+            Cache::forget('eve_names_database');
+            Cache::forget('eve_station_system_map');
+            $this->itemDatabase = null;
+            $this->stationSystemMap = null;
+            
+            // 验证新文件是否生成
+            if (!file_exists($this->dataPath)) {
+                Log::error('eve_names.json 未生成');
+                return false;
             }
             
-            Log::error('items.json 文件不存在');
-            return false;
+            $meta = $this->getDataMeta();
+            $totalCount = $meta['total_entries'] ?? $meta['item_count'] ?? 0;
+            Log::info('EVE 数据更新成功，共 ' . $totalCount . ' 条记录');
+            
+            return true;
             
         } catch (\Exception $e) {
             Log::error('更新 EVE 数据异常：' . $e->getMessage());
@@ -295,7 +341,7 @@ class EveDataService
         $database[$id] = $name;
         
         // 保存到缓存
-        Cache::put('eve_item_database', $database, 3600);
+        Cache::put('eve_names_database', $database, 7200);
         $this->itemDatabase = $database;
     }
     
