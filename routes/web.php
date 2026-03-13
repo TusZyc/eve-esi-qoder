@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\SkillDataController;
 use App\Http\Controllers\Api\ServerStatusController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\Api\KillmailController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -77,4 +78,14 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     
     // 钱包
     Route::get('/wallet', [CharacterController::class, 'wallet'])->name('wallet.index');
+    
+    // KM 查询
+    Route::get('/killmails', [KillmailController::class, 'index'])->name('killmails.index');
+    
+    // KM 查询 API
+    Route::prefix('api/killmails')->group(function () {
+        Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
+        Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
+        Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
+    });
 });
