@@ -8,8 +8,11 @@ use App\Http\Controllers\Api\DashboardDataController;
 use App\Http\Controllers\Api\AssetDataController;
 use App\Http\Controllers\Api\CharacterLocationController;
 use App\Http\Controllers\Api\CharacterOnlineController;
+use App\Http\Controllers\Api\SkillDataController;
+use App\Http\Controllers\Api\ServerStatusController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\SkillController;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,8 +22,16 @@ use App\Http\Controllers\SkillController;
 
 // 首页
 Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
     return view('welcome');
 })->name('home');
+
+// 公开 API（无需认证）
+Route::get('/api/public/server-status', [ServerStatusController::class, 'index'])
+    ->middleware('throttle:10,1')
+    ->name('api.public.server-status');
 
 // OAuth2 路由
 Route::prefix('auth')->group(function () {
@@ -34,12 +45,15 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/server-status', [DashboardDataController::class, 'serverStatus'])->name('api.dashboard.server-status');
     Route::get('/skills', [DashboardDataController::class, 'skills'])->name('api.dashboard.skills');
     Route::get('/skill-queue', [DashboardDataController::class, 'skillQueue'])->name('api.dashboard.skill-queue');
-    Route::get('/assets/locations', [AssetDataController::class, 'locations'])->name('api.dashboard.assets.locations');
-    Route::get('/assets/location/{locationId}', [AssetDataController::class, 'locationItems'])->name('api.dashboard.assets.location');
-    Route::get('/assets/search', [AssetDataController::class, 'search'])->name('api.dashboard.assets.search');
+    Route::get('/assets', [AssetDataController::class, 'index'])->name('api.dashboard.assets');
     Route::get('/character-info', [DashboardDataController::class, 'characterInfo'])->name('api.dashboard.character-info');
     Route::get('/character-location', [CharacterLocationController::class, 'index'])->name('api.dashboard.character-location');
     Route::get('/character-online', [CharacterOnlineController::class, 'index'])->name('api.dashboard.character-online');
+
+    // 技能页面专用 API
+    Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
+    Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
+    Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
 });
 
 // 需要认证的路由（自动刷新 EVE Token）

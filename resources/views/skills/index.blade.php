@@ -12,42 +12,38 @@
         .eve-glow {
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
         }
-        .pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        details > summary {
-            list-style: none;
-        }
-        details > summary::-webkit-details-marker {
-            display: none;
-        }
-        details[open] summary ~ * {
-            animation: sweep .3s ease-in-out;
-        }
-        @keyframes sweep {
-            0%    {opacity: 0; transform: translateY(-10px)}
-            100%  {opacity: 1; transform: translateY(0)}
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body class="eve-bg min-h-screen text-white">
     <!-- 导航栏 -->
     <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-4">
+        <div class="container mx-auto px-4 py-2">
             <div class="flex justify-between items-center">
-                <a href="{{ route('dashboard') }}" class="text-xl font-bold">🚀 EVE ESI</a>
-                <div class="flex items-center space-x-4">
-                    <a href="{{ route('dashboard') }}" class="text-blue-200 hover:text-white">仪表盘</a>
-                    <a href="{{ route('skills.index') }}" class="text-white font-semibold">技能队列</a>
-                    <form action="{{ route('auth.logout') }}" method="POST">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🚀</span>
+                    <div>
+                        <a href="{{ route('dashboard') }}" class="text-xl font-bold">EVE ESI</a>
+                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name }}</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a href="{{ route('dashboard') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="仪表盘"><div class="text-2xl">🏠</div></a>
+                    <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all bg-white/10" title="技能队列"><div class="text-2xl">📚</div></a>
+                    <a href="{{ route('assets.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="我的资产"><div class="text-2xl">📦</div></a>
+                    <a href="{{ route('characters.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="角色管理"><div class="text-2xl">👥</div></a>
+                    <form action="{{ route('auth.logout') }}" method="POST" class="inline">
                         @csrf
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm">
-                            登出
-                        </button>
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm ml-2">登出</button>
                     </form>
                 </div>
             </div>
@@ -60,233 +56,225 @@
             <h2 class="text-2xl font-semibold mb-6">📚 技能信息</h2>
             <div class="grid md:grid-cols-3 gap-6">
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-yellow-400 mb-2">
-                        {{ number_format($totalSP) }}
-                    </div>
+                    <div class="text-4xl font-bold text-yellow-400 mb-2" id="total-sp"><div class="skeleton h-10 w-40 mx-auto"></div></div>
                     <div class="text-blue-200">总技能点</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-green-400 mb-2">
-                        {{ number_format($unallocatedSP) }}
-                    </div>
+                    <div class="text-4xl font-bold text-green-400 mb-2" id="unallocated-sp"><div class="skeleton h-10 w-40 mx-auto"></div></div>
                     <div class="text-blue-200">未分配技能点</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-blue-400 mb-2">
-                        @php
-                            $hours = floor($trainingTimeRemaining / 3600);
-                            $days = floor($hours / 24);
-                            $remainingHours = $hours % 24;
-                        @endphp
-                        {{ $days }}天{{ $remainingHours }}小时
-                    </div>
+                    <div class="text-4xl font-bold text-blue-400 mb-2" id="training-time"><div class="skeleton h-10 w-40 mx-auto"></div></div>
                     <div class="text-blue-200">训练剩余时间</div>
                 </div>
             </div>
         </div>
 
-        <!-- 技能队列 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
-            <h2 class="text-2xl font-semibold mb-6">⏳ 技能队列</h2>
-            
-            @if(empty($skillQueue))
-                <div class="text-center py-12">
-                    <div class="text-6xl mb-4">😴</div>
-                    <p class="text-xl text-blue-200">技能队列为空</p>
-                    <p class="text-sm text-blue-300 mt-2">您目前没有正在训练的技能</p>
+        <!-- 技能队列 + 所有技能 并排 -->
+        <div class="grid lg:grid-cols-2 gap-6 items-start">
+            <!-- 技能队列（左） -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
+                <h2 class="text-2xl font-semibold mb-6">⏳ 技能队列</h2>
+                <div id="queue-area">
+                    <div class="space-y-3">
+                        <div class="bg-white/5 rounded-lg p-3"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-2 w-full mb-1"></div><div class="skeleton h-3 w-1/2"></div></div>
+                        <div class="bg-white/5 rounded-lg p-3"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-2 w-full mb-1"></div><div class="skeleton h-3 w-1/2"></div></div>
+                        <div class="bg-white/5 rounded-lg p-3"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-2 w-full mb-1"></div><div class="skeleton h-3 w-1/2"></div></div>
+                    </div>
                 </div>
-            @else
-                <div class="space-y-4">
-                    @foreach($skillQueue as $index => $queueItem)
-                        <div class="bg-white/5 rounded-lg p-4 eve-glow">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <div class="flex items-center space-x-2">
-                                        <span class="bg-blue-600 text-xs px-2 py-1 rounded">
-                                            #{{ $index + 1 }}
-                                        </span>
-                                        <span class="text-lg font-semibold">
-                                            {{ $queueItem['skill_name'] ?? '未知技能' }}
-                                        </span>
-                                    </div>
-                                    <div class="text-sm text-blue-300 mt-1">
-                                        等级：{{ $queueItem['finished_level'] ?? 0 }} / 5
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    @php
-                                        $now = time();
-                                        $startDate = isset($queueItem['start_date']) ? strtotime($queueItem['start_date']) : $now;
-                                        $finishDate = isset($queueItem['finish_date']) ? strtotime($queueItem['finish_date']) : $now;
-                                        $totalTime = max(1, $finishDate - $startDate);
-                                        
-                                        // 计算已训练时间：只有正在训练的技能才有已训练时间
-                                        if ($now < $startDate) {
-                                            // 技能还没开始（在队列中等待）
-                                            $elapsed = 0;
-                                            $timeRemaining = $finishDate - $now;
-                                            $status = 'waiting';
-                                        } elseif ($now > $finishDate) {
-                                            // 技能已完成
-                                            $elapsed = $totalTime;
-                                            $timeRemaining = 0;
-                                            $status = 'completed';
-                                        } else {
-                                            // 技能正在训练中
-                                            $elapsed = $now - $startDate;
-                                            $timeRemaining = $finishDate - $now;
-                                            $status = 'training';
-                                        }
-                                        
-                                        $progress = min(100, max(0, ($elapsed / $totalTime) * 100));
-                                    @endphp
-                                    
-                                    @if($status === 'training')
-                                        <div class="text-green-400 font-semibold">
-                                            训练中
-                                        </div>
-                                        <div class="text-sm text-blue-300 mt-1">
-                                            剩余：{{ gmdate('d\天 H\时 i\分', $timeRemaining) }}
-                                        </div>
-                                        <div class="text-xs text-blue-400 mt-1">
-                                            完成：{{ date('Y-m-d H:i', $finishDate) }}
-                                        </div>
-                                    @elseif($status === 'waiting')
-                                        <div class="text-blue-400 font-semibold">
-                                            等待中
-                                        </div>
-                                        <div class="text-sm text-blue-300 mt-1">
-                                            开始：{{ date('Y-m-d H:i', $startDate) }}
-                                        </div>
-                                        <div class="text-xs text-blue-400 mt-1">
-                                            完成：{{ date('Y-m-d H:i', $finishDate) }}
-                                        </div>
-                                    @else
-                                        <div class="text-yellow-400 font-semibold">
-                                            已完成
-                                        </div>
-                                        <div class="text-sm text-blue-300 mt-1">
-                                            {{ date('Y-m-d H:i', $finishDate) }}
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                            
-                            <!-- 进度条 -->
-                            <div class="relative">
-                                <div class="w-full bg-white/10 rounded-full h-4 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-1000" 
-                                         style="width: {{ $progress }}%"></div>
-                                </div>
-                                <div class="absolute right-0 top-0 text-xs text-blue-300 mt-1">
-                                    {{ number_format($progress, 1) }}%
-                                </div>
-                            </div>
-                            
-                            <!-- 详细信息 -->
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
-                                <div>
-                                    <span class="text-blue-300">开始时间：</span>
-                                    <span class="text-white">{{ date('Y-m-d H:i', $startDate) }}</span>
-                                </div>
-                                <div>
-                                    <span class="text-blue-300">预计完成：</span>
-                                    <span class="text-white">{{ date('Y-m-d H:i', $finishDate) }}</span>
-                                </div>
-                                <div>
-                                    <span class="text-blue-300">已训练：</span>
-                                    <span class="text-green-400">{{ $elapsed > 0 ? gmdate('d\天 H\时 i\分', $elapsed) : '-' }}</span>
-                                </div>
-                                <div>
-                                    <span class="text-blue-300">剩余时间：</span>
-                                    <span class="text-yellow-400">{{ $timeRemaining > 0 ? gmdate('d\天 H\时 i\分', $timeRemaining) : '-' }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        </div>
+            </div>
 
-        <!-- 已学技能（按分组展示） -->
-        @if(isset($skillsData['skills_by_group']) && !empty($skillsData['skills_by_group']))
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
-            <h2 class="text-2xl font-semibold mb-6">📖 已学技能（按分类展示）</h2>
-            
-            <div class="space-y-3">
-                @foreach($skillsData['skills_by_group'] as $group)
-                    <details class="bg-white/5 rounded-lg overflow-hidden">
-                        <summary class="px-4 py-3 bg-white/10 cursor-pointer hover:bg-white/20 transition-colors flex justify-between items-center">
-                            <div class="flex items-center space-x-3">
-                                <span class="text-lg font-semibold">📚 {{ $group['group_name'] }}</span>
-                                <span class="text-sm text-blue-300">({{ count($group['skills']) }} 个技能)</span>
-                            </div>
-                            <span class="text-blue-400 transform transition-transform duration-200">▼</span>
-                        </summary>
-                        <div class="p-4">
-                            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                @foreach($group['skills'] as $skill)
-                                    <div class="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
-                                        <div class="mb-2">
-                                            <div class="font-semibold text-white text-sm">
-                                                {{ $skill['skill_name'] ?? '未知技能' }}
-                                            </div>
-                                            <div class="text-xs text-blue-400 mt-1">
-                                                等级 {{ $skill['active_level'] ?? 0 }} / 5
-                                            </div>
-                                        </div>
-                                        <div class="flex justify-between items-center text-xs">
-                                            <span class="text-blue-300">
-                                                {{ number_format($skill['skill_points_in_skill'] ?? $skill['trained_skill_points'] ?? 0) }} SP
-                                            </span>
-                                            @php $level = $skill['active_level'] ?? $skill['trained_level'] ?? 0; @endphp
-                                            @if($level == 5)
-                                                <span class="text-green-400">✅ 满级</span>
-                                            @endif
-                                        </div>
-                                        <!-- 技能等级进度条 -->
-                                        @php
-                                            $spForLevel = [0, 0, 250, 1414, 8000, 45255];
-                                            $currentLevel = $skill['active_level'] ?? $skill['trained_level'] ?? 0;
-                                            $currentSP = $skill['skill_points_in_skill'] ?? $skill['trained_skill_points'] ?? 0;
-                                            $nextLevelSP = $spForLevel[$currentLevel + 1] ?? 45255;
-                                            $prevLevelSP = $spForLevel[$currentLevel] ?? 0;
-                                            $denominator = $nextLevelSP - $prevLevelSP;
-                                            $progress = $currentLevel >= 5 ? 100 : ($denominator > 0 ? (($currentSP - $prevLevelSP) / $denominator) * 100 : 0);
-                                        @endphp
-                                        <div class="mt-2 w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ min(100, max(0, $progress)) }}%"></div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </details>
-                @endforeach
+            <!-- 所有技能（右） -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow lg:sticky lg:top-8">
+                <h2 class="text-2xl font-semibold mb-6">📖 所有技能</h2>
+                <div id="groups-area">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                        <div class="skeleton h-8 rounded-lg"></div><div class="skeleton h-8 rounded-lg"></div><div class="skeleton h-8 rounded-lg"></div>
+                        <div class="skeleton h-8 rounded-lg"></div><div class="skeleton h-8 rounded-lg"></div><div class="skeleton h-8 rounded-lg"></div>
+                    </div>
+                    <div class="text-center py-8 text-blue-300/50">加载中...</div>
+                </div>
             </div>
         </div>
-        @endif
     </div>
 
-    <!-- 自动刷新 -->
     <script>
-        // 每 60 秒自动刷新页面
-        setTimeout(function() {
-            location.reload();
-        }, 60000);
-        
-        // 为 details 添加展开/收起动画
-        document.querySelectorAll('details').forEach(detail => {
-            detail.addEventListener('toggle', () => {
-                const summary = detail.querySelector('summary');
-                const arrow = summary.querySelector('span:last-child');
-                if (detail.open) {
-                    arrow.style.transform = 'rotate(180deg)';
+        function formatNumber(n) {
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+        function formatDuration(seconds) {
+            if (seconds <= 0) return '-';
+            var d = Math.floor(seconds / 86400);
+            var h = Math.floor((seconds % 86400) / 3600);
+            var m = Math.floor((seconds % 3600) / 60);
+            var parts = [];
+            if (d > 0) parts.push(d + '天');
+            if (h > 0) parts.push(h + '小时');
+            if (m > 0 || parts.length === 0) parts.push(m + '分');
+            return parts.join('');
+        }
+        function escapeHtml(s) {
+            var div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+        function formatDateShort(ts) {
+            var d = new Date(ts * 1000);
+            return String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+
+        var skillGroupsData = [];
+        var queueExpanded = false;
+
+        // 1. 加载概览
+        fetch('/api/dashboard/skills/overview')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('total-sp').textContent = formatNumber(data.total_sp || 0);
+                document.getElementById('unallocated-sp').textContent = formatNumber(data.unallocated_sp || 0);
+                document.getElementById('training-time').textContent = formatDuration(data.training_time_remaining || 0);
+            })
+            .catch(function() {
+                document.getElementById('total-sp').textContent = '-';
+                document.getElementById('unallocated-sp').textContent = '-';
+                document.getElementById('training-time').textContent = '-';
+            });
+
+        // 2. 加载技能队列
+        fetch('/api/dashboard/skills/queue')
+            .then(function(r) { return r.json(); })
+            .then(function(queue) {
+                var area = document.getElementById('queue-area');
+                if (!queue || queue.length === 0) {
+                    area.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">😴</div><p class="text-xl text-blue-200">技能队列为空</p><p class="text-sm text-blue-300 mt-2">您目前没有正在训练的技能</p></div>';
+                    return;
+                }
+                var now = Math.floor(Date.now() / 1000);
+                var html = '<div class="space-y-3">';
+                queue.forEach(function(item, idx) {
+                    var startDate = item.start_date ? Math.floor(new Date(item.start_date).getTime() / 1000) : now;
+                    var finishDate = item.finish_date ? Math.floor(new Date(item.finish_date).getTime() / 1000) : now;
+                    var totalTime = Math.max(1, finishDate - startDate);
+                    var status, elapsed, timeRemaining;
+                    if (now < startDate) { elapsed = 0; timeRemaining = finishDate - now; status = 'waiting'; }
+                    else if (now > finishDate) { elapsed = totalTime; timeRemaining = 0; status = 'completed'; }
+                    else { elapsed = now - startDate; timeRemaining = finishDate - now; status = 'training'; }
+                    var progress = Math.min(100, Math.max(0, (elapsed / totalTime) * 100));
+                    var hiddenCls = idx >= 5 ? ' hidden' : '';
+
+                    var statusHtml, timeHtml;
+                    if (status === 'training') {
+                        statusHtml = '<span class="text-green-400 text-xs font-semibold">训练中</span>';
+                        timeHtml = '<span>剩余 ' + formatDuration(timeRemaining) + '</span><span>' + progress.toFixed(1) + '% · 完成于 ' + formatDateShort(finishDate) + '</span>';
+                    } else if (status === 'waiting') {
+                        statusHtml = '<span class="text-blue-400 text-xs font-semibold">等待中</span>';
+                        timeHtml = '<span>开始 ' + formatDateShort(startDate) + '</span><span>完成于 ' + formatDateShort(finishDate) + '</span>';
+                    } else {
+                        statusHtml = '<span class="text-yellow-400 text-xs font-semibold">已完成</span>';
+                        timeHtml = '<span>已完成</span><span>' + formatDateShort(finishDate) + '</span>';
+                    }
+
+                    html += '<div class="skill-queue-item' + hiddenCls + ' bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">';
+                    html += '<div class="flex justify-between items-center mb-2">';
+                    html += '<div class="flex items-center space-x-2 min-w-0">';
+                    html += '<span class="bg-blue-600 text-xs px-1.5 py-0.5 rounded shrink-0">#' + (idx+1) + '</span>';
+                    html += '<span class="font-semibold truncate">' + escapeHtml(item.skill_name || '未知技能') + '</span>';
+                    html += '<span class="text-xs text-blue-300 shrink-0">' + ((item.finished_level||1)-1) + ' → ' + (item.finished_level||0) + '</span>';
+                    html += '</div><div class="shrink-0 ml-2">' + statusHtml + '</div></div>';
+                    html += '<div class="w-full bg-white/10 rounded-full h-2 overflow-hidden mb-1.5"><div class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full" style="width:' + progress.toFixed(1) + '%"></div></div>';
+                    html += '<div class="flex justify-between items-center text-xs text-blue-300">' + timeHtml + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                if (queue.length > 5) {
+                    html += '<div class="text-center mt-4"><button onclick="toggleQueue()" id="queue-toggle-btn" class="text-sm text-blue-300 hover:text-white transition-colors px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg">展开全部 (共' + queue.length + '个) ▼</button></div>';
+                }
+                area.innerHTML = html;
+            })
+            .catch(function() {
+                document.getElementById('queue-area').innerHTML = '<div class="text-center py-8 text-red-400">加载失败</div>';
+            });
+
+        // 3. 加载所有技能分组
+        fetch('/api/dashboard/skills/groups')
+            .then(function(r) { return r.json(); })
+            .then(function(groups) {
+                skillGroupsData = groups;
+                var area = document.getElementById('groups-area');
+                if (!groups || groups.length === 0) {
+                    area.innerHTML = '<div class="text-center py-8 text-blue-300">暂无技能数据</div>';
+                    return;
+                }
+                var totalLearned = 0, totalAll = 0;
+                groups.forEach(function(g) { totalLearned += (g.learned_count || 0); totalAll += (g.total_count || 0); });
+                var html = '<div class="flex items-center justify-between mb-4"><span class="text-sm text-blue-300">已学习 ' + totalLearned + ' / ' + totalAll + ' 个技能</span></div>';
+                html += '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">';
+                groups.forEach(function(g, idx) {
+                    var allLearned = g.learned_count === g.total_count;
+                    var tabBg = allLearned ? 'bg-green-900/30 hover:bg-green-900/40 border border-green-500/20' : 'bg-white/5 hover:bg-white/10';
+                    html += '<div onclick="showSkillGroup(' + idx + ')" id="group-tab-' + idx + '" class="skill-group-tab ' + tabBg + ' rounded-lg px-3 py-2 flex justify-between items-center transition-colors cursor-pointer">';
+                    html += '<span class="text-sm text-blue-200 truncate">' + escapeHtml(g.group_name) + '</span>';
+                    html += '<span class="text-xs ml-2 shrink-0 ' + (allLearned ? 'text-green-400 font-bold' : 'text-blue-300') + '">' + (g.learned_count || 0) + '/' + (g.total_count || 0) + '</span></div>';
+                });
+                html += '</div>';
+                html += '<div id="skill-detail-area"><div id="skill-detail-placeholder" class="text-center py-8 text-blue-300">点击上方分类查看该分类下的技能</div></div>';
+                area.innerHTML = html;
+            })
+            .catch(function() {
+                document.getElementById('groups-area').innerHTML = '<div class="text-center py-8 text-red-400">加载失败</div>';
+            });
+
+        function toggleQueue() {
+            queueExpanded = !queueExpanded;
+            var items = document.querySelectorAll('.skill-queue-item');
+            var btn = document.getElementById('queue-toggle-btn');
+            items.forEach(function(el, i) {
+                if (i >= 5) el.classList.toggle('hidden', !queueExpanded);
+            });
+            btn.textContent = queueExpanded ? '收起 ▲' : '展开全部 (共' + items.length + '个) ▼';
+        }
+
+        function showSkillGroup(idx) {
+            var placeholder = document.getElementById('skill-detail-placeholder');
+            if (placeholder) placeholder.style.display = 'none';
+            var old = document.getElementById('active-group-detail');
+            if (old) old.remove();
+            document.querySelectorAll('.skill-group-tab').forEach(function(el) {
+                el.classList.remove('bg-blue-600/30', 'ring-1', 'ring-blue-400');
+            });
+            var group = skillGroupsData[idx];
+            if (!group) return;
+            var tab = document.getElementById('group-tab-' + idx);
+            if (tab) tab.classList.add('bg-blue-600/30', 'ring-1', 'ring-blue-400');
+
+            var html = '<div id="active-group-detail">';
+            html += '<div class="flex items-center space-x-3 mb-4"><span class="text-lg font-semibold">' + escapeHtml(group.group_name) + '</span>';
+            html += '<span class="text-sm text-blue-300">(已学 ' + (group.learned_count || 0) + ' / 共 ' + (group.total_count || 0) + ' 个技能)</span></div>';
+            html += '<div class="grid grid-cols-1 xl:grid-cols-2 gap-3">';
+            group.skills.forEach(function(skill) {
+                var learned = skill.learned;
+                var level = skill.active_skill_level || skill.trained_skill_level || 0;
+                if (learned) {
+                    var lvl = level == 5 ? '<span class="text-green-400 text-xs font-bold">Lv.5</span>' : '<span class="text-blue-300 text-xs">Lv.' + level + '</span>';
+                    html += '<div class="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">';
+                    html += '<div class="flex justify-between items-center mb-2"><div class="font-semibold text-white text-sm">' + escapeHtml(skill.skill_name || '未知技能') + '</div>' + lvl + '</div>';
+                    html += '<div class="flex items-center space-x-1">';
+                    for (var i = 1; i <= 5; i++) html += '<div class="h-1.5 flex-1 rounded ' + (i <= level ? 'bg-blue-500' : 'bg-white/10') + '"></div>';
+                    html += '</div></div>';
                 } else {
-                    arrow.style.transform = 'rotate(0deg)';
+                    html += '<div class="bg-white/[0.02] rounded-lg p-3 opacity-40">';
+                    html += '<div class="flex justify-between items-center mb-2"><div class="text-sm text-white/60">' + escapeHtml(skill.skill_name || '未知技能') + '</div>';
+                    html += '<span class="text-xs text-white/30">未学习</span></div>';
+                    html += '<div class="flex items-center space-x-1">';
+                    for (var i = 1; i <= 5; i++) html += '<div class="h-1.5 flex-1 rounded bg-white/5"></div>';
+                    html += '</div></div>';
                 }
             });
-        });
+            html += '</div></div>';
+            document.getElementById('skill-detail-area').insertAdjacentHTML('beforeend', html);
+        }
+
+        setTimeout(function() { location.reload(); }, 60000);
     </script>
 </body>
 </html>
