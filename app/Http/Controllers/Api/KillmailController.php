@@ -47,7 +47,7 @@ class KillmailController extends Controller
                 'success' => true,
                 'data' => $results,
                 'count' => count($results),
-                'source' => 'kb-ceve-market',
+                'source' => 'kb-autocomplete+esi',
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -94,8 +94,9 @@ class KillmailController extends Controller
     
     /**
      * 获取 KM 详情
+     * 支持前端传入 hash 参数（前端从KB页面提取），直接走ESI
      */
-    public function killDetail($killId)
+    public function killDetail($killId, Request $request)
     {
         if (!is_numeric($killId) || $killId <= 0) {
             return response()->json([
@@ -105,8 +106,16 @@ class KillmailController extends Controller
             ], 400);
         }
         
+        $hash = $request->input('hash');
+        
         try {
-            $detail = $this->killmailService->getKillDetails((int) $killId);
+            if (!empty($hash) && preg_match('/^[a-f0-9]{20,}$/i', $hash)) {
+                // 前端已提供 hash，直接走 ESI
+                $detail = $this->killmailService->getKillDetailsByHash((int) $killId, $hash);
+            } else {
+                // 无 hash，尝试后端获取（可能被KB反爬阻止）
+                $detail = $this->killmailService->getKillDetails((int) $killId);
+            }
             
             return response()->json([
                 'success' => true,

@@ -41,6 +41,7 @@
                     <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all bg-white/10" title="技能队列"><div class="text-2xl">📚</div></a>
                     <a href="{{ route('assets.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="我的资产"><div class="text-2xl">📦</div></a>
                     <a href="{{ route('characters.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="角色管理"><div class="text-2xl">👥</div></a>
+                    <a href="{{ route('killmails.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="KM 查询"><div class="text-2xl">⚔️</div></a>
                     <form action="{{ route('auth.logout') }}" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm ml-2">登出</button>

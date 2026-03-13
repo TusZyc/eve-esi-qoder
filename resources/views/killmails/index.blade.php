@@ -79,11 +79,11 @@
                         </button>
                     </div>
                 </div>
-                <!-- KM ID 直接查询 -->
+                <!-- KM ID / ESI链接 查询 -->
                 <div>
                     <h3 class="text-lg font-semibold mb-3 text-blue-200">直接查询 KM</h3>
                     <div class="flex gap-3">
-                        <input type="text" id="kmIdInput" placeholder="输入 KM ID..."
+                        <input type="text" id="kmIdInput" placeholder="KM ID 或 ESI 链接..."
                             class="flex-1 px-4 py-2 bg-black/40 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition"
                             onkeydown="if(event.key==='Enter')directKmLookup()">
                         <button onclick="directKmLookup()" id="kmLookupBtn"
@@ -91,6 +91,7 @@
                             查询
                         </button>
                     </div>
+                    <div class="text-xs text-white/30 mt-2">支持输入 KM ID、KB链接 或 ESI完整链接</div>
                 </div>
             </div>
         </div>
@@ -119,6 +120,8 @@
     </div>
 
     <script>
+    var KB_URL = 'https://kb.ceve-market.org';
+    var BETA_KB_URL = 'https://beta.ceve-market.org';
     var currentPilotId = null;
     var currentPilotName = '';
 
@@ -155,7 +158,51 @@
             '<div class="text-red-400">' + escapeHtml(text) + '</div></div>';
     }
 
-    // 搜索角色
+    // ================================================
+    // 前端代理: 从 Beta KB 提取 ESI hash
+    // ================================================
+
+    /**
+     * 从 KB 提取 ESI hash（优先 Beta KB API，降级旧 KB）
+     */
+    function fetchEsiHashFromKb(killId) {
+        // 优先: Beta KB API (protobuf 响应中包含 40 位 hex hash)
+        return fetch(BETA_KB_URL + '/app/kill/' + killId + '/info', {
+            mode: 'cors',
+            credentials: 'omit'
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Beta KB HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function(text) {
+            var match = text.match(/[a-f0-9]{40}/);
+            if (match) return match[0];
+            throw new Error('Beta KB 响应中未找到 hash');
+        })
+        .catch(function(e) {
+            console.log('Beta KB hash 提取失败: ' + e.message + ', 尝试旧 KB...');
+            // 降级: 旧 KB HTML 页面
+            return fetch(KB_URL + '/kill/' + killId + '/', {
+                mode: 'cors',
+                credentials: 'omit',
+                headers: { 'Accept': 'text/html' }
+            })
+            .then(function(r) {
+                if (!r.ok) throw new Error('旧 KB HTTP ' + r.status);
+                return r.text();
+            })
+            .then(function(html) {
+                var match = html.match(/ali-esi\.evepc\.163\.com\/latest\/killmails\/\d+\/([a-f0-9]+)/i);
+                if (match) return match[1];
+                return null;
+            });
+        });
+    }
+
+    // ================================================
+    // 搜索角色（后端处理：KB自动补全 + ESI universe/ids）
+    // ================================================
     function searchCharacter() {
         var query = document.getElementById('searchInput').value.trim();
         if (!query || query.length < 2) {
@@ -186,9 +233,7 @@
                     div.innerHTML = html;
                 } else {
                     div.innerHTML = '<div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center">' +
-                        '<div class="text-white/50">未找到匹配的角色</div>' +
-                        (data.message ? '<div class="text-xs text-white/30 mt-2">' + escapeHtml(data.message) + '</div>' : '') +
-                        '</div>';
+                        '<div class="text-white/50">未找到匹配的角色</div></div>';
                 }
             })
             .catch(function(e) {
@@ -197,7 +242,10 @@
             });
     }
 
+    // ================================================
     // 加载角色 KM 列表
+    // 后端通过 Beta KB API 直接获取（含 ESI hash + ISK 价值）
+    // ================================================
     function loadPilotKills(pilotId, pilotName) {
         currentPilotId = pilotId;
         currentPilotName = pilotName;
@@ -208,159 +256,341 @@
         var div = document.getElementById('killList');
         div.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+        // 后端调用 Beta KB API，数据已包含 hash 和 ISK
         fetch('/api/killmails/pilot/' + pilotId + '/kills?mode=all')
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success && data.data && data.data.length > 0) {
-                    var html = '<div class="bg-white/10 backdrop-blur-lg rounded-xl p-6">';
-                    html += '<div class="flex justify-between items-center mb-4">';
-                    html += '<h3 class="text-lg font-semibold">' + escapeHtml(pilotName) + ' 的 KM 记录</h3>';
-                    html += '<span class="text-sm text-white/50">共 ' + data.count + ' 条</span>';
-                    html += '</div>';
-                    html += '<div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">';
-                    data.data.forEach(function(kill) {
-                        var victimHtml = kill.victim_name ? '<span class="text-red-400">' + escapeHtml(kill.victim_name) + '</span>' : '';
-                        var shipHtml = kill.ship_name ? '<span class="text-purple-400">' + escapeHtml(kill.ship_name) + '</span>' : '';
-                        var timeHtml = kill.kill_time ? '<span class="text-white/40">' + escapeHtml(kill.kill_time) + '</span>' : '';
-                        var systemHtml = kill.system_name ? '<span class="text-green-400">' + escapeHtml(kill.system_name) + '</span>' : '';
-
-                        html += '<div class="bg-black/30 rounded-lg p-3 cursor-pointer hover:bg-white/10 transition border border-white/10" ' +
-                                'onclick="loadKillDetail(' + kill.kill_id + ')">';
-                        html += '<div class="flex justify-between items-center">';
-                        html += '<div class="flex items-center gap-3 min-w-0">';
-                        html += '<span class="text-white font-mono text-sm shrink-0">#' + kill.kill_id + '</span>';
-                        if (victimHtml) html += victimHtml;
-                        if (shipHtml) html += shipHtml;
-                        html += '</div>';
-                        html += '<div class="flex items-center gap-3 shrink-0 ml-3">';
-                        if (systemHtml) html += systemHtml;
-                        if (timeHtml) html += timeHtml;
-                        html += '</div>';
-                        html += '</div></div>';
-                    });
-                    html += '</div></div>';
-                    div.innerHTML = html;
+                    renderKillList(data.data, pilotName);
                 } else {
-                    div.innerHTML = '<div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 text-center">' +
-                        '<div class="text-white/50">暂无 KM 记录</div>' +
-                        (data.message ? '<div class="text-xs text-white/30 mt-2">' + escapeHtml(data.message) + '</div>' : '') +
-                        '</div>';
+                    showKbFallbackLink(pilotId, pilotName);
                 }
             })
             .catch(function(e) {
-                console.error(e);
-                setError('killList', '加载 KM 列表失败: ' + e.message);
+                console.error('后端加载失败:', e);
+                showKbFallbackLink(pilotId, pilotName);
             });
     }
 
-    // 直接 KM ID 查询
-    function directKmLookup() {
-        var kmId = document.getElementById('kmIdInput').value.trim();
-        if (!kmId || !/^\d+$/.test(kmId)) {
-            alert('请输入有效的 KM ID (纯数字)');
-            return;
-        }
-        loadKillDetail(parseInt(kmId));
+    function showKbFallbackLink(pilotId, pilotName) {
+        var div = document.getElementById('killList');
+        var kbUrl = BETA_KB_URL + '/pilot/' + pilotId + '/';
+        var html = '<div class="bg-white/10 backdrop-blur-lg rounded-xl p-6">';
+        html += '<div class="text-center">';
+        html += '<div class="text-white/60 mb-4">无法自动获取 KM 列表，请在 KB 网查看后复制 KM ID 回来查询</div>';
+        html += '<a href="' + kbUrl + '" target="_blank" class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition">';
+        html += '打开 ' + escapeHtml(pilotName) + ' 的 KB 页面 &rarr;</a>';
+        html += '<div class="text-xs text-white/30 mt-3">在 KB 页面找到 KM，复制 KM ID 到上方「直接查询 KM」输入框即可</div>';
+        html += '</div></div>';
+        div.innerHTML = html;
     }
 
+    function renderKillList(kills, pilotName) {
+        var div = document.getElementById('killList');
+        var html = '<div class="bg-white/10 backdrop-blur-lg rounded-xl p-6">';
+        html += '<div class="flex justify-between items-center mb-4">';
+        html += '<h3 class="text-lg font-semibold">' + escapeHtml(pilotName) + ' 的 KM 记录</h3>';
+        html += '<span class="text-sm text-white/50">共 ' + kills.length + ' 条</span>';
+        html += '</div>';
+        html += '<div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">';
+        kills.forEach(function(kill) {
+            var hashAttr = kill.esi_hash ? 'data-hash="' + kill.esi_hash + '"' : '';
+            html += '<div class="bg-black/30 rounded-lg p-3 cursor-pointer hover:bg-white/10 transition border border-white/10" ' +
+                    hashAttr + ' onclick="onKillClick(this,' + kill.kill_id + ')">';
+            html += '<div class="flex justify-between items-center flex-wrap gap-2">';
+            html += '<div class="flex items-center gap-3 min-w-0">';
+            html += '<span class="text-white font-mono text-sm shrink-0">#' + kill.kill_id + '</span>';
+            if (kill.victim_name) html += '<span class="text-red-400 truncate">' + escapeHtml(kill.victim_name) + '</span>';
+            if (kill.ship_name) html += '<span class="text-purple-400 text-sm truncate">' + escapeHtml(kill.ship_name) + '</span>';
+            html += '</div>';
+            html += '<div class="flex items-center gap-3 shrink-0">';
+            if (kill.total_value) html += '<span class="text-yellow-400 text-sm font-semibold">' + formatIsk(kill.total_value) + '</span>';
+            if (kill.system_name) html += '<span class="text-green-400 text-sm">' + escapeHtml(kill.system_name) + '</span>';
+            if (kill.kill_time) html += '<span class="text-white/40 text-sm">' + escapeHtml(kill.kill_time) + '</span>';
+            html += '</div>';
+            html += '</div></div>';
+        });
+        html += '</div></div>';
+        div.innerHTML = html;
+    }
+
+    /**
+     * KM 列表点击：如果已有 ESI hash 则直接加载，否则走常规流程
+     */
+    function onKillClick(el, killId) {
+        var hash = el.getAttribute('data-hash');
+        if (hash) {
+            loadKillDetailWithHash(killId, hash);
+        } else {
+            loadKillDetail(killId);
+        }
+    }
+
+    // ================================================
+    // KM ID / ESI链接 解析
+    // ================================================
+    function directKmLookup() {
+        var input = document.getElementById('kmIdInput').value.trim();
+        if (!input) {
+            alert('请输入 KM ID 或 ESI 链接');
+            return;
+        }
+
+        // 解析 ESI 完整链接: https://ali-esi.evepc.163.com/latest/killmails/22395435/e4b9f27.../ 
+        var esiMatch = input.match(/killmails\/(\d+)\/([a-f0-9]+)/i);
+        if (esiMatch) {
+            loadKillDetailWithHash(parseInt(esiMatch[1]), esiMatch[2]);
+            return;
+        }
+
+        // 解析 KB 链接: https://kb.ceve-market.org/kill/22395435/
+        var kbMatch = input.match(/kill\/(\d+)/);
+        if (kbMatch) {
+            loadKillDetail(parseInt(kbMatch[1]));
+            return;
+        }
+
+        // 纯数字
+        if (/^\d+$/.test(input)) {
+            loadKillDetail(parseInt(input));
+            return;
+        }
+
+        alert('无法识别的输入格式。请输入 KM ID、KB链接 或 ESI链接');
+    }
+
+    // ================================================
     // 加载 KM 详情
+    // 策略: 前端尝试从 KB 提取 hash → 后端 ESI 处理
+    // ================================================
     function loadKillDetail(killId) {
         var modal = document.getElementById('killModal');
         var content = document.getElementById('modalContent');
         var title = document.getElementById('modalTitle');
 
         title.textContent = 'KM #' + killId + ' 详情';
-        content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">加载详情...</div></div>';
+        content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">正在从 KB 获取数据...</div></div>';
         modal.classList.remove('hidden');
 
-        fetch('/api/killmails/kill/' + killId)
+        // 策略 1: 前端直接从 KB 提取 ESI hash
+        fetchEsiHashFromKb(killId)
+            .then(function(hash) {
+                if (hash) {
+                    content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">已获取 ESI 认证，正在加载详情...</div></div>';
+                    return fetchKillDetailFromBackend(killId, hash);
+                }
+                // 没找到 hash，直接走后端（后端也会尝试）
+                console.log('前端未找到 hash，走后端');
+                return fetchKillDetailFromBackend(killId, null);
+            })
+            .catch(function(e) {
+                console.log('前端 KB 请求失败 (CORS?): ', e.message);
+                // CORS 失败，走后端
+                content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">加载中...</div></div>';
+                fetchKillDetailFromBackend(killId, null);
+            });
+    }
+
+    function loadKillDetailWithHash(killId, hash) {
+        var modal = document.getElementById('killModal');
+        var content = document.getElementById('modalContent');
+        var title = document.getElementById('modalTitle');
+
+        title.textContent = 'KM #' + killId + ' 详情';
+        content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">加载 ESI 数据...</div></div>';
+        modal.classList.remove('hidden');
+
+        fetchKillDetailFromBackend(killId, hash);
+    }
+
+    function fetchKillDetailFromBackend(killId, hash) {
+        var url = '/api/killmails/kill/' + killId;
+        if (hash) url += '?hash=' + encodeURIComponent(hash);
+
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                var content = document.getElementById('modalContent');
                 if (data.success && data.data) {
                     renderKillDetail(data.data, killId);
                 } else {
-                    content.innerHTML = '<div class="text-center py-8 text-red-400">' +
-                        escapeHtml(data.message || '加载失败') + '</div>';
+                    // 后端也失败，显示手动输入选项
+                    showManualHashInput(killId, data.message || '加载失败');
                 }
             })
             .catch(function(e) {
                 console.error(e);
-                content.innerHTML = '<div class="text-center py-8 text-red-400">加载失败: ' + escapeHtml(e.message) + '</div>';
+                showManualHashInput(killId, '请求失败: ' + e.message);
             });
     }
 
+    /**
+     * 显示手动输入 ESI 链接的界面
+     */
+    function showManualHashInput(killId, errorMsg) {
+        var content = document.getElementById('modalContent');
+        var kbUrl = BETA_KB_URL + '/kill/' + killId + '/';
+        var html = '<div class="space-y-4">';
+        html += '<div class="text-center text-yellow-400 text-sm">' + escapeHtml(errorMsg) + '</div>';
+        html += '<div class="bg-yellow-900/20 border border-yellow-500/20 rounded-lg p-4">';
+        html += '<div class="text-sm text-yellow-300 mb-3 font-semibold">手动获取 ESI 数据</div>';
+        html += '<ol class="text-sm text-white/70 space-y-2 list-decimal list-inside mb-4">';
+        html += '<li>点击下方按钮在 KB 网打开此 KM</li>';
+        html += '<li>在 KB 页面找到「官方API已认证」链接</li>';
+        html += '<li>右键复制该链接地址，粘贴到下方输入框</li>';
+        html += '</ol>';
+        html += '<a href="' + kbUrl + '" target="_blank" class="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-semibold transition mb-3">打开 KB 页面 &rarr;</a>';
+        html += '<div class="flex gap-2 mt-2">';
+        html += '<input type="text" id="manualEsiInput" placeholder="粘贴 ESI 链接..." class="flex-1 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-sm placeholder-white/40 focus:outline-none focus:border-blue-500">';
+        html += '<button onclick="submitManualHash(' + killId + ')" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-semibold">提交</button>';
+        html += '</div>';
+        html += '</div></div>';
+        content.innerHTML = html;
+    }
+
+    function submitManualHash(killId) {
+        var input = document.getElementById('manualEsiInput').value.trim();
+        var match = input.match(/killmails\/(\d+)\/([a-f0-9]+)/i);
+        if (match) {
+            var content = document.getElementById('modalContent');
+            content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><div class="text-blue-300">加载 ESI 数据...</div></div>';
+            fetchKillDetailFromBackend(parseInt(match[1]), match[2]);
+        } else {
+            alert('无法识别 ESI 链接格式。请复制完整的「官方API已认证」链接');
+        }
+    }
+
+    // ================================================
+    // 渲染 KM 详情
+    // ================================================
     function renderKillDetail(km, killId) {
         var content = document.getElementById('modalContent');
         var html = '<div class="space-y-4">';
 
-        // 基本信息
+        var victim = km.victim || {};
+        var isEsi = km.esi_verified === true;
+
+        // ESI 验证标记
+        if (isEsi) {
+            html += '<div class="flex items-center gap-2 text-xs text-green-400 bg-green-900/20 rounded-lg px-3 py-1.5 border border-green-500/20 w-fit">';
+            html += '<span class="w-2 h-2 bg-green-400 rounded-full"></span> ESI 官方数据';
+            html += '</div>';
+        } else {
+            html += '<div class="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-900/20 rounded-lg px-3 py-1.5 border border-yellow-500/20 w-fit">';
+            html += '<span class="w-2 h-2 bg-yellow-400 rounded-full"></span> KB 网页解析 (降级模式)';
+            html += '</div>';
+        }
+
+        // 基本信息 - 两列
         html += '<div class="grid md:grid-cols-2 gap-4">';
 
-        // 受害者
+        // 受害者信息
         html += '<div class="bg-red-900/20 rounded-lg p-4 border border-red-500/20">';
         html += '<div class="text-sm text-red-300 mb-2 font-semibold">受害者</div>';
-        if (km.victim_name) html += '<div class="text-lg text-white font-bold">' + escapeHtml(km.victim_name) + '</div>';
-        if (km.victim_corp) html += '<div class="text-sm text-white/60">' + escapeHtml(km.victim_corp) + '</div>';
-        if (km.victim_alliance) html += '<div class="text-sm text-white/40">' + escapeHtml(km.victim_alliance) + '</div>';
-        if (km.ship_name) html += '<div class="text-sm text-purple-400 mt-2">' + escapeHtml(km.ship_name) + '</div>';
-        if (km.damage_taken) html += '<div class="text-sm text-red-400 mt-1">承受伤害: ' + formatNumber(km.damage_taken) + '</div>';
+        if (victim.character_name) html += '<div class="text-lg text-white font-bold">' + escapeHtml(victim.character_name) + '</div>';
+        if (victim.corporation_name) html += '<div class="text-sm text-white/60">' + escapeHtml(victim.corporation_name) + '</div>';
+        if (victim.alliance_name) html += '<div class="text-sm text-white/40">' + escapeHtml(victim.alliance_name) + '</div>';
+        if (victim.ship_name) html += '<div class="text-sm text-purple-400 mt-2">舰船: ' + escapeHtml(victim.ship_name) + '</div>';
+        if (victim.damage_taken) html += '<div class="text-sm text-red-400 mt-1">承受伤害: ' + formatNumber(victim.damage_taken) + '</div>';
         html += '</div>';
 
-        // 信息
+        // 击坠信息
         html += '<div class="bg-blue-900/20 rounded-lg p-4 border border-blue-500/20">';
         html += '<div class="text-sm text-blue-300 mb-2 font-semibold">击坠信息</div>';
-        if (km.system_name) html += '<div class="text-sm"><span class="text-white/50">星系: </span><span class="text-green-400">' + escapeHtml(km.system_name) + '</span></div>';
-        if (km.region_name) html += '<div class="text-sm"><span class="text-white/50">星域: </span><span class="text-white/80">' + escapeHtml(km.region_name) + '</span></div>';
-        if (km.kill_time) html += '<div class="text-sm mt-2"><span class="text-white/50">时间: </span><span class="text-white/80">' + escapeHtml(km.kill_time) + '</span></div>';
-        if (km.total_value) html += '<div class="text-sm mt-2"><span class="text-white/50">总价值: </span><span class="text-yellow-400 font-bold">' + formatIsk(km.total_value) + '</span></div>';
-        if (km.attacker_count) html += '<div class="text-sm"><span class="text-white/50">参与人数: </span><span class="text-white/80">' + km.attacker_count + '</span></div>';
-        html += '<div class="mt-3"><a href="https://kb.ceve-market.org/kill/' + killId + '/" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 underline">在 KB 网查看 &rarr;</a></div>';
+        if (km.solar_system_name) html += '<div class="text-sm"><span class="text-white/50">星系: </span><span class="text-green-400">' + escapeHtml(km.solar_system_name) + '</span></div>';
+        if (km.kill_time) {
+            var timeStr = km.kill_time;
+            if (timeStr.indexOf('T') > -1) timeStr = timeStr.replace('T', ' ').replace('Z', '') + ' UTC';
+            html += '<div class="text-sm mt-1"><span class="text-white/50">时间: </span><span class="text-white/80">' + escapeHtml(timeStr) + '</span></div>';
+        }
+        if (km.attacker_count) html += '<div class="text-sm mt-1"><span class="text-white/50">参与人数: </span><span class="text-white/80">' + km.attacker_count + '</span></div>';
+        html += '<div class="mt-3"><a href="' + BETA_KB_URL + '/kill/' + killId + '/" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 underline">在 KB 网查看 &rarr;</a></div>';
         html += '</div>';
 
-        html += '</div>';
+        html += '</div>'; // end grid
 
         // 攻击者列表
-        if (km.attackers && km.attackers.length > 0) {
+        var attackers = km.attackers || [];
+        if (attackers.length > 0) {
             html += '<div class="bg-white/5 rounded-lg p-4 border border-white/10">';
-            html += '<div class="text-sm text-white/60 mb-3 font-semibold">攻击者 (' + km.attackers.length + ')</div>';
-            html += '<div class="max-h-64 overflow-y-auto space-y-1">';
-            km.attackers.forEach(function(atk, idx) {
-                var isFinal = atk.final_blow ? ' <span class="text-yellow-400 text-xs">[最后一击]</span>' : '';
-                html += '<div class="flex justify-between items-center text-sm py-1 border-b border-white/5">';
-                html += '<div class="flex items-center gap-2 min-w-0">';
-                html += '<span class="text-white/30 w-6 text-right shrink-0">' + (idx + 1) + '.</span>';
-                html += '<span class="text-white truncate">' + escapeHtml(atk.name || '未知') + isFinal + '</span>';
-                if (atk.ship) html += '<span class="text-purple-400/60 text-xs shrink-0">' + escapeHtml(atk.ship) + '</span>';
-                html += '</div>';
-                if (atk.damage > 0) html += '<span class="text-red-400 text-xs shrink-0 ml-2">' + formatNumber(atk.damage) + '</span>';
-                html += '</div>';
+            html += '<div class="text-sm text-white/60 mb-3 font-semibold">攻击者 (' + attackers.length + ')</div>';
+            html += '<div class="max-h-72 overflow-y-auto">';
+            html += '<table class="w-full text-sm">';
+            html += '<thead class="text-white/40 text-xs border-b border-white/10"><tr>';
+            html += '<th class="text-left py-1 pr-2">#</th>';
+            html += '<th class="text-left py-1 pr-2">角色</th>';
+            html += '<th class="text-left py-1 pr-2">军团</th>';
+            html += '<th class="text-left py-1 pr-2">舰船</th>';
+            html += '<th class="text-left py-1 pr-2">武器</th>';
+            html += '<th class="text-right py-1">伤害</th>';
+            html += '</tr></thead><tbody>';
+
+            attackers.forEach(function(atk, idx) {
+                var rowClass = atk.final_blow ? 'bg-yellow-900/20' : '';
+                html += '<tr class="border-b border-white/5 ' + rowClass + '">';
+                html += '<td class="text-white/30 py-1.5 pr-2">' + (idx + 1) + '</td>';
+                html += '<td class="py-1.5 pr-2">';
+                html += '<span class="text-white">' + escapeHtml(atk.character_name || '未知') + '</span>';
+                if (atk.final_blow) html += ' <span class="text-yellow-400 text-xs">[最后一击]</span>';
+                html += '</td>';
+                html += '<td class="text-white/50 py-1.5 pr-2 text-xs">' + escapeHtml(atk.corporation_name || '') + '</td>';
+                html += '<td class="text-purple-400/80 py-1.5 pr-2 text-xs">' + escapeHtml(atk.ship_name || '') + '</td>';
+                html += '<td class="text-cyan-400/60 py-1.5 pr-2 text-xs">' + escapeHtml(atk.weapon_name || '') + '</td>';
+                html += '<td class="text-red-400 py-1.5 text-right text-xs">' + formatNumber(atk.damage_done) + '</td>';
+                html += '</tr>';
             });
+
+            html += '</tbody></table>';
             html += '</div></div>';
         }
 
-        // 物品
-        if (km.items_dropped && km.items_dropped.length > 0) {
-            html += '<div class="bg-green-900/10 rounded-lg p-4 border border-green-500/10">';
-            html += '<div class="text-sm text-green-300 mb-3 font-semibold">掉落物品 (' + km.items_dropped.length + ')</div>';
-            html += '<div class="max-h-48 overflow-y-auto space-y-1">';
-            km.items_dropped.forEach(function(item) {
-                html += '<div class="flex justify-between text-sm py-1 border-b border-white/5">';
-                html += '<span class="text-white/80">' + escapeHtml(item.name) + (item.qty > 1 ? ' x' + item.qty : '') + '</span>';
-                html += '</div>';
-            });
-            html += '</div></div>';
-        }
+        // 物品 - 分为掉落和损毁
+        var victimItems = victim.items || [];
+        if (victimItems.length > 0) {
+            var dropped = victimItems.filter(function(i) { return i.status === 'dropped'; });
+            var destroyed = victimItems.filter(function(i) { return i.status === 'destroyed'; });
 
-        if (km.items_destroyed && km.items_destroyed.length > 0) {
-            html += '<div class="bg-red-900/10 rounded-lg p-4 border border-red-500/10">';
-            html += '<div class="text-sm text-red-300 mb-3 font-semibold">损毁物品 (' + km.items_destroyed.length + ')</div>';
-            html += '<div class="max-h-48 overflow-y-auto space-y-1">';
-            km.items_destroyed.forEach(function(item) {
-                html += '<div class="flex justify-between text-sm py-1 border-b border-white/5">';
-                html += '<span class="text-white/80">' + escapeHtml(item.name) + (item.qty > 1 ? ' x' + item.qty : '') + '</span>';
-                html += '</div>';
-            });
-            html += '</div></div>';
+            if (dropped.length > 0) {
+                html += '<div class="bg-green-900/10 rounded-lg p-4 border border-green-500/10">';
+                html += '<div class="text-sm text-green-300 mb-3 font-semibold">掉落物品 (' + dropped.length + ')</div>';
+                html += '<div class="max-h-48 overflow-y-auto">';
+                html += '<table class="w-full text-sm">';
+                html += '<thead class="text-white/40 text-xs border-b border-white/10"><tr>';
+                html += '<th class="text-left py-1">物品</th>';
+                html += '<th class="text-right py-1 pr-3">数量</th>';
+                html += '<th class="text-left py-1">槽位</th>';
+                html += '</tr></thead><tbody>';
+                dropped.forEach(function(item) {
+                    html += '<tr class="border-b border-white/5">';
+                    html += '<td class="text-green-300/80 py-1">' + escapeHtml(item.item_name) + '</td>';
+                    html += '<td class="text-white/60 py-1 text-right pr-3">' + (item.quantity > 1 ? 'x' + item.quantity : '1') + '</td>';
+                    html += '<td class="text-white/30 py-1 text-xs">' + escapeHtml(item.flag_name || '') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                html += '</div></div>';
+            }
+
+            if (destroyed.length > 0) {
+                html += '<div class="bg-red-900/10 rounded-lg p-4 border border-red-500/10">';
+                html += '<div class="text-sm text-red-300 mb-3 font-semibold">损毁物品 (' + destroyed.length + ')</div>';
+                html += '<div class="max-h-48 overflow-y-auto">';
+                html += '<table class="w-full text-sm">';
+                html += '<thead class="text-white/40 text-xs border-b border-white/10"><tr>';
+                html += '<th class="text-left py-1">物品</th>';
+                html += '<th class="text-right py-1 pr-3">数量</th>';
+                html += '<th class="text-left py-1">槽位</th>';
+                html += '</tr></thead><tbody>';
+                destroyed.forEach(function(item) {
+                    html += '<tr class="border-b border-white/5">';
+                    html += '<td class="text-red-300/80 py-1">' + escapeHtml(item.item_name) + '</td>';
+                    html += '<td class="text-white/60 py-1 text-right pr-3">' + (item.quantity > 1 ? 'x' + item.quantity : '1') + '</td>';
+                    html += '<td class="text-white/30 py-1 text-xs">' + escapeHtml(item.flag_name || '') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                html += '</div></div>';
+            }
         }
 
         html += '</div>';
@@ -371,7 +601,6 @@
         document.getElementById('killModal').classList.add('hidden');
     }
 
-    // ESC 关闭模态框
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeModal();
     });
