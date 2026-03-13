@@ -1,212 +1,154 @@
-# EVE ESI 管理平台
+# Tus Esi System (Beta)
 
-> 🚀 基于 Laravel 的 EVE Online 国服 ESI 管理工具  
-> 📊 技能监控 · 资产管理 · 军团管理 · 数据统计
+基于 Laravel 的 EVE Online 国服 ESI 数据工具平台
 
----
+## 功能概览
 
-## 🎯 项目简介
+### 首页
+- eve.webm 视频背景沉浸式首页
+- 实时服务器状态面板：晨曦(Serenity) / 曙光(Infinity) / 欧服(Tranquility)
+- 显示在线人数、启动时间、版本号，60 秒自动刷新
 
-**EVE ESI** 是一个专为 EVE Online 国服（晨曦服）玩家设计的管理平台，参考了欧服成熟的 SeAT 项目架构，针对国服 API 进行了适配和优化。
+### OAuth2 认证
+- 国服 OAuth2 授权流程（网易通行证）
+- 3V 完整 73 个 ESI 权限
+- Refresh Token 自动刷新（AutoRefreshEveToken 中间件）
 
-### 核心功能
+### 仪表盘
+- 异步数据加载 + 骨架屏
+- 服务器状态、角色信息、技能概览、在线状态
 
-- ✅ **OAuth2 认证** - 网易通行证登录，角色绑定
-- ✅ **技能监控** - 技能队列、技能点统计
-- ✅ **资产管理** - 角色资产、钱包余额
-- ✅ **市场订单** - 买卖挂单追踪
-- ✅ **军团管理** - 成员信息、权限控制
-- ✅ **数据统计** - 可视化图表、报表导出
+### 技能系统
+- 全量 673 个技能按分组展示，区分已学/未学
+- 技能队列实时监控（训练中/等待中/已完成）
+- 异步加载架构：SkillDataController 提供 3 个 API 端点
 
-### 技术栈
+### 资产管理
+- 两步加载：先加载位置列表，再按需加载物品详情
+- 搜索功能：按物品名称搜索，结果按位置分组
+- 舰船机库/物品机库自动分类
+- 树形展示：容器内嵌套物品支持展开/折叠
+
+### 本地数据服务
+- 离线物品/星系/空间站中文名称数据库（43,305 条）
+- 数据来源 ceve-market.org，Python 脚本自动更新
+
+## 技术栈
 
 | 层级 | 技术 |
 |------|------|
 | 后端 | Laravel 10 + PHP 8.2 |
-| 前端 | Blade + TailwindCSS |
-| 数据库 | SQLite / MySQL |
-| 缓存 | Redis |
+| 前端 | Blade + TailwindCSS (CDN) |
+| 数据库 | SQLite |
+| 缓存 | Redis（三级缓存策略） |
 | 部署 | Docker + Docker Compose |
+| 数据 | Python 3 + openpyxl |
 
----
-
-## 🚀 快速开始
+## 部署
 
 ### 环境要求
 
 - Docker 20.10+
 - Docker Compose 2.0+
-- 至少 2GB 可用内存
 
-### 一键部署
+### 启动
 
 ```bash
-# 克隆项目
-git clone https://github.com/YOUR_USERNAME/eve-esi.git
-cd eve-esi
+git clone https://github.com/TusZyc/eve-esi-qoder.git
+cd eve-esi-qoder
 
-# 复制环境配置
 cp .env.example .env
 
-# 启动容器
 docker compose up -d
-
-# 安装依赖
 docker compose exec app composer install
-
-# 生成应用密钥
 docker compose exec app php artisan key:generate
-
-# 运行迁移
 docker compose exec app php artisan migrate
-
-# 访问 http://your-server-ip
 ```
 
----
+### ESI 配置
 
-## 📁 项目结构
+```env
+ESI_BASE_URL=https://ali-esi.evepc.163.com/latest/
+ESI_OAUTH_URL=https://login.evepc.163.com/v2/oauth/
+ESI_CLIENT_ID=your_client_id
+```
+
+## API 端点
+
+### 公开（无需认证）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/public/server-status | 三服务器状态 |
+
+### 需认证（/api/dashboard/）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /server-status | 服务器状态 |
+| GET | /character-info | 角色信息 |
+| GET | /character-location | 角色位置 |
+| GET | /character-online | 在线状态 |
+| GET | /skills | 技能概览（仪表盘用） |
+| GET | /skill-queue | 技能队列（仪表盘用） |
+| GET | /skills/overview | 技能总览 |
+| GET | /skills/queue | 技能队列详情 |
+| GET | /skills/groups | 全量技能分组 |
+| GET | /assets/locations | 资产位置列表 |
+| GET | /assets/location/{id} | 位置物品详情 |
+| GET | /assets/search?q= | 资产搜索 |
+
+## 项目结构
 
 ```
 eve-esi/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/     # 控制器
-│   │   └── Middleware/      # 中间件
-│   ├── Models/              # 数据模型
-│   ├── Services/            # ESI API 服务
-│   └── Jobs/                # 定时任务
+│   │   ├── Controllers/
+│   │   │   ├── Api/              # 异步数据 API
+│   │   │   │   ├── AssetDataController.php
+│   │   │   │   ├── DashboardDataController.php
+│   │   │   │   ├── ServerStatusController.php
+│   │   │   │   └── SkillDataController.php
+│   │   │   ├── AuthController.php
+│   │   │   ├── DashboardController.php
+│   │   │   ├── AssetController.php
+│   │   │   └── SkillController.php
+│   │   └── Middleware/
+│   │       └── AutoRefreshEveToken.php
+│   ├── Services/
+│   │   ├── EveDataService.php    # 本地数据服务
+│   │   └── TokenRefreshService.php
+│   └── Helpers/
+│       └── EveHelper.php         # 静态门面
 ├── config/
-│   └── esi.php              # ESI 配置
-├── database/
-│   ├── migrations/          # 数据库迁移
-│   └── seeders/             # 数据填充
-├── resources/
-│   ├── views/               # Blade 模板
-│   └── css/                 # TailwindCSS
-├── routes/
-│   └── web.php              # 路由定义
+│   └── esi.php                   # ESI 配置
+├── data/
+│   ├── eve_names.json            # 物品/星系中文名
+│   └── eve_station_systems.json  # 空间站→星系映射
+├── resources/views/
+│   ├── welcome.blade.php         # 首页（视频背景）
+│   ├── dashboard.blade.php       # 仪表盘
+│   ├── skills/index.blade.php    # 技能页
+│   └── assets/index.blade.php    # 资产页
+├── routes/web.php
+├── scripts/update_evedata.py     # 数据更新脚本
 ├── docker/
-│   ├── app/
-│   │   └── Dockerfile       # PHP 容器
-│   └── nginx/
-│       └── default.conf     # Nginx 配置
-├── docker-compose.yml       # Docker 编排
-└── .env.example             # 环境配置示例
+│   ├── app/Dockerfile
+│   └── nginx/default.conf
+└── docker-compose.yml
 ```
 
----
-
-## 🔐 ESI 认证配置
-
-### 国服 OAuth2 端点
-
-```env
-ESI_BASE_URL=https://ali-esi.evepc.163.com/latest/
-ESI_OAUTH_URL=https://login.evepc.163.com/v2/oauth/
-ESI_CLIENT_ID=bc90aa496a404724a93f41b4f4e97761
-ESI_REDIRECT_URI=http://your-server-ip/callback
-```
-
-### 获取 Client ID
-
-当前使用国服官方 Client ID，如需自定义：
-1. 联系网易 EVE 国服开发者支持
-2. 申请创建应用
-3. 获取 Client ID 和 Secret
-
----
-
-## 📊 功能模块
-
-### 阶段 1：基础框架（当前）
-- [x] 项目初始化
-- [x] Docker 环境配置
-- [ ] OAuth2 认证
-- [ ] 用户系统
-
-### 阶段 2：核心功能
-- [ ] 技能队列
-- [ ] 技能点统计
-- [ ] 角色信息
-
-### 阶段 3：扩展功能
-- [ ] 资产统计
-- [ ] 钱包余额
-- [ ] 市场订单
-
-### 阶段 4：完善优化
-- [ ] 军团管理
-- [ ] 数据图表
-- [ ] 多用户支持
-
----
-
-## 🛠 开发指南
-
-### 本地开发
-
-```bash
-# 启动开发环境
-docker compose up -d
-
-# 查看日志
-docker compose logs -f app
-
-# 进入容器
-docker compose exec app bash
-
-# 运行测试
-docker compose exec app php artisan test
-```
-
-### 数据库迁移
-
-```bash
-# 创建新迁移
-docker compose exec app php artisan make:migration create_xxx_table
-
-# 运行迁移
-docker compose exec app php artisan migrate
-
-# 回滚
-docker compose exec app php artisan migrate:rollback
-```
-
----
-
-## 📚 相关资源
+## 相关资源
 
 - [EVE 国服 API 文档](https://ali-esi.evepc.163.com/ui)
-- [SeAT 文档](https://eveseat.github.io/docs/)
-- [Laravel 文档](https://laravel.com/docs)
 - [EVE ESI 规范](https://esi.evetech.net/ui/)
+- [Laravel 文档](https://laravel.com/docs)
+
+## 许可证
+
+MIT License
 
 ---
 
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 提交 Pull Request
-
----
-
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
----
-
-## 📞 联系方式
-
-- 项目 Issues: https://github.com/YOUR_USERNAME/eve-esi/issues
-- EVE 国服讨论：百度贴吧 EVE 吧
-
----
-
-*最后更新：2026-03-09*
+*最后更新：2026-03-13*
