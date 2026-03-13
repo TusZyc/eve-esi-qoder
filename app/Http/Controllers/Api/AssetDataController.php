@@ -336,14 +336,15 @@ class AssetDataController extends Controller
                 }
             }
             $groupIds = array_values(array_unique($groupIds));
-            $groupNames = $this->getGroupNames($groupIds);
+            $groupInfo = $this->getGroupNames($groupIds);
 
             // 构建树
-            $buildNode = function ($itemId) use (&$buildNode, &$assetMap, &$childOf, &$typeNames, &$typeDetails, &$groupNames) {
+            $buildNode = function ($itemId) use (&$buildNode, &$assetMap, &$childOf, &$typeNames, &$typeDetails, &$groupInfo) {
                 $asset = $assetMap[$itemId];
                 $typeId = $asset['type_id'];
                 $detail = $typeDetails[$typeId] ?? ['volume' => 0, 'group_id' => 0];
                 $groupId = $detail['group_id'];
+                $gi = $groupInfo[$groupId] ?? ['name' => '', 'category_id' => 0];
 
                 $node = [
                     'item_id' => $asset['item_id'],
@@ -353,7 +354,8 @@ class AssetDataController extends Controller
                     'location_flag' => $asset['location_flag'] ?? 'Unknown',
                     'is_singleton' => $asset['is_singleton'] ?? false,
                     'volume' => $detail['volume'],
-                    'group_name' => $groupNames[$groupId] ?? '',
+                    'group_name' => $gi['name'],
+                    'category_id' => $gi['category_id'],
                     'children' => [],
                 ];
 
@@ -739,7 +741,12 @@ class AssetDataController extends Controller
             ->get($baseUrl, $params);
 
         if ($response->failed()) {
-            Log::error('[Assets] 资产获取失败', ['status' => $response->status()]);
+            $status = $response->status();
+            Log::error('[Assets] 资产获取失败', ['status' => $status, 'body' => substr($response->body(), 0, 200)]);
+            if ($status === 404) {
+                // ESI 404 = 资产数据暂时不可用（服务器缓存未就绪）或角色无资产
+                return [];
+            }
             return null;
         }
 
@@ -892,13 +899,13 @@ class AssetDataController extends Controller
 
     private function getGroupNames(array $groupIds): array
     {
-        $names = [];
+        $groups = [];
         $uncached = [];
 
         foreach ($groupIds as $groupId) {
-            $cached = Cache::get("eve_group_zh_{$groupId}");
+            $cached = Cache::get("eve_groupinfo_zh_{$groupId}");
             if ($cached !== null) {
-                $names[$groupId] = $cached;
+                $groups[$groupId] = $cached;
             } else {
                 $uncached[] = $groupId;
             }
@@ -926,19 +933,22 @@ class AssetDataController extends Controller
                         $response = $responses[$key] ?? null;
                         if ($response instanceof \Illuminate\Http\Client\Response && $response->ok()) {
                             $data = $response->json();
-                            $name = $data['name'] ?? '';
+                            $groupInfo = [
+                                'name' => $data['name'] ?? '',
+                                'category_id' => $data['category_id'] ?? 0,
+                            ];
                         } else {
-                            $name = '';
+                            $groupInfo = ['name' => '', 'category_id' => 0];
                         }
                     } catch (\Exception $e) {
-                        $name = '';
+                        $groupInfo = ['name' => '', 'category_id' => 0];
                     }
-                    Cache::put("eve_group_zh_{$groupId}", $name, 86400);
-                    $names[$groupId] = $name;
+                    Cache::put("eve_groupinfo_zh_{$groupId}", $groupInfo, 86400);
+                    $groups[$groupId] = $groupInfo;
                 }
             }
         }
 
-        return $names;
+        return $groups;
     }
 }

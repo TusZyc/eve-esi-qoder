@@ -339,7 +339,7 @@
                         if (locExpanded) {
                             html += '<div class="border-t border-white/10">';
                             if (loading) {
-                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>加载中...</div>';
+                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>首次加载或数量较多时加载会比较缓慢</div>';
                             } else if (loaded && items.length > 0) {
                                 // 完整树形视图（按机库分组）
                                 html += renderHangarSections(items);
@@ -415,7 +415,7 @@
                         if (locExpanded) {
                             html += '<div class="border-t border-white/10">';
                             if (loading) {
-                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>加载中...</div>';
+                                html += '<div class="flex items-center justify-center py-6 text-blue-300"><span class="spinner mr-3"></span>首次加载或数量较多时加载会比较缓慢</div>';
                             } else if (loaded && items.length > 0) {
                                 html += renderHangarSections(items);
                             } else if (loaded) {

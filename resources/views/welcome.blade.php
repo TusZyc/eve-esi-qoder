@@ -83,7 +83,7 @@
     <!-- 背景层 -->
     <div id="bg-container" class="fixed inset-0 z-0 overflow-hidden">
         <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover" id="bg-video">
-            <source src="/eve.webm" type="video/webm">
+            <source src="/eve-esi-bg.webm" type="video/webm">
         </video>
         <!-- 视频上方叠加半透明暗色层，确保文字可读 -->
         <div class="absolute inset-0 bg-black/55"></div>
