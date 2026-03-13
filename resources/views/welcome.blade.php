@@ -14,98 +14,6 @@
             box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
         }
 
-        /* 星空层 - 小星星 */
-        #stars-small, #stars-medium, #stars-large {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-        }
-        #stars-small {
-            background: transparent;
-            animation: drift 60s linear infinite;
-        }
-        #stars-medium {
-            background: transparent;
-            animation: drift 120s linear infinite;
-        }
-        #stars-large {
-            background: transparent;
-            animation: drift 180s linear infinite;
-        }
-        @keyframes drift {
-            from { transform: translateY(0); }
-            to { transform: translateY(-2000px); }
-        }
-
-        /* 星云效果 */
-        .nebula {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0;
-            animation: nebulaFloat 20s ease-in-out infinite, fadeInSlow 3s ease-out forwards;
-        }
-        .nebula-1 {
-            width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
-            top: 10%; left: -5%;
-            animation-delay: 0s;
-        }
-        .nebula-2 {
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%);
-            top: 50%; right: -10%;
-            animation-delay: -7s;
-        }
-        .nebula-3 {
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(6,182,212,0.05) 0%, transparent 70%);
-            bottom: 5%; left: 30%;
-            animation-delay: -13s;
-        }
-        @keyframes nebulaFloat {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(30px, -20px) scale(1.05); }
-            66% { transform: translate(-20px, 15px) scale(0.95); }
-        }
-        @keyframes fadeInSlow {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* 流星 */
-        .shooting-star {
-            position: absolute;
-            width: 100px;
-            height: 1px;
-            background: linear-gradient(90deg, rgba(255,255,255,0.8), transparent);
-            transform: rotate(-35deg);
-            animation: shoot 3s ease-in infinite;
-            opacity: 0;
-        }
-        .shooting-star:nth-child(1) {
-            top: 15%; left: 70%;
-            animation-delay: 1s;
-        }
-        .shooting-star:nth-child(2) {
-            top: 35%; left: 85%;
-            animation-delay: 5s;
-            width: 70px;
-        }
-        .shooting-star:nth-child(3) {
-            top: 55%; left: 60%;
-            animation-delay: 9s;
-            width: 120px;
-        }
-        @keyframes shoot {
-            0% { transform: rotate(-35deg) translateX(0); opacity: 0; }
-            5% { opacity: 1; }
-            20% { transform: rotate(-35deg) translateX(-300px); opacity: 0; }
-            100% { opacity: 0; }
-        }
-
         /* 入场动画 */
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(30px); }
@@ -174,19 +82,11 @@
 
     <!-- 背景层 -->
     <div id="bg-container" class="fixed inset-0 z-0 overflow-hidden">
-        <!-- 星空粒子层 (由 JS 生成 box-shadow) -->
-        <div id="stars-small"></div>
-        <div id="stars-medium"></div>
-        <div id="stars-large"></div>
-        <!-- 星云层 -->
-        <div class="nebula nebula-1"></div>
-        <div class="nebula nebula-2"></div>
-        <div class="nebula nebula-3"></div>
-        <!-- 流星 -->
-        <div class="shooting-star"></div>
-        <div class="shooting-star"></div>
-        <div class="shooting-star"></div>
-        <!-- [未来] <video src="bg.webm" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover"></video> -->
+        <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover" id="bg-video">
+            <source src="/eve.webm" type="video/webm">
+        </video>
+        <!-- 视频上方叠加半透明暗色层，确保文字可读 -->
+        <div class="absolute inset-0 bg-black/40"></div>
     </div>
 
     <!-- 前景内容层 -->
@@ -327,38 +227,9 @@
     </div>
 
     <script>
-        // === 星空生成 ===
-        function generateStars(count, size) {
-            var shadows = [];
-            for (var i = 0; i < count; i++) {
-                var x = Math.floor(Math.random() * 2000);
-                var y = Math.floor(Math.random() * 4000);
-                var opacity = (Math.random() * 0.7 + 0.3).toFixed(2);
-                shadows.push(x + 'px ' + y + 'px 0 rgba(255,255,255,' + opacity + ')');
-            }
-            return shadows.join(',');
-        }
-        (function() {
-            var s = document.getElementById('stars-small');
-            var m = document.getElementById('stars-medium');
-            var l = document.getElementById('stars-large');
-            s.style.width = '1px';  s.style.height = '1px';  s.style.boxShadow = generateStars(600, 1);
-            m.style.width = '2px';  m.style.height = '2px';  m.style.boxShadow = generateStars(200, 2);
-            l.style.width = '3px';  l.style.height = '3px';  l.style.boxShadow = generateStars(80, 3);
-        })();
-
         // === 服务器状态 ===
         function formatNumber(n) {
             return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        }
-        function formatUptime(seconds) {
-            if (seconds <= 0) return '-';
-            var d = Math.floor(seconds / 86400);
-            var h = Math.floor((seconds % 86400) / 3600);
-            var m = Math.floor((seconds % 3600) / 60);
-            if (d > 0) return d + '天 ' + h + '小时';
-            if (h > 0) return h + '小时 ' + m + '分';
-            return m + '分钟';
         }
 
         function formatStartTime(isoStr) {
