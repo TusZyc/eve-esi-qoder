@@ -22,9 +22,6 @@ use Illuminate\Support\Facades\Auth;
 
 // 首页
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect()->route('dashboard');
-    }
     return view('welcome');
 })->name('home');
 
@@ -45,7 +42,9 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/server-status', [DashboardDataController::class, 'serverStatus'])->name('api.dashboard.server-status');
     Route::get('/skills', [DashboardDataController::class, 'skills'])->name('api.dashboard.skills');
     Route::get('/skill-queue', [DashboardDataController::class, 'skillQueue'])->name('api.dashboard.skill-queue');
-    Route::get('/assets', [AssetDataController::class, 'index'])->name('api.dashboard.assets');
+    Route::get('/assets/locations', [AssetDataController::class, 'locations'])->name('api.dashboard.assets.locations');
+    Route::get('/assets/location/{locationId}', [AssetDataController::class, 'locationItems'])->name('api.dashboard.assets.location');
+    Route::get('/assets/search', [AssetDataController::class, 'search'])->name('api.dashboard.assets.search');
     Route::get('/character-info', [DashboardDataController::class, 'characterInfo'])->name('api.dashboard.character-info');
     Route::get('/character-location', [CharacterLocationController::class, 'index'])->name('api.dashboard.character-location');
     Route::get('/character-online', [CharacterOnlineController::class, 'index'])->name('api.dashboard.character-online');

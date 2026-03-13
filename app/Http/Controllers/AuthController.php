@@ -15,6 +15,9 @@ class AuthController extends Controller
      */
     public function guide()
     {
+        if (Auth::check()) {
+            return redirect()->route('dashboard');
+        }
         return view('auth.guide');
     }
     

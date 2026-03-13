@@ -26,7 +26,7 @@
 
         /* 标题辉光 */
         .title-glow {
-            text-shadow: 0 0 40px rgba(59,130,246,0.5), 0 0 80px rgba(59,130,246,0.2);
+            text-shadow: 0 0 40px rgba(59,130,246,0.6), 0 0 80px rgba(59,130,246,0.3), 0 2px 10px rgba(0,0,0,0.8);
         }
 
         /* 状态灯 */
@@ -86,7 +86,7 @@
             <source src="/eve.webm" type="video/webm">
         </video>
         <!-- 视频上方叠加半透明暗色层，确保文字可读 -->
-        <div class="absolute inset-0 bg-black/40"></div>
+        <div class="absolute inset-0 bg-black/55"></div>
     </div>
 
     <!-- 前景内容层 -->
@@ -100,18 +100,18 @@
             <div class="flex items-center justify-center gap-3 mb-4">
                 <span class="bg-blue-500/20 text-blue-300 px-4 py-1 rounded-full text-sm font-medium border border-blue-500/30">Beta</span>
             </div>
-            <p class="text-lg text-blue-200/70">EVE Online 数据工具平台</p>
+            <p class="text-lg text-blue-200/90">EVE Online 数据工具平台</p>
         </div>
 
         <!-- 服务器状态 -->
         <div class="w-full max-w-4xl mb-14 anim-2">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5" id="server-cards">
                 <!-- 晨曦 -->
-                <div class="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/[0.08] hover:border-white/15 transition-colors" id="card-0">
+                <div class="bg-black/40 backdrop-blur-lg rounded-2xl p-5 border border-white/[0.12] hover:border-white/20 transition-colors" id="card-0">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <div class="text-white font-semibold">晨曦</div>
-                            <div class="text-xs text-blue-300/60">Serenity</div>
+                            <div class="text-xs text-blue-300/70">Serenity</div>
                         </div>
                         <div class="flex items-center gap-2" id="status-0">
                             <div class="skeleton w-10 h-3 rounded"></div>
@@ -119,26 +119,26 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">在线玩家</span>
+                            <span class="text-xs text-blue-300/70">在线玩家</span>
                             <span class="text-lg font-bold text-white" id="players-0"><span class="skeleton inline-block h-5 w-16 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">启动时间</span>
-                            <span class="text-xs text-blue-200/70" id="starttime-0"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">启动时间</span>
+                            <span class="text-xs text-blue-200/90" id="starttime-0"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">版本</span>
-                            <span class="text-xs text-blue-200/50 font-mono" id="version-0"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">版本</span>
+                            <span class="text-xs text-blue-200/70 font-mono" id="version-0"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
                         </div>
                     </div>
                 </div>
 
                 <!-- 曙光 -->
-                <div class="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/[0.08] hover:border-white/15 transition-colors" id="card-1">
+                <div class="bg-black/40 backdrop-blur-lg rounded-2xl p-5 border border-white/[0.12] hover:border-white/20 transition-colors" id="card-1">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <div class="text-white font-semibold">曙光</div>
-                            <div class="text-xs text-blue-300/60">Infinity</div>
+                            <div class="text-xs text-blue-300/70">Infinity</div>
                         </div>
                         <div class="flex items-center gap-2" id="status-1">
                             <div class="skeleton w-10 h-3 rounded"></div>
@@ -146,26 +146,26 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">在线玩家</span>
+                            <span class="text-xs text-blue-300/70">在线玩家</span>
                             <span class="text-lg font-bold text-white" id="players-1"><span class="skeleton inline-block h-5 w-16 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">启动时间</span>
-                            <span class="text-xs text-blue-200/70" id="starttime-1"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">启动时间</span>
+                            <span class="text-xs text-blue-200/90" id="starttime-1"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">版本</span>
-                            <span class="text-xs text-blue-200/50 font-mono" id="version-1"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">版本</span>
+                            <span class="text-xs text-blue-200/70 font-mono" id="version-1"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
                         </div>
                     </div>
                 </div>
 
                 <!-- 欧服 -->
-                <div class="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/[0.08] hover:border-white/15 transition-colors" id="card-2">
+                <div class="bg-black/40 backdrop-blur-lg rounded-2xl p-5 border border-white/[0.12] hover:border-white/20 transition-colors" id="card-2">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <div class="text-white font-semibold">欧服</div>
-                            <div class="text-xs text-blue-300/60">Tranquility</div>
+                            <div class="text-xs text-blue-300/70">Tranquility</div>
                         </div>
                         <div class="flex items-center gap-2" id="status-2">
                             <div class="skeleton w-10 h-3 rounded"></div>
@@ -173,16 +173,16 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">在线玩家</span>
+                            <span class="text-xs text-blue-300/70">在线玩家</span>
                             <span class="text-lg font-bold text-white" id="players-2"><span class="skeleton inline-block h-5 w-16 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">启动时间</span>
-                            <span class="text-xs text-blue-200/70" id="starttime-2"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">启动时间</span>
+                            <span class="text-xs text-blue-200/90" id="starttime-2"><span class="skeleton inline-block h-3 w-24 rounded"></span></span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-blue-300/50">版本</span>
-                            <span class="text-xs text-blue-200/50 font-mono" id="version-2"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
+                            <span class="text-xs text-blue-300/70">版本</span>
+                            <span class="text-xs text-blue-200/70 font-mono" id="version-2"><span class="skeleton inline-block h-3 w-16 rounded"></span></span>
                         </div>
                     </div>
                 </div>
@@ -192,21 +192,21 @@
         <!-- 入口按钮 -->
         <div class="flex flex-col sm:flex-row gap-6 sm:gap-8 anim-3">
             <div class="text-center">
-                <button onclick="showComingSoon()" class="btn-secondary bg-white/[0.06] backdrop-blur-md border border-white/15 text-blue-100 font-semibold px-10 py-4 rounded-xl text-lg w-full">
+                <button onclick="showComingSoon()" class="btn-secondary bg-black/40 backdrop-blur-lg border border-white/20 text-blue-100 font-semibold px-10 py-4 rounded-xl text-lg w-full">
                     无授权使用
                 </button>
-                <p class="text-xs text-blue-300/40 mt-3">使用无需登录的公开功能</p>
+                <p class="text-xs text-blue-300/60 mt-3">使用无需登录的公开功能</p>
             </div>
             <div class="text-center">
                 <a href="{{ route('auth.guide') }}" class="btn-primary bg-blue-600 hover:bg-blue-500 text-white font-semibold px-10 py-4 rounded-xl text-lg text-center eve-glow block">
                     授权使用
                 </a>
-                <p class="text-xs text-blue-300/40 mt-3">通过 EVE Online 官方授权安全登录</p>
+                <p class="text-xs text-blue-300/60 mt-3">通过 EVE Online 官方授权安全登录</p>
             </div>
         </div>
 
         <!-- 页脚 -->
-        <footer class="mt-auto pt-16 text-center text-blue-300/30 text-xs anim-4">
+        <footer class="mt-auto pt-16 text-center text-blue-300/50 text-xs anim-4">
             <p>Tus Esi System &middot; 数据来源于 EVE ESI API &middot; 非官方项目</p>
         </footer>
     </div>
