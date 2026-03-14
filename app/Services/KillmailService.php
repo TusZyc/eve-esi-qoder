@@ -819,12 +819,12 @@ class KillmailService
         // 限制数量避免过多 ESI 调用
         $kills = array_slice($kills, 0, 50);
 
-        // 富化数据
-        $enriched = $this->enrichKillList($kills);
+        // 富化数据 (同时返回详情映射用于 involvement 过滤)
+        [$enriched, $detailsMap] = $this->enrichKillList($kills);
 
         // involvement 过滤 (适用于 pilot/corporation/alliance)
         if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement);
+            $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement, $detailsMap);
         }
 
         return $enriched;
@@ -833,17 +833,17 @@ class KillmailService
     /**
      * 根据参与类型过滤富化后的 KM 列表
      *
-     * 受害者: 输入的角色/军团/联盟中有角色是受害者
-     * 最后一击: 输入的角色/军团/联盟中有角色打出最后一击
-     * 参与者: 输入的角色/军团/联盟中有角色在攻击者名单中
+     * 受害者: victim 中的 id 匹配输入实体
+     * 最后一击: attackers 中 final_blow=true 的 id 匹配输入实体
+     * 参与者: attackers 中 final_blow=false 的 id 匹配输入实体
      */
-    protected function filterByInvolvement(array $enrichedKills, string $entityType, int $entityId, string $involvement): array
+    protected function filterByInvolvement(array $enrichedKills, string $entityType, int $entityId, string $involvement, array $detailsMap = []): array
     {
-        return array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $involvement) {
+        return array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $involvement, $detailsMap) {
             $killId = $kill['kill_id'];
-            $detail = Cache::get("kb:kill:{$killId}");
 
-            // 缓存未命中时，尝试直接获取详情
+            // 优先从传入的 detailsMap 获取，其次从缓存，最后尝试直接获取
+            $detail = $detailsMap[$killId] ?? Cache::get("kb:kill:{$killId}");
             if (!$detail) {
                 try {
                     $detail = $this->getKillDetails($killId);
@@ -869,7 +869,7 @@ class KillmailService
 
                 case 'attacker':
                     foreach ($detail['attackers'] ?? [] as $atk) {
-                        if ($this->entityMatchesParticipant($atk, $entityType, $entityId)) {
+                        if (empty($atk['final_blow']) && $this->entityMatchesParticipant($atk, $entityType, $entityId)) {
                             return true;
                         }
                     }
@@ -947,16 +947,18 @@ class KillmailService
     /**
      * 批量富化 KM 列表数据
      * 对每条 KM 获取 ESI 详情，提取受害者军团/联盟、最后一击信息、安等、星域
+     * @return array [enrichedList, detailsMap] detailsMap 以 kill_id 为键
      */
     public function enrichKillList(array $kills): array
     {
         if (empty($kills)) {
-            return [];
+            return [[], []];
         }
 
         // 分离已缓存和需要请求的
         $enriched = [];
         $toFetch = [];
+        $detailsMap = []; // kill_id => full detail
 
         foreach ($kills as $idx => $kill) {
             $killId = $kill['kill_id'];
@@ -965,6 +967,7 @@ class KillmailService
             if ($cached) {
                 // 从缓存的详情中提取列表需要的字段
                 $enriched[$idx] = $this->extractListDataFromDetail($kill, $cached);
+                $detailsMap[$killId] = $cached;
             } elseif (!empty($kill['esi_hash'])) {
                 $toFetch[$idx] = $kill;
             } else {
@@ -980,6 +983,7 @@ class KillmailService
             foreach ($batchDetails as $idx => $detail) {
                 if ($detail) {
                     $enriched[$idx] = $this->extractListDataFromDetail($toFetch[$idx], $detail);
+                    $detailsMap[$toFetch[$idx]['kill_id']] = $detail;
                 } else {
                     $enriched[$idx] = $this->buildBasicListItem($toFetch[$idx]);
                 }
@@ -995,7 +999,7 @@ class KillmailService
 
         // 按原始顺序排列
         ksort($enriched);
-        return array_values($enriched);
+        return [array_values($enriched), $detailsMap];
     }
 
     /**
