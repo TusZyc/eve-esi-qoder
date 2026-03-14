@@ -352,7 +352,7 @@ class EveDataService
      * @param int $limit 最大返回数
      * @return array [{id, name}]
      */
-    public function searchByName(string $query, string $category = 'ship', int $limit = 15): array
+    public function searchByName(string $query, string $category = 'ship', int $limit = 15, array $validIds = []): array
     {
         $database = $this->getItemDatabase();
         if (empty($database) || strlen($query) < 1) {
@@ -361,39 +361,24 @@ class EveDataService
 
         $queryLower = mb_strtolower($query, 'UTF-8');
         $results = [];
-
-        // 舰船名称排除关键词 - 排除蓝图、涂装、技能书、弹药、模块等非舰船物品
-        $shipExcludePatterns = [
-            '蓝图', '涂装', 'skin', '技能', '许可证',
-            '弹药', '脚本', '晶体', '水晶', '燃料',
-            '蓝图副本', '配方', '反应公式',
-        ];
+        $useWhitelist = ($category === 'ship' && !empty($validIds));
 
         foreach ($database as $id => $name) {
-            // 按类别过滤 ID 范围
+            // 按类别过滤
             if ($category === 'system') {
-                // 星系 ID 范围: 30000000 - 31999999
                 if ($id < 30000000 || $id > 31999999) continue;
             } elseif ($category === 'ship') {
-                // 舰船 type_id 范围: 大致 580-50000，跳过明显非物品的 ID
-                if ($id >= 30000000 || $id < 500) continue;
+                if ($useWhitelist) {
+                    // 白名单模式：只允许舰船+建筑 type_id
+                    if (!isset($validIds[$id])) continue;
+                } else {
+                    if ($id >= 30000000 || $id < 500) continue;
+                }
             }
 
             // 名称模糊匹配
             $nameLower = mb_strtolower($name, 'UTF-8');
             if (mb_strpos($nameLower, $queryLower) === false) continue;
-
-            // 舰船类别额外过滤：排除非舰船物品
-            if ($category === 'ship') {
-                $excluded = false;
-                foreach ($shipExcludePatterns as $pattern) {
-                    if (mb_strpos($nameLower, mb_strtolower($pattern, 'UTF-8')) !== false) {
-                        $excluded = true;
-                        break;
-                    }
-                }
-                if ($excluded) continue;
-            }
 
             $results[] = ['id' => (int) $id, 'name' => $name];
             if (count($results) >= $limit) break;

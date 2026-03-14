@@ -33,6 +33,58 @@ class KillmailService
         ];
     }
 
+    /**
+     * 获取 beta KB XSRF cookies (带缓存, 避免重复请求)
+     * @return array [reDive, gbf] 或 ['', ''] 失败时
+     */
+    protected function getBetaKbXsrfCookies(): array
+    {
+        $cached = Cache::get('kb:xsrf_cookies');
+        if ($cached && !empty($cached[0]) && !empty($cached[1])) {
+            return $cached;
+        }
+
+        // 负缓存: 最近刚失败过，跳过重试避免阻塞请求
+        if (Cache::get('kb:xsrf_cookies_fail')) {
+            return ['', ''];
+        }
+
+        // 最多重试 2 次 (首次超时可能是 DNS/TLS 冷启动)
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            try {
+                // 用根路径获取 cookies (比 /search 快 10x, 返回相同 cookies)
+                $cookieResponse = Http::timeout(10)
+                    ->withHeaders($this->kbHeaders())
+                    ->get("{$this->betaKbUrl}/");
+
+                $reDive = '';
+                $gbf = '';
+                $setCookies = $cookieResponse->headers()['set-cookie'] ?? [];
+                foreach ($setCookies as $cookie) {
+                    if (preg_match('/^ReDive=([^;]+)/', $cookie, $m)) $reDive = $m[1];
+                    if (preg_match('/^GranblueFantasy=([^;]+)/', $cookie, $m)) $gbf = $m[1];
+                }
+
+                if (!empty($reDive) && !empty($gbf)) {
+                    Cache::put('kb:xsrf_cookies', [$reDive, $gbf], 1800); // 缓存 30 分钟
+                    Cache::forget('kb:xsrf_cookies_fail');
+                    return [$reDive, $gbf];
+                }
+            } catch (\Exception $e) {
+                Log::debug("getBetaKbXsrfCookies attempt {$attempt} failed: " . $e->getMessage());
+                if ($attempt < 2) {
+                    usleep(500000); // 500ms 后重试
+                }
+            }
+        }
+
+        // 负缓存 60 秒, 避免每次搜索都阻塞 20s+ 等待超时
+        Cache::put('kb:xsrf_cookies_fail', true, 60);
+        Log::warning("getBetaKbXsrfCookies: beta.ceve-market.org 不可用, 60s 内跳过重试");
+
+        return ['', ''];
+    }
+
     // ========================================================
     // Protobuf 解码工具 (用于解析 beta KB API 响应)
     // ========================================================
@@ -165,6 +217,23 @@ class KillmailService
         return $this->pbEncodeVarint(($fieldNum << 3) | 2) . $this->pbEncodeVarint(strlen($packed)) . $packed;
     }
 
+    /**
+     * 编码嵌套消息 (wire type 2)
+     */
+    protected function pbEncodeMessage(int $fieldNum, string $inner): string
+    {
+        return $this->pbEncodeVarint(($fieldNum << 3) | 2) . $this->pbEncodeVarint(strlen($inner)) . $inner;
+    }
+
+    /**
+     * 编码 Google Timestamp (seconds since epoch)
+     */
+    protected function pbEncodeTimestamp(int $fieldNum, int $seconds): string
+    {
+        $inner = $this->pbEncodeVarint((1 << 3) | 0) . $this->pbEncodeVarint($seconds);
+        return $this->pbEncodeMessage($fieldNum, $inner);
+    }
+
     // ========================================================
     // 自动补全搜索
     // ========================================================
@@ -266,8 +335,9 @@ class KillmailService
     protected function searchKbShipAutocomplete(string $query): array
     {
         $results = [];
+        $validIds = $this->getValidShipAndStructureIds();
 
-        // 1. 从 KB API 搜索舰船名称 (只返回真正的舰船)
+        // 1. 从 KB API 搜索舰船名称
         try {
             $response = Http::withHeaders([
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -281,11 +351,11 @@ class KillmailService
             if ($response->ok()) {
                 $shipNames = $response->json();
                 if (is_array($shipNames) && !empty($shipNames)) {
-                    // 用 ESI universe/ids 把名称转为 type_id
                     $ids = $this->resolveNamesToIds($shipNames);
                     foreach ($shipNames as $name) {
                         $typeId = $ids[$name] ?? null;
-                        if ($typeId) {
+                        // 白名单校验：只允许舰船和建筑
+                        if ($typeId && (!empty($validIds) ? isset($validIds[$typeId]) : true)) {
                             $results[] = [
                                 'id' => $typeId,
                                 'name' => $name,
@@ -299,15 +369,14 @@ class KillmailService
             // KB API 失败，降级到本地搜索
         }
 
-        // 2. 搜索舰船分组 (如 后勤护卫舰, 战列舰 等)
-        $groups = $this->getShipGroups();
+        // 2. 搜索舰船分组和建筑分组
+        $allGroups = array_merge($this->getShipGroups(), $this->getStructureGroups());
         $queryLower = mb_strtolower($query, 'UTF-8');
         $seenGroupNames = [];
-        foreach ($groups as $group) {
+        foreach ($allGroups as $group) {
             $gName = $group['name'];
-            if (isset($seenGroupNames[$gName])) continue; // 跳过重名分组
+            if (isset($seenGroupNames[$gName])) continue;
             if (mb_strpos(mb_strtolower($gName, 'UTF-8'), $queryLower) !== false) {
-                // 检查是否已在结果中
                 $exists = false;
                 foreach ($results as $r) {
                     if ($r['name'] === $gName || $r['name'] === $gName . ' (类别)') { $exists = true; break; }
@@ -324,9 +393,9 @@ class KillmailService
             if (count($results) >= 15) break;
         }
 
-        // 3. 如果 KB API 没返回结果，降级到本地搜索
+        // 3. 如果 KB API 没返回结果，降级到本地搜索 (使用白名单过滤)
         if (empty($results)) {
-            $results = $this->searchLocalEntities($query, 'ship');
+            $results = $this->searchLocalEntities($query, 'ship', $validIds);
         }
 
         return array_slice($results, 0, 15);
@@ -390,7 +459,7 @@ class KillmailService
                     foreach ($groupIds as $gid) {
                         $pool->as("g{$gid}")->withHeaders([
                             'User-Agent' => 'EVE-ESI-Admin/1.0',
-                        ])->timeout(10)->get("{$this->esiBaseUrl}universe/groups/{$gid}/?datasource=serenity");
+                        ])->timeout(10)->get("{$this->esiBaseUrl}universe/groups/{$gid}/?datasource=serenity&language=zh");
                     }
                 });
 
@@ -440,11 +509,116 @@ class KillmailService
     }
 
     /**
+     * 获取建筑分组 (ESI category 65 = Structures)
+     */
+    protected function getStructureGroups(): array
+    {
+        return Cache::remember('eve:structure_groups', 86400, function () {
+            $groups = [];
+
+            try {
+                $catResponse = Http::withHeaders([
+                    'User-Agent' => 'EVE-ESI-Admin/1.0',
+                ])->timeout(15)->get("{$this->esiBaseUrl}universe/categories/65/?datasource=serenity");
+
+                if (!$catResponse->ok()) return $this->getStaticStructureGroups();
+
+                $catData = $catResponse->json();
+                $groupIds = $catData['groups'] ?? [];
+
+                $pool = Http::pool(function ($pool) use ($groupIds) {
+                    foreach ($groupIds as $gid) {
+                        $pool->as("g{$gid}")->withHeaders([
+                            'User-Agent' => 'EVE-ESI-Admin/1.0',
+                        ])->timeout(10)->get("{$this->esiBaseUrl}universe/groups/{$gid}/?datasource=serenity&language=zh");
+                    }
+                });
+
+                foreach ($groupIds as $gid) {
+                    $resp = $pool["g{$gid}"] ?? null;
+                    if ($resp && $resp->ok()) {
+                        $gData = $resp->json();
+                        $groups[] = [
+                            'group_id' => $gid,
+                            'name' => $gData['name'] ?? "Group#{$gid}",
+                            'type_ids' => $gData['types'] ?? [],
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                return $this->getStaticStructureGroups();
+            }
+
+            return !empty($groups) ? $groups : $this->getStaticStructureGroups();
+        });
+    }
+
+    /**
+     * 静态建筑分组列表 (ESI 不可用时的降级)
+     */
+    protected function getStaticStructureGroups(): array
+    {
+        $staticGroups = [
+            1657 => '铁壁', // Citadel
+            1404 => '工程复合体', // Engineering Complex
+            1406 => '精炼厂', // Refinery
+            1408 => 'FLEX 建筑', // FLEX structures
+            2016 => '主权建筑', // Sovereignty structures
+            2017 => '基础设施枢纽', // Infrastructure Hub
+        ];
+
+        return array_map(function ($name, $gid) {
+            return ['group_id' => $gid, 'name' => $name, 'type_ids' => []];
+        }, $staticGroups, array_keys($staticGroups));
+    }
+
+    /**
+     * 获取所有合法的舰船+建筑 type_id 集合 (白名单)
+     */
+    protected function getValidShipAndStructureIds(): array
+    {
+        return Cache::remember('eve:valid_ship_structure_ids', 86400, function () {
+            $validIds = [];
+
+            foreach ($this->getShipGroups() as $group) {
+                foreach ($group['type_ids'] as $typeId) {
+                    $validIds[$typeId] = true;
+                }
+            }
+
+            foreach ($this->getStructureGroups() as $group) {
+                foreach ($group['type_ids'] as $typeId) {
+                    $validIds[$typeId] = true;
+                }
+            }
+
+            return $validIds;
+        });
+    }
+
+    /**
+     * 判断 type_id 是否为建筑 (ESI category 65)
+     */
+    protected function isStructureTypeId(int $typeId): bool
+    {
+        $structureIds = Cache::remember('eve:structure_type_ids', 86400, function () {
+            $ids = [];
+            foreach ($this->getStructureGroups() as $group) {
+                foreach ($group['type_ids'] as $tid) {
+                    $ids[$tid] = true;
+                }
+            }
+            return $ids;
+        });
+        return isset($structureIds[$typeId]);
+    }
+
+    /**
      * 本地数据搜索 (ship/system)
      */
-    protected function searchLocalEntities(string $query, string $category): array
+    protected function searchLocalEntities(string $query, string $category, array $validIds = []): array
     {
-        $results = $this->eveData->searchByName($query, $category);
+        $results = $this->eveData->searchByName($query, $category, 15, $validIds);
         return array_map(function ($item) use ($category) {
             return [
                 'id' => $item['id'],
@@ -603,19 +777,31 @@ class KillmailService
 
     /**
      * 从 Beta KB API 获取实体 KM 列表 (protobuf 格式)
-     * 支持: pilot/corporation/alliance/ship/system
+     * 仅支持 pilot (corp/alli 使用不同 URL 路径)
      */
     protected function fetchBetaEntityKillList(string $entityType, int $entityId): array
     {
         $kills = [];
         $seen = [];
 
+        // Beta KB API 的 URL 路径与我们的 entityType 不同
+        $apiTypeMap = [
+            'pilot' => 'pilot',
+            'corporation' => 'corp',
+            'alliance' => 'alli',
+        ];
+        $apiType = $apiTypeMap[$entityType] ?? null;
+        if (!$apiType) {
+            // ship/system 不支持 list API，需用 search API
+            return [];
+        }
+
         // 获取击杀列表 (实体为攻击者)
         try {
             $response = Http::timeout(10)
-                ->get("{$this->betaKbUrl}/app/list/{$entityType}/{$entityId}/kill");
+                ->get("{$this->betaKbUrl}/app/list/{$apiType}/{$entityId}/kill");
 
-            if ($response->ok() && strlen($response->body()) > 0) {
+            if ($response->ok() && strlen($response->body()) > 0 && ord($response->body()[0]) !== 0x3C) {
                 foreach ($this->parseBetaKillListProtobuf($response->body()) as $km) {
                     if (!isset($seen[$km['kill_id']])) {
                         $kills[] = $km;
@@ -627,23 +813,21 @@ class KillmailService
             Log::debug("Beta KB kill list failed ({$entityType} {$entityId}): " . $e->getMessage());
         }
 
-        // 获取损失列表 (实体为受害者) - 仅对 pilot/corporation/alliance 有意义
-        if (in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            try {
-                $lossResponse = Http::timeout(10)
-                    ->get("{$this->betaKbUrl}/app/list/{$entityType}/{$entityId}/loss");
+        // 获取损失列表 (实体为受害者)
+        try {
+            $lossResponse = Http::timeout(10)
+                ->get("{$this->betaKbUrl}/app/list/{$apiType}/{$entityId}/loss");
 
-                if ($lossResponse->ok() && strlen($lossResponse->body()) > 0) {
-                    foreach ($this->parseBetaKillListProtobuf($lossResponse->body()) as $km) {
-                        if (!isset($seen[$km['kill_id']])) {
-                            $kills[] = $km;
-                            $seen[$km['kill_id']] = true;
-                        }
+            if ($lossResponse->ok() && strlen($lossResponse->body()) > 0 && ord($lossResponse->body()[0]) !== 0x3C) {
+                foreach ($this->parseBetaKillListProtobuf($lossResponse->body()) as $km) {
+                    if (!isset($seen[$km['kill_id']])) {
+                        $kills[] = $km;
+                        $seen[$km['kill_id']] = true;
                     }
                 }
-            } catch (\Exception $e) {
-                Log::debug("Beta KB loss list failed ({$entityType} {$entityId}): " . $e->getMessage());
             }
+        } catch (\Exception $e) {
+            Log::debug("Beta KB loss list failed ({$entityType} {$entityId}): " . $e->getMessage());
         }
 
         return $kills;
@@ -667,18 +851,8 @@ class KillmailService
         if ($cached !== null) return $cached;
 
         try {
-            // Step 1: 获取 XSRF cookies
-            $cookieResponse = Http::timeout(10)
-                ->withHeaders($this->kbHeaders())
-                ->get("{$this->betaKbUrl}/search");
-
-            $reDive = '';
-            $gbf = '';
-            $setCookies = $cookieResponse->headers()['set-cookie'] ?? [];
-            foreach ($setCookies as $cookie) {
-                if (preg_match('/^ReDive=([^;]+)/', $cookie, $m)) $reDive = $m[1];
-                if (preg_match('/^GranblueFantasy=([^;]+)/', $cookie, $m)) $gbf = $m[1];
-            }
+            // Step 1: 获取 XSRF cookies (带缓存)
+            [$reDive, $gbf] = $this->getBetaKbXsrfCookies();
 
             if (empty($reDive) || empty($gbf)) {
                 Log::debug("fetchBetaSearchKills: 无法获取 XSRF cookies");
@@ -728,6 +902,133 @@ class KillmailService
             Log::debug("fetchBetaSearchKills: HTTP {$response->status()} (body " . strlen($response->body()) . "b)");
         } catch (\Exception $e) {
             Log::debug("fetchBetaSearchKills failed: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    /**
+     * 高级搜索: 支持所有 Beta KB Search API 参数
+     *
+     * Proto schema:
+     *   F1: Allis []int64, F2: Corps []int64, F3: Chars []int64,
+     *   F4: chartype string, F5: types []int32, F6: groups []int32,
+     *   F7: systems []int32, F8: regions []int32,
+     *   F9: startdate Timestamp, F10: enddate Timestamp
+     *
+     * 注意: API 不支持同时传 entity(F1-F3) + types(F5)/systems(F7)，会返回空
+     *       但 entity + chartype + daterange 可以组合
+     *
+     * @param array $params 搜索参数:
+     *   entity_type: pilot/corporation/alliance (可选)
+     *   entity_id: int (可选)
+     *   chartype: lost/win/atk (可选)
+     *   types: int[] 舰船/建筑 type_id (可选)
+     *   systems: int[] 星系 ID (可选)
+     *   start_date: 'YYYY-MM-DD' (可选)
+     *   end_date: 'YYYY-MM-DD' (可选)
+     */
+    protected function fetchBetaSearchKillsAdvanced(array $params): array
+    {
+        $cacheKey = "kb:advsearch:" . md5(json_encode($params));
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) return $cached;
+
+        try {
+            // Step 1: 获取 XSRF cookies (带缓存)
+            [$reDive, $gbf] = $this->getBetaKbXsrfCookies();
+
+            if (empty($reDive) || empty($gbf)) {
+                Log::debug("fetchBetaSearchKillsAdvanced: 无法获取 XSRF cookies");
+                return [];
+            }
+
+            // Step 2: 构造 protobuf 请求体
+            $body = '';
+
+            // Entity (F1-F3)
+            $entityType = $params['entity_type'] ?? null;
+            $entityId = $params['entity_id'] ?? null;
+            if ($entityType && $entityId) {
+                switch ($entityType) {
+                    case 'pilot':
+                        $body .= $this->pbEncodePackedInt64(3, [$entityId]);
+                        break;
+                    case 'corporation':
+                        $body .= $this->pbEncodePackedInt64(2, [$entityId]);
+                        break;
+                    case 'alliance':
+                        $body .= $this->pbEncodePackedInt64(1, [$entityId]);
+                        break;
+                }
+            }
+
+            // Chartype (F4)
+            $chartype = $params['chartype'] ?? '';
+            if (!empty($chartype)) {
+                $body .= $this->pbEncodeString(4, $chartype);
+            }
+
+            // Types - ship/structure type IDs (F5)
+            $types = $params['types'] ?? [];
+            if (!empty($types)) {
+                $body .= $this->pbEncodePackedInt64(5, $types);
+            }
+
+            // Systems - system IDs (F7)
+            $systems = $params['systems'] ?? [];
+            if (!empty($systems)) {
+                $body .= $this->pbEncodePackedInt64(7, $systems);
+            }
+
+            // Start date (F9) - Protobuf Timestamp
+            $startDate = $params['start_date'] ?? null;
+            if ($startDate) {
+                $ts = strtotime($startDate);
+                if ($ts) {
+                    $body .= $this->pbEncodeTimestamp(9, $ts);
+                }
+            }
+
+            // End date (F10) - Protobuf Timestamp (设为当天 23:59:59)
+            $endDate = $params['end_date'] ?? null;
+            if ($endDate) {
+                $ts = strtotime($endDate . ' 23:59:59');
+                if ($ts) {
+                    $body .= $this->pbEncodeTimestamp(10, $ts);
+                }
+            }
+
+            if (empty($body)) {
+                Log::debug("fetchBetaSearchKillsAdvanced: 无搜索参数");
+                return [];
+            }
+
+            // Step 3: 调用 search API
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'Content-Type' => 'application/alicegearaegis',
+                    'Accept' => 'application/alicegearaegis',
+                    'FinalFantasy-XIV' => $reDive,
+                    'Cookie' => "GranblueFantasy={$gbf}; ReDive={$reDive}",
+                    'Origin' => $this->betaKbUrl,
+                    'Referer' => $this->betaKbUrl . '/search',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
+                ])
+                ->send('POST', "{$this->betaKbUrl}/app/search/search", [
+                    'body' => $body,
+                ]);
+
+            if ($response->ok() && strlen($response->body()) > 0) {
+                $kills = $this->parseBetaKillListProtobuf($response->body());
+                Log::debug("fetchBetaSearchKillsAdvanced: 返回 " . count($kills) . " 条 (params: " . json_encode(array_diff_key($params, ['entity_id' => 1])) . ")");
+                Cache::put($cacheKey, $kills, 300);
+                return $kills;
+            }
+
+            Log::debug("fetchBetaSearchKillsAdvanced: HTTP {$response->status()} (body " . strlen($response->body()) . "b)");
+        } catch (\Exception $e) {
+            Log::debug("fetchBetaSearchKillsAdvanced failed: " . $e->getMessage());
         }
 
         return [];
@@ -910,67 +1211,156 @@ class KillmailService
 
     /**
      * 高级搜索
+     *
+     * 搜索策略:
+     * 1) entity_type=ship → Search API types[] (支持建筑)
+     * 2) entity_type=system → Search API systems[]
+     * 3) entity_type=pilot/corporation/alliance:
+     *    a) 有 involvement → Search API char+chartype+daterange, 客户端过滤 ship/system
+     *    b) 无 involvement → Search API char+daterange, 客户端过滤 ship/system
+     *    c) Search API 失败 → 回退 list API + 客户端过滤
      */
     public function advancedSearch(array $params): array
     {
         $entityType = $params['entity_type'] ?? null;
         $entityId = $params['entity_id'] ?? null;
         $involvement = $params['involvement'] ?? null;
+        $shipId = $params['ship_id'] ?? null;
+        $systemId = $params['system_id'] ?? null;
+        $timeStart = $params['time_start'] ?? null;
+        $timeEnd = $params['time_end'] ?? null;
 
         if (!$entityType || !$entityId) {
             throw new \Exception('缺少搜索条件');
         }
 
-        // involvement 类型映射到 beta KB search API 的 chartype
         $chartypeMap = ['victim' => 'lost', 'finalblow' => 'win', 'attacker' => 'atk'];
 
-        // 当指定 involvement 且实体类型支持时，优先使用 search API (服务端精确过滤)
-        if ($involvement && isset($chartypeMap[$involvement]) && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            $chartype = $chartypeMap[$involvement];
-            $kills = $this->fetchBetaSearchKills($entityType, (int) $entityId, $chartype);
+        // 判断是否为建筑搜索 (建筑忽略 involvement)
+        $isStructure = false;
+        if ($entityType === 'ship') {
+            $isStructure = $this->isStructureTypeId((int) $entityId);
+        } elseif ($shipId) {
+            $isStructure = $this->isStructureTypeId((int) $shipId);
+        }
 
-            Log::debug("advancedSearch: search API 返回 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, chartype={$chartype})");
+        // ====== 策略 1: 舰船/建筑搜索 (Search API types[]) ======
+        if ($entityType === 'ship') {
+            Log::debug("advancedSearch: 舰船/建筑搜索, type_id={$entityId}, isStructure=" . ($isStructure ? 'Y' : 'N'));
+
+            $kills = $this->fetchBetaSearchKillsAdvanced([
+                'types' => [(int) $entityId],
+            ]);
 
             if (!empty($kills)) {
-                // 服务端过滤 (ship/system/time)
-                $kills = $this->filterKills($kills, $params);
+                // 客户端过滤 system + time (API 不支持与 types 组合)
+                $kills = $this->filterKills($kills, [
+                    'system_id' => $systemId,
+                    'time_start' => $timeStart,
+                    'time_end' => $timeEnd,
+                ]);
                 $kills = array_slice($kills, 0, 50);
                 [$enriched, $detailsMap] = $this->enrichKillList($kills);
-                Log::debug("advancedSearch: search API 路径, 富化后 " . count($enriched) . " 条");
+                Log::debug("advancedSearch: 舰船搜索富化后 " . count($enriched) . " 条");
                 return $enriched;
             }
 
-            // search API 失败时回退到 /list + 本地过滤
-            Log::debug("advancedSearch: search API 返回空, 回退到 list + 本地过滤");
+            return [];
         }
 
-        // 获取基础列表 (无 involvement 或 search API 回退)
+        // ====== 策略 2: 星系搜索 (Search API systems[]) ======
+        if ($entityType === 'system') {
+            Log::debug("advancedSearch: 星系搜索, system_id={$entityId}");
+
+            $kills = $this->fetchBetaSearchKillsAdvanced([
+                'systems' => [(int) $entityId],
+            ]);
+
+            if (!empty($kills)) {
+                // 客户端过滤 ship + time
+                $kills = $this->filterKills($kills, [
+                    'ship_id' => $shipId,
+                    'time_start' => $timeStart,
+                    'time_end' => $timeEnd,
+                ]);
+                $kills = array_slice($kills, 0, 50);
+                [$enriched, $detailsMap] = $this->enrichKillList($kills);
+                Log::debug("advancedSearch: 星系搜索富化后 " . count($enriched) . " 条");
+                return $enriched;
+            }
+
+            return [];
+        }
+
+        // ====== 策略 3: 角色/军团/联盟搜索 ======
+        if (!in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
+            throw new \Exception('不支持的实体类型: ' . $entityType);
+        }
+
+        // 3a: 使用 Search API (char + chartype + daterange)
+        $chartype = '';
+        if ($involvement && !$isStructure && isset($chartypeMap[$involvement])) {
+            $chartype = $chartypeMap[$involvement];
+        }
+
+        $searchParams = [
+            'entity_type' => $entityType,
+            'entity_id' => (int) $entityId,
+        ];
+        if (!empty($chartype)) {
+            $searchParams['chartype'] = $chartype;
+        }
+        // 日期范围可以与 entity 组合使用 (API 支持)
+        if ($timeStart) $searchParams['start_date'] = $timeStart;
+        if ($timeEnd) $searchParams['end_date'] = $timeEnd;
+
+        $kills = $this->fetchBetaSearchKillsAdvanced($searchParams);
+
+        Log::debug("advancedSearch: Search API 返回 " . count($kills) . " 条 (entity={$entityType}, id={$entityId}, chartype={$chartype})");
+
+        if (!empty($kills)) {
+            // 客户端过滤 ship/system (API 不支持与 entity 组合)
+            $beforeFilter = count($kills);
+            $kills = $this->filterKills($kills, [
+                'ship_id' => $shipId,
+                'system_id' => $systemId,
+            ]);
+
+            if ($beforeFilter > 0 && count($kills) === 0) {
+                Log::debug("advancedSearch: ship/system 客户端过滤后为空 (ship_id={$shipId}, system_id={$systemId}, 过滤前 {$beforeFilter} 条)");
+            }
+
+            $kills = array_slice($kills, 0, 50);
+            [$enriched, $detailsMap] = $this->enrichKillList($kills);
+            Log::debug("advancedSearch: Search API 路径, 富化后 " . count($enriched) . " 条");
+            return $enriched;
+        }
+
+        // 3b: Search API 失败 → 回退到 list API
+        Log::debug("advancedSearch: Search API 返回空, 回退到 list API");
+
         $kills = $this->getEntityKills($entityType, (int) $entityId);
 
-        Log::debug("advancedSearch: list API 获取到 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, involvement={$involvement})");
+        Log::debug("advancedSearch: list API 获取到 " . count($kills) . " 条 KM");
 
         if (empty($kills)) {
             return [];
         }
 
-        // 服务端过滤 (ship/system/time)
+        // 客户端过滤 (ship/system/time 全部在客户端)
         $kills = $this->filterKills($kills, $params);
 
-        // 基于 protobuf 数据的预过滤 (在限制数量前执行，避免目标 KM 被截断)
-        if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
+        // 基于 protobuf 数据的预过滤
+        if ($involvement && !$isStructure && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
             $kills = $this->preFilterByInvolvement($kills, $entityType, (int) $entityId, $involvement);
             Log::debug("advancedSearch: 预过滤后 " . count($kills) . " 条 KM");
         }
 
-        // 限制数量避免过多 ESI 调用
         $kills = array_slice($kills, 0, 50);
-
-        // 富化数据 (同时返回详情映射用于 involvement 过滤)
         [$enriched, $detailsMap] = $this->enrichKillList($kills);
 
-        // involvement 过滤 (回退路径: ESI 级别精确过滤)
-        if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            // pilot+victim 已通过预过滤精确匹配，无需 ESI 二次过滤
+        // involvement 过滤 (list API 回退路径才需要)
+        if ($involvement && !$isStructure && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
             if (!($involvement === 'victim' && $entityType === 'pilot')) {
                 $beforeFilter = count($enriched);
                 $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement, $detailsMap);
@@ -1149,6 +1539,7 @@ class KillmailService
         // 分离已缓存和需要请求的
         $enriched = [];
         $toFetch = [];
+        $needHash = []; // 无 hash 的 kill，需要尝试获取
         $detailsMap = []; // kill_id => full detail
 
         foreach ($kills as $idx => $kill) {
@@ -1162,9 +1553,30 @@ class KillmailService
             } elseif (!empty($kill['esi_hash'])) {
                 $toFetch[$idx] = $kill;
             } else {
-                // 无 hash，保留基础数据
-                $enriched[$idx] = $this->buildBasicListItem($kill);
+                // 无 hash，尝试从 hash 缓存获取
+                $cachedHash = Cache::get("kb:esi_hash:{$killId}");
+                if ($cachedHash) {
+                    $kill['esi_hash'] = $cachedHash;
+                    $toFetch[$idx] = $kill;
+                } else {
+                    $needHash[$idx] = $kill;
+                }
             }
+        }
+
+        // 对无 hash 的 kill 尝试从 KB 获取 hash（限制数量避免过慢）
+        foreach (array_slice($needHash, 0, 20, true) as $idx => $kill) {
+            $hash = $this->extractEsiHash($kill['kill_id']);
+            if ($hash) {
+                $kill['esi_hash'] = $hash;
+                $toFetch[$idx] = $kill;
+                unset($needHash[$idx]);
+            }
+        }
+
+        // 剩余无法获取 hash 的用基础数据
+        foreach ($needHash as $idx => $kill) {
+            $enriched[$idx] = $this->buildBasicListItem($kill);
         }
 
         // 批量获取 ESI 详情

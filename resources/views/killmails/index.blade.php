@@ -198,6 +198,11 @@
                         <tbody id="killListBody"></tbody>
                     </table>
                 </div>
+                <div id="loadMoreArea" class="text-center py-4 hidden">
+                    <button id="loadMoreBtn" class="px-6 py-2 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/30 rounded-lg text-blue-200 text-sm transition-all">
+                        加载更多
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -222,6 +227,9 @@
 var BETA_KB_URL = 'https://beta.ceve-market.org';
 var debounceTimers = {};
 var selectedEntities = { entity: null, ship: null, system: null };
+var allKills = [];
+var displayedCount = 0;
+var PAGE_SIZE = 10;
 
 // ========== 自动补全 ==========
 
@@ -393,41 +401,63 @@ function doDirectQuery() {
 
 // ========== KM 列表渲染 ==========
 
+function renderSingleKm(km) {
+    var secClass = getSecClass(km.system_sec);
+    var secText = km.system_sec !== null && km.system_sec !== undefined ? '(' + km.system_sec.toFixed(1) + ')' : '';
+    var region = km.region_name || '';
+    var locationLine1 = (region ? region + ' / ' : '') + (km.system_name || '-');
+    var locationLine2 = km.kill_time || '';
+
+    return '<tr class="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-all" onclick="openKillDetail(' + km.kill_id + ', ' + (km.esi_hash ? "'" + km.esi_hash + "'" : 'null') + ')">'
+        + '<td class="px-3 py-2.5"><div class="text-blue-300 font-mono text-xs">#' + km.kill_id + '</div>'
+        + (km.attacker_count ? '<div class="text-white/30 text-xs">' + km.attacker_count + '人</div>' : '') + '</td>'
+        + '<td class="px-3 py-2.5"><div class="text-white font-medium">' + escapeHtml(km.ship_name || '-') + '</div></td>'
+        + '<td class="px-3 py-2.5"><div class="text-white">' + escapeHtml(km.victim_name || '-') + '</div>'
+        + '<div class="text-white/40 text-xs">' + escapeHtml(km.victim_corp || '') + (km.victim_alliance ? ' / ' + escapeHtml(km.victim_alliance) : '') + '</div></td>'
+        + '<td class="px-3 py-2.5"><div class="text-white">' + escapeHtml(km.final_blow_name || '-') + '</div>'
+        + '<div class="text-white/40 text-xs">' + escapeHtml(km.final_blow_corp || '') + (km.final_blow_alliance ? ' / ' + escapeHtml(km.final_blow_alliance) : '') + '</div></td>'
+        + '<td class="px-3 py-2.5"><div>' + escapeHtml(locationLine1) + ' <span class="' + secClass + '">' + secText + '</span></div>'
+        + '<div class="text-white/40 text-xs">' + escapeHtml(locationLine2) + '</div></td>'
+        + '<td class="px-3 py-2.5 text-right"><div class="text-yellow-300 font-medium">' + formatIsk(km.total_value) + '</div></td>'
+        + '</tr>';
+}
+
+function appendKills() {
+    var body = document.getElementById('killListBody');
+    var batch = allKills.slice(displayedCount, displayedCount + PAGE_SIZE);
+    body.innerHTML += batch.map(renderSingleKm).join('');
+    displayedCount += batch.length;
+
+    var loadMoreArea = document.getElementById('loadMoreArea');
+    if (displayedCount >= allKills.length) {
+        loadMoreArea.classList.add('hidden');
+    } else {
+        loadMoreArea.classList.remove('hidden');
+    }
+    document.getElementById('listCount').textContent = '显示 ' + displayedCount + ' / ' + allKills.length + ' 条';
+}
+
 function renderKillList(kills, title) {
     var area = document.getElementById('killListArea');
     var body = document.getElementById('killListBody');
     document.getElementById('listTitle').textContent = title + ' 的击杀记录';
-    document.getElementById('listCount').textContent = kills.length + ' 条记录';
 
     if (!kills.length) {
         body.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-white/40">未找到击杀记录</td></tr>';
+        document.getElementById('listCount').textContent = '0 条记录';
+        document.getElementById('loadMoreArea').classList.add('hidden');
         area.classList.remove('hidden');
         return;
     }
 
-    body.innerHTML = kills.map(function(km) {
-        var secClass = getSecClass(km.system_sec);
-        var secText = km.system_sec !== null && km.system_sec !== undefined ? '(' + km.system_sec.toFixed(1) + ')' : '';
-        var region = km.region_name || '';
-        var locationLine1 = (region ? region + ' / ' : '') + (km.system_name || '-');
-        var locationLine2 = km.kill_time || '';
-
-        return '<tr class="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-all" onclick="openKillDetail(' + km.kill_id + ', ' + (km.esi_hash ? "'" + km.esi_hash + "'" : 'null') + ')">'
-            + '<td class="px-3 py-2.5"><div class="text-blue-300 font-mono text-xs">#' + km.kill_id + '</div>'
-            + (km.attacker_count ? '<div class="text-white/30 text-xs">' + km.attacker_count + '人</div>' : '') + '</td>'
-            + '<td class="px-3 py-2.5"><div class="text-white font-medium">' + escapeHtml(km.ship_name || '-') + '</div></td>'
-            + '<td class="px-3 py-2.5"><div class="text-white">' + escapeHtml(km.victim_name || '-') + '</div>'
-            + '<div class="text-white/40 text-xs">' + escapeHtml(km.victim_corp || '') + (km.victim_alliance ? ' / ' + escapeHtml(km.victim_alliance) : '') + '</div></td>'
-            + '<td class="px-3 py-2.5"><div class="text-white">' + escapeHtml(km.final_blow_name || '-') + '</div>'
-            + '<div class="text-white/40 text-xs">' + escapeHtml(km.final_blow_corp || '') + (km.final_blow_alliance ? ' / ' + escapeHtml(km.final_blow_alliance) : '') + '</div></td>'
-            + '<td class="px-3 py-2.5"><div>' + escapeHtml(locationLine1) + ' <span class="' + secClass + '">' + secText + '</span></div>'
-            + '<div class="text-white/40 text-xs">' + escapeHtml(locationLine2) + '</div></td>'
-            + '<td class="px-3 py-2.5 text-right"><div class="text-yellow-300 font-medium">' + formatIsk(km.total_value) + '</div></td>'
-            + '</tr>';
-    }).join('');
-
+    allKills = kills;
+    displayedCount = 0;
+    body.innerHTML = '';
+    appendKills();
     area.classList.remove('hidden');
 }
+
+document.getElementById('loadMoreBtn').addEventListener('click', appendKills);
 
 // ========== KM 详情 ==========
 
