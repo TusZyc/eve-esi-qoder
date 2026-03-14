@@ -135,6 +135,37 @@ class KillmailService
     }
 
     // ========================================================
+    // Protobuf 编码工具 (用于构造 beta KB search API 请求)
+    // ========================================================
+
+    protected function pbEncodeVarint(int $val): string
+    {
+        $bytes = '';
+        if ($val === 0) return chr(0);
+        while ($val > 0) {
+            $byte = $val & 0x7F;
+            $val >>= 7;
+            if ($val > 0) $byte |= 0x80;
+            $bytes .= chr($byte);
+        }
+        return $bytes;
+    }
+
+    protected function pbEncodeString(int $fieldNum, string $str): string
+    {
+        return $this->pbEncodeVarint(($fieldNum << 3) | 2) . $this->pbEncodeVarint(strlen($str)) . $str;
+    }
+
+    protected function pbEncodePackedInt64(int $fieldNum, array $values): string
+    {
+        $packed = '';
+        foreach ($values as $v) {
+            $packed .= $this->pbEncodeVarint($v);
+        }
+        return $this->pbEncodeVarint(($fieldNum << 3) | 2) . $this->pbEncodeVarint(strlen($packed)) . $packed;
+    }
+
+    // ========================================================
     // 自动补全搜索
     // ========================================================
 
@@ -619,6 +650,90 @@ class KillmailService
     }
 
     /**
+     * 通过 beta KB search API 获取按角色类型过滤的 KM 列表
+     *
+     * 使用 /app/search/search 端点，支持 chartype 服务端过滤：
+     *   lost = 受害者, win = 最后一击, atk = 参与者
+     *
+     * @param string $entityType pilot/corporation/alliance
+     * @param int $entityId 实体 ID
+     * @param string $chartype lost/win/atk
+     * @return array KM 列表 (与 parseBetaKillListProtobuf 格式相同)
+     */
+    protected function fetchBetaSearchKills(string $entityType, int $entityId, string $chartype): array
+    {
+        $cacheKey = "kb:search:{$entityType}:{$entityId}:{$chartype}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) return $cached;
+
+        try {
+            // Step 1: 获取 XSRF cookies
+            $cookieResponse = Http::timeout(10)
+                ->withHeaders($this->kbHeaders())
+                ->get("{$this->betaKbUrl}/search");
+
+            $reDive = '';
+            $gbf = '';
+            $setCookies = $cookieResponse->headers()['set-cookie'] ?? [];
+            foreach ($setCookies as $cookie) {
+                if (preg_match('/^ReDive=([^;]+)/', $cookie, $m)) $reDive = $m[1];
+                if (preg_match('/^GranblueFantasy=([^;]+)/', $cookie, $m)) $gbf = $m[1];
+            }
+
+            if (empty($reDive) || empty($gbf)) {
+                Log::debug("fetchBetaSearchKills: 无法获取 XSRF cookies");
+                return [];
+            }
+
+            // Step 2: 构造 protobuf 请求体
+            // Proto: { Allis: int64[] (F1), Corps: int64[] (F2), Chars: int64[] (F3), chartype: string (F4) }
+            $body = '';
+            switch ($entityType) {
+                case 'pilot':
+                    $body = $this->pbEncodePackedInt64(3, [$entityId]);
+                    break;
+                case 'corporation':
+                    $body = $this->pbEncodePackedInt64(2, [$entityId]);
+                    break;
+                case 'alliance':
+                    $body = $this->pbEncodePackedInt64(1, [$entityId]);
+                    break;
+                default:
+                    return [];
+            }
+            $body .= $this->pbEncodeString(4, $chartype);
+
+            // Step 3: 调用 search API
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'Content-Type' => 'application/alicegearaegis',
+                    'Accept' => 'application/alicegearaegis',
+                    'FinalFantasy-XIV' => $reDive,
+                    'Cookie' => "GranblueFantasy={$gbf}; ReDive={$reDive}",
+                    'Origin' => $this->betaKbUrl,
+                    'Referer' => $this->betaKbUrl . '/search',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
+                ])
+                ->send('POST', "{$this->betaKbUrl}/app/search/search", [
+                    'body' => $body,
+                ]);
+
+            if ($response->ok() && strlen($response->body()) > 0) {
+                $kills = $this->parseBetaKillListProtobuf($response->body());
+                Log::debug("fetchBetaSearchKills: {$entityType}:{$entityId} chartype={$chartype} 返回 " . count($kills) . " 条");
+                Cache::put($cacheKey, $kills, 300);
+                return $kills;
+            }
+
+            Log::debug("fetchBetaSearchKills: HTTP {$response->status()} (body " . strlen($response->body()) . "b)");
+        } catch (\Exception $e) {
+            Log::debug("fetchBetaSearchKills failed: " . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    /**
      * 解析 beta KB protobuf KM 列表
      */
     protected function parseBetaKillListProtobuf(string $body): array
@@ -806,10 +921,33 @@ class KillmailService
             throw new \Exception('缺少搜索条件');
         }
 
-        // 获取基础列表
+        // involvement 类型映射到 beta KB search API 的 chartype
+        $chartypeMap = ['victim' => 'lost', 'finalblow' => 'win', 'attacker' => 'atk'];
+
+        // 当指定 involvement 且实体类型支持时，优先使用 search API (服务端精确过滤)
+        if ($involvement && isset($chartypeMap[$involvement]) && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
+            $chartype = $chartypeMap[$involvement];
+            $kills = $this->fetchBetaSearchKills($entityType, (int) $entityId, $chartype);
+
+            Log::debug("advancedSearch: search API 返回 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, chartype={$chartype})");
+
+            if (!empty($kills)) {
+                // 服务端过滤 (ship/system/time)
+                $kills = $this->filterKills($kills, $params);
+                $kills = array_slice($kills, 0, 50);
+                [$enriched, $detailsMap] = $this->enrichKillList($kills);
+                Log::debug("advancedSearch: search API 路径, 富化后 " . count($enriched) . " 条");
+                return $enriched;
+            }
+
+            // search API 失败时回退到 /list + 本地过滤
+            Log::debug("advancedSearch: search API 返回空, 回退到 list + 本地过滤");
+        }
+
+        // 获取基础列表 (无 involvement 或 search API 回退)
         $kills = $this->getEntityKills($entityType, (int) $entityId);
 
-        Log::debug("advancedSearch: 获取到 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, involvement={$involvement})");
+        Log::debug("advancedSearch: list API 获取到 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, involvement={$involvement})");
 
         if (empty($kills)) {
             return [];
@@ -819,12 +957,9 @@ class KillmailService
         $kills = $this->filterKills($kills, $params);
 
         // 基于 protobuf 数据的预过滤 (在限制数量前执行，避免目标 KM 被截断)
-        $preFiltered = false;
         if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            $beforeCount = count($kills);
             $kills = $this->preFilterByInvolvement($kills, $entityType, (int) $entityId, $involvement);
-            $preFiltered = (count($kills) !== $beforeCount);
-            Log::debug("advancedSearch: 预过滤后 " . count($kills) . " 条 KM (预过滤生效: " . ($preFiltered ? '是' : '否') . ")");
+            Log::debug("advancedSearch: 预过滤后 " . count($kills) . " 条 KM");
         }
 
         // 限制数量避免过多 ESI 调用
@@ -833,17 +968,10 @@ class KillmailService
         // 富化数据 (同时返回详情映射用于 involvement 过滤)
         [$enriched, $detailsMap] = $this->enrichKillList($kills);
 
-        Log::debug("advancedSearch: 富化后 " . count($enriched) . " 条, detailsMap " . count($detailsMap) . " 条");
-
-        // involvement 过滤 (适用于 pilot/corporation/alliance)
-        // pilot+victim 已通过预过滤精确匹配，无需 ESI 二次过滤
+        // involvement 过滤 (回退路径: ESI 级别精确过滤)
         if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            $needEsiFilter = true;
-            if ($involvement === 'victim' && $entityType === 'pilot') {
-                $needEsiFilter = false; // 已通过 victim_id 预过滤
-            }
-
-            if ($needEsiFilter) {
+            // pilot+victim 已通过预过滤精确匹配，无需 ESI 二次过滤
+            if (!($involvement === 'victim' && $entityType === 'pilot')) {
                 $beforeFilter = count($enriched);
                 $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement, $detailsMap);
                 Log::debug("advancedSearch: ESI involvement 过滤 {$beforeFilter} -> " . count($enriched) . " 条");
