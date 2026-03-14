@@ -109,6 +109,8 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     // KM 查询 API
     Route::prefix('api/killmails')->group(function () {
         Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
+        Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
+        Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
         Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
         Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
     });
