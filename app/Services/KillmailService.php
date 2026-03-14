@@ -809,6 +809,8 @@ class KillmailService
         // 获取基础列表
         $kills = $this->getEntityKills($entityType, (int) $entityId);
 
+        Log::debug("advancedSearch: 获取到 " . count($kills) . " 条 KM (entity={$entityType}, id={$entityId}, involvement={$involvement})");
+
         if (empty($kills)) {
             return [];
         }
@@ -816,18 +818,62 @@ class KillmailService
         // 服务端过滤 (ship/system/time)
         $kills = $this->filterKills($kills, $params);
 
+        // 基于 protobuf 数据的预过滤 (在限制数量前执行，避免目标 KM 被截断)
+        $preFiltered = false;
+        if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
+            $beforeCount = count($kills);
+            $kills = $this->preFilterByInvolvement($kills, $entityType, (int) $entityId, $involvement);
+            $preFiltered = (count($kills) !== $beforeCount);
+            Log::debug("advancedSearch: 预过滤后 " . count($kills) . " 条 KM (预过滤生效: " . ($preFiltered ? '是' : '否') . ")");
+        }
+
         // 限制数量避免过多 ESI 调用
         $kills = array_slice($kills, 0, 50);
 
         // 富化数据 (同时返回详情映射用于 involvement 过滤)
         [$enriched, $detailsMap] = $this->enrichKillList($kills);
 
+        Log::debug("advancedSearch: 富化后 " . count($enriched) . " 条, detailsMap " . count($detailsMap) . " 条");
+
         // involvement 过滤 (适用于 pilot/corporation/alliance)
+        // pilot+victim 已通过预过滤精确匹配，无需 ESI 二次过滤
         if ($involvement && in_array($entityType, ['pilot', 'corporation', 'alliance'])) {
-            $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement, $detailsMap);
+            $needEsiFilter = true;
+            if ($involvement === 'victim' && $entityType === 'pilot') {
+                $needEsiFilter = false; // 已通过 victim_id 预过滤
+            }
+
+            if ($needEsiFilter) {
+                $beforeFilter = count($enriched);
+                $enriched = $this->filterByInvolvement($enriched, $entityType, (int) $entityId, $involvement, $detailsMap);
+                Log::debug("advancedSearch: ESI involvement 过滤 {$beforeFilter} -> " . count($enriched) . " 条");
+            }
         }
 
         return $enriched;
+    }
+
+    /**
+     * 基于 protobuf 列表数据的预过滤 (在 ESI 富化之前)
+     * 用于在 50 条限制前缩小结果集，避免目标 KM 被截断
+     *
+     * pilot+victim: protobuf 包含 victim_id，可直接匹配
+     * 其他情况: 需要 ESI 详情，无法预过滤
+     */
+    protected function preFilterByInvolvement(array $kills, string $entityType, int $entityId, string $involvement): array
+    {
+        if ($involvement === 'victim' && $entityType === 'pilot') {
+            // protobuf 数据中 victim_id 可直接判断该角色是否为受害者
+            $filtered = array_values(array_filter($kills, function ($kill) use ($entityId) {
+                return !empty($kill['victim_id']) && (int) $kill['victim_id'] === $entityId;
+            }));
+            Log::debug("preFilterByInvolvement: pilot+victim 预过滤, 输入 " . count($kills) . " 条, 输出 " . count($filtered) . " 条 (entityId={$entityId})");
+            return $filtered;
+        }
+
+        // finalblow/attacker 需要 ESI 攻击者详情，无法从 protobuf 预过滤
+        // corporation/alliance 的 victim 需要查询受害者的军团/联盟归属
+        return $kills;
     }
 
     /**
@@ -839,7 +885,10 @@ class KillmailService
      */
     protected function filterByInvolvement(array $enrichedKills, string $entityType, int $entityId, string $involvement, array $detailsMap = []): array
     {
-        return array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $involvement, $detailsMap) {
+        $matchCount = 0;
+        $noDetailCount = 0;
+
+        $result = array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $involvement, $detailsMap, &$matchCount, &$noDetailCount) {
             $killId = $kill['kill_id'];
 
             // 优先从传入的 detailsMap 获取，其次从缓存，最后尝试直接获取
@@ -848,37 +897,51 @@ class KillmailService
                 try {
                     $detail = $this->getKillDetails($killId);
                 } catch (\Exception $e) {
-                    Log::debug("filterByInvolvement: 无法获取 kill {$killId} 详情: " . $e->getMessage());
+                    $noDetailCount++;
                     return false;
                 }
             }
 
-            if (!$detail || empty($detail['victim'])) return false;
+            if (!$detail || empty($detail['victim'])) {
+                $noDetailCount++;
+                return false;
+            }
 
+            $matched = false;
             switch ($involvement) {
                 case 'victim':
-                    return $this->entityMatchesParticipant($detail['victim'], $entityType, $entityId);
+                    $matched = $this->entityMatchesParticipant($detail['victim'], $entityType, $entityId);
+                    break;
 
                 case 'finalblow':
                     foreach ($detail['attackers'] ?? [] as $atk) {
                         if (!empty($atk['final_blow']) && $this->entityMatchesParticipant($atk, $entityType, $entityId)) {
-                            return true;
+                            $matched = true;
+                            break;
                         }
                     }
-                    return false;
+                    break;
 
                 case 'attacker':
                     foreach ($detail['attackers'] ?? [] as $atk) {
                         if (empty($atk['final_blow']) && $this->entityMatchesParticipant($atk, $entityType, $entityId)) {
-                            return true;
+                            $matched = true;
+                            break;
                         }
                     }
-                    return false;
+                    break;
 
                 default:
-                    return true;
+                    $matched = true;
             }
+
+            if ($matched) $matchCount++;
+            return $matched;
         }));
+
+        Log::debug("filterByInvolvement: involvement={$involvement}, entity={$entityType}:{$entityId}, 输入 " . count($enrichedKills) . " 条, 匹配 {$matchCount} 条, 无详情 {$noDetailCount} 条");
+
+        return $result;
     }
 
     /**
