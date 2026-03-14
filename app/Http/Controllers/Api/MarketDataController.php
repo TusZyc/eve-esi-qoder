@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Services\MarketService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class MarketDataController extends Controller
+{
+    private MarketService $marketService;
+
+    public function __construct(MarketService $marketService)
+    {
+        $this->marketService = $marketService;
+    }
+
+    /**
+     * 获取市场分组树
+     * GET /api/public/market/groups
+     */
+    public function groups(Request $request)
+    {
+        $tree = $this->marketService->getMarketGroupsTree();
+
+        return response()->json([
+            'success' => true,
+            'data' => $tree,
+        ]);
+    }
+
+    /**
+     * 获取分组详情
+     * GET /api/public/market/groups/{id}
+     */
+    public function groupDetail(Request $request, int $id)
+    {
+        $detail = $this->marketService->getGroupDetail($id);
+
+        if (!$detail) {
+            return response()->json([
+                'success' => false,
+                'message' => '分组不存在',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $detail,
+        ]);
+    }
+
+    /**
+     * 获取市场订单
+     * GET /api/public/market/orders?region_id=X&type_id=Y
+     */
+    public function orders(Request $request)
+    {
+        $request->validate([
+            'region_id' => 'required|integer',
+            'type_id' => 'required|integer',
+        ]);
+
+        $regionId = $request->input('region_id');
+        $typeId = $request->input('type_id');
+
+        $orders = $this->marketService->getOrders($regionId, $typeId);
+
+        // 为订单添加位置信息
+        $orders['sell'] = $this->marketService->enrichOrdersWithLocation($orders['sell']);
+        $orders['buy'] = $this->marketService->enrichOrdersWithLocation($orders['buy']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders,
+        ]);
+    }
+
+    /**
+     * 获取价格历史
+     * GET /api/public/market/history?region_id=X&type_id=Y
+     */
+    public function history(Request $request)
+    {
+        $request->validate([
+            'region_id' => 'required|integer',
+            'type_id' => 'required|integer',
+        ]);
+
+        $regionId = $request->input('region_id');
+        $typeId = $request->input('type_id');
+
+        $history = $this->marketService->getPriceHistory($regionId, $typeId);
+
+        return response()->json([
+            'success' => true,
+            'data' => $history,
+        ]);
+    }
+
+    /**
+     * 获取物品详情
+     * GET /api/public/market/types/{id}
+     */
+    public function typeDetail(Request $request, string $id)
+    {
+        $detail = $this->marketService->getTypeDetail((int) $id);
+        if (!$detail) {
+            return response()->json([
+                'success' => false,
+                'message' => '物品不存在',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $detail,
+        ]);
+    }
+
+    /**
+     * 获取角色市场订单（需认证）
+     * GET /api/market/character-orders
+     */
+    public function characterOrders(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || !$user->access_token) {
+            return response()->json([
+                'success' => false,
+                'message' => '未授权',
+            ], 401);
+        }
+
+        $orders = $this->marketService->getCharacterOrders(
+            $user->access_token,
+            $user->eve_character_id
+        );
+
+        // 为订单添加位置信息
+        $orders = $this->marketService->enrichOrdersWithLocation($orders);
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders,
+        ]);
+    }
+
+    /**
+     * 获取当前角色订单ID列表（用于高亮）
+     * GET /api/market/my-order-ids
+     */
+    public function myOrderIds(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || !$user->access_token) {
+            return response()->json([
+                'success' => false,
+                'message' => '未授权',
+            ], 401);
+        }
+
+        $orders = $this->marketService->getCharacterOrders(
+            $user->access_token,
+            $user->eve_character_id
+        );
+
+        $orderIds = array_column($orders, 'order_id');
+
+        return response()->json([
+            'success' => true,
+            'data' => $orderIds,
+        ]);
+    }
+}

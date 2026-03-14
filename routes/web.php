@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GuestDashboardController;
+use App\Http\Controllers\MarketController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\Api\DashboardDataController;
 use App\Http\Controllers\Api\AssetDataController;
@@ -10,6 +12,7 @@ use App\Http\Controllers\Api\CharacterLocationController;
 use App\Http\Controllers\Api\CharacterOnlineController;
 use App\Http\Controllers\Api\SkillDataController;
 use App\Http\Controllers\Api\ServerStatusController;
+use App\Http\Controllers\Api\MarketDataController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\Api\KillmailController;
@@ -26,10 +29,25 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// 游客仪表盘（无需授权）
+Route::get('/guest', [GuestDashboardController::class, 'index'])->name('guest.dashboard');
+
+// 市场（公开访问）
+Route::get('/market', [MarketController::class, 'index'])->name('market.index');
+
 // 公开 API（无需认证）
 Route::get('/api/public/server-status', [ServerStatusController::class, 'index'])
     ->middleware('throttle:10,1')
     ->name('api.public.server-status');
+
+// 市场公开 API
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/api/public/market/groups', [MarketDataController::class, 'groups'])->name('api.public.market.groups');
+    Route::get('/api/public/market/groups/{id}', [MarketDataController::class, 'groupDetail'])->name('api.public.market.group-detail');
+    Route::get('/api/public/market/orders', [MarketDataController::class, 'orders'])->name('api.public.market.orders');
+    Route::get('/api/public/market/history', [MarketDataController::class, 'history'])->name('api.public.market.history');
+    Route::get('/api/public/market/types/{id}', [MarketDataController::class, 'typeDetail'])->name('api.public.market.type-detail');
+});
 
 // OAuth2 路由
 Route::prefix('auth')->group(function () {
@@ -54,6 +72,12 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
     Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
+});
+
+// 市场认证 API（需登录）
+Route::middleware(['auth', 'throttle:30,1'])->prefix('api/market')->group(function () {
+    Route::get('/character-orders', [MarketDataController::class, 'characterOrders'])->name('api.market.character-orders');
+    Route::get('/my-order-ids', [MarketDataController::class, 'myOrderIds'])->name('api.market.my-order-ids');
 });
 
 // 需要认证的路由（自动刷新 EVE Token）
