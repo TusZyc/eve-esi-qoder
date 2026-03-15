@@ -416,7 +416,11 @@
             history.forEach(function(item) {
                 html += '<div class="timeline-item">';
                 html += '<div class="text-sm text-white font-medium">' + escapeHtml(item.corporation_name) + '</div>';
-                if (item.start_date) html += '<div class="text-xs text-blue-300/60 mt-0.5">加入时间: ' + escapeHtml(item.start_date) + '</div>';
+                if (item.start_date) {
+                    html += '<div class="text-xs text-blue-300/60 mt-0.5">';
+                    html += escapeHtml(item.start_date) + ' ~ ' + escapeHtml(item.end_date) + ' (' + item.days + '天)';
+                    html += '</div>';
+                }
                 if (item.is_deleted) html += '<div class="text-xs text-red-400/60 mt-0.5">已解散</div>';
                 html += '</div>';
             });

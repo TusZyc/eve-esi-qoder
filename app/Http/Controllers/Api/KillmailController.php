@@ -81,8 +81,14 @@ class KillmailController extends Controller
     {
         $entityType = $request->input('entity_type');
         $entityId = $request->input('entity_id');
+        $timeStart = $request->input('time_start');
+        $timeEnd = $request->input('time_end');
 
-        if (empty($entityType) || empty($entityId)) {
+        // 允许 entity 搜索 或 time-only 搜索
+        $hasEntity = !empty($entityType) && !empty($entityId);
+        $hasTime = !empty($timeStart) || !empty($timeEnd);
+
+        if (!$hasEntity && !$hasTime) {
             return response()->json([
                 'success' => false,
                 'error' => 'missing_params',
@@ -90,13 +96,15 @@ class KillmailController extends Controller
             ], 400);
         }
 
-        $validTypes = ['pilot', 'corporation', 'alliance', 'ship', 'system'];
-        if (!in_array($entityType, $validTypes)) {
-            return response()->json([
-                'success' => false,
-                'error' => 'invalid_entity_type',
-                'message' => '无效的实体类型',
-            ], 400);
+        if ($hasEntity) {
+            $validTypes = ['pilot', 'corporation', 'alliance', 'ship', 'system'];
+            if (!in_array($entityType, $validTypes)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'invalid_entity_type',
+                    'message' => '无效的实体类型',
+                ], 400);
+            }
         }
 
         try {

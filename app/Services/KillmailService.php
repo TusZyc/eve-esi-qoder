@@ -257,7 +257,9 @@ class KillmailService
                 case 'ship':
                     return $this->searchKbShipAutocomplete($query);
                 case 'system':
-                    return $this->searchLocalEntities($query, 'system');
+                    $local = $this->searchLocalEntities($query, 'system');
+                    if (!empty($local)) return $local;
+                    return $this->searchEsiSystems($query);
                 default:
                     return [];
             }
@@ -379,12 +381,12 @@ class KillmailService
             if (mb_strpos(mb_strtolower($gName, 'UTF-8'), $queryLower) !== false) {
                 $exists = false;
                 foreach ($results as $r) {
-                    if ($r['name'] === $gName || $r['name'] === $gName . ' (类别)') { $exists = true; break; }
+                    if ($r['name'] === $gName) { $exists = true; break; }
                 }
                 if (!$exists) {
                     $results[] = [
                         'id' => $group['group_id'],
-                        'name' => $gName . ' (类别)',
+                        'name' => $gName,
                         'type' => 'ship_group',
                     ];
                     $seenGroupNames[$gName] = true;
@@ -626,6 +628,52 @@ class KillmailService
                 'type' => $category,
             ];
         }, $results);
+    }
+
+    /**
+     * 通过 ESI universe/ids 搜索星系（中英文精确匹配）
+     */
+    protected function searchEsiSystems(string $query): array
+    {
+        $results = [];
+
+        try {
+            // 先用中文搜索
+            $response = Http::timeout(8)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post($this->esiBaseUrl . 'universe/ids/?datasource=serenity&language=zh', [$query]);
+
+            if ($response->ok()) {
+                foreach ($response->json()['systems'] ?? [] as $sys) {
+                    $results[] = [
+                        'id' => (int) $sys['id'],
+                        'name' => $sys['name'],
+                        'type' => 'system',
+                    ];
+                }
+            }
+
+            // 如果中文没结果，再尝试英文
+            if (empty($results)) {
+                $response = Http::timeout(8)
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->post($this->esiBaseUrl . 'universe/ids/?datasource=serenity&language=en', [$query]);
+
+                if ($response->ok()) {
+                    foreach ($response->json()['systems'] ?? [] as $sys) {
+                        $results[] = [
+                            'id' => (int) $sys['id'],
+                            'name' => $sys['name'],
+                            'type' => 'system',
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::debug("ESI system search failed: " . $e->getMessage());
+        }
+
+        return $results;
     }
 
     // ========================================================
@@ -990,10 +1038,15 @@ class KillmailService
                 }
             }
 
-            // End date (F10) - Protobuf Timestamp (设为当天 23:59:59)
+            // End date (F10) - Protobuf Timestamp
             $endDate = $params['end_date'] ?? null;
             if ($endDate) {
-                $ts = strtotime($endDate . ' 23:59:59');
+                // 如果已包含时间部分（datetime-local 格式），直接使用；否则设为当天 23:59:59
+                if (strpos($endDate, 'T') !== false || strpos($endDate, ':') !== false) {
+                    $ts = strtotime($endDate);
+                } else {
+                    $ts = strtotime($endDate . ' 23:59:59');
+                }
                 if ($ts) {
                     $body .= $this->pbEncodeTimestamp(10, $ts);
                 }
@@ -1233,6 +1286,26 @@ class KillmailService
         $timeEnd = $params['time_end'] ?? null;
 
         if (!$entityType || !$entityId) {
+            // 仅时间搜索: 直接用 Search API 的日期范围
+            if ($timeStart || $timeEnd) {
+                $searchParams = [];
+                if ($shipId) $searchParams['types'] = [(int) $shipId];
+                if ($systemId) $searchParams['systems'] = [(int) $systemId];
+                if ($timeStart) $searchParams['start_date'] = $timeStart;
+                if ($timeEnd) $searchParams['end_date'] = $timeEnd;
+
+                if (empty($searchParams)) {
+                    throw new \Exception('缺少搜索条件');
+                }
+
+                $kills = $this->fetchBetaSearchKillsAdvanced($searchParams);
+                if (!empty($kills)) {
+                    $kills = array_slice($kills, 0, 50);
+                    [$enriched, $detailsMap] = $this->enrichKillList($kills);
+                    return $enriched;
+                }
+                return [];
+            }
             throw new \Exception('缺少搜索条件');
         }
 
@@ -1619,7 +1692,11 @@ class KillmailService
                 }
             }
             if ($timeEnd && !empty($kill['kill_timestamp'])) {
-                $endTs = strtotime($timeEnd . ' 23:59:59');
+                if (strpos($timeEnd, 'T') !== false || strpos($timeEnd, ':') !== false) {
+                    $endTs = strtotime($timeEnd);
+                } else {
+                    $endTs = strtotime($timeEnd . ' 23:59:59');
+                }
                 if ($endTs && $kill['kill_timestamp'] > $endTs) {
                     return false;
                 }

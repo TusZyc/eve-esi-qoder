@@ -96,9 +96,9 @@
                     <div>
                         <label class="block text-sm text-blue-200 mb-1">时间范围</label>
                         <div class="flex items-center space-x-2">
-                            <input id="timeStart" type="date" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 flex-1">
+                            <input id="timeStart" type="datetime-local" step="1" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 flex-1">
                             <span class="text-white/50">~</span>
-                            <input id="timeEnd" type="date" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 flex-1">
+                            <input id="timeEnd" type="datetime-local" step="1" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 flex-1">
                         </div>
                     </div>
 
@@ -301,6 +301,7 @@ function doAdvancedSearch() {
     var entityInput = document.getElementById('entityInput').value.trim();
     var shipId = document.getElementById('shipId').value;
     var systemId = document.getElementById('systemId').value;
+    var systemInput = document.getElementById('systemInput').value.trim();
     var timeStart = document.getElementById('timeStart').value;
     var timeEnd = document.getElementById('timeEnd').value;
     var invEl = document.querySelector('input[name="involvement"]:checked');
@@ -317,7 +318,7 @@ function doAdvancedSearch() {
         } else if (systemId) {
             apiEntityType = 'system';
             entityId = systemId;
-        } else {
+        } else if (!timeStart && !timeEnd) {
             alert('请至少选择一个搜索条件');
             return;
         }
@@ -325,22 +326,25 @@ function doAdvancedSearch() {
 
     showLoading('正在搜索击杀记录...');
 
-    var params = new URLSearchParams({
-        entity_type: apiEntityType,
-        entity_id: entityId,
-    });
+    var params = new URLSearchParams();
+    if (entityId) {
+        params.set('entity_type', apiEntityType);
+        params.set('entity_id', entityId);
+    }
     if (shipId && apiEntityType !== 'ship') params.set('ship_id', shipId);
     if (systemId && apiEntityType !== 'system') params.set('system_id', systemId);
     if (timeStart) params.set('time_start', timeStart);
     if (timeEnd) params.set('time_end', timeEnd);
     if (involvement) params.set('involvement', involvement);
 
+    var titleLabel = entityInput || systemInput || '搜索结果';
+
     fetch('/api/killmails/advanced-search?' + params.toString())
         .then(function(r) { return r.json(); })
         .then(function(data) {
             hideLoading();
             if (data.success) {
-                renderKillList(data.data, entityInput || '搜索结果');
+                renderKillList(data.data, titleLabel);
             } else {
                 alert('搜索失败: ' + (data.message || '未知错误'));
             }
