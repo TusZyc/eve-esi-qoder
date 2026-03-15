@@ -5,16 +5,6 @@
     .eve-glow {
         box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
     }
-    @keyframes shimmer {
-        0% { background-position: -1000px 0; }
-        100% { background-position: 1000px 0; }
-    }
-    .skeleton {
-        background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
-        background-size: 1000px 100%;
-        animation: shimmer 2s infinite;
-        border-radius: 4px;
-    }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
         border: 2px solid rgba(255,255,255,0.1);
@@ -62,6 +52,32 @@
     }
     .timeline-item:first-child::before {
         background: #4ade80;
+    }
+    .tab-btn {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: 1px solid transparent;
+        color: rgba(147, 197, 253, 0.7);
+        background: transparent;
+    }
+    .tab-btn:hover {
+        color: #93c5fd;
+        background: rgba(255,255,255,0.05);
+    }
+    .tab-btn.active {
+        color: #fff;
+        background: rgba(59, 130, 246, 0.3);
+        border-color: rgba(59, 130, 246, 0.5);
+    }
+    .tab-panel {
+        display: none;
+    }
+    .tab-panel.active {
+        display: block;
     }
 </style>
 @endpush
@@ -157,42 +173,54 @@
             @endif
         </div>
 
-        <!-- 属性卡片 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-6">
-            <h2 class="text-lg font-semibold mb-4">角色属性</h2>
-            <div id="attributes-content">
-                <div class="flex items-center justify-center py-6 text-blue-300">
-                    <span class="spinner mr-3"></span>加载中...
+        <!-- 标签切换按钮 -->
+        <div class="flex flex-wrap gap-2 mb-4">
+            <button class="tab-btn active" onclick="switchTab('attributes')">角色属性 &amp; 植入体</button>
+            <button class="tab-btn" onclick="switchTab('clones')">克隆体</button>
+            <button class="tab-btn" onclick="switchTab('corphistory')">雇佣历史</button>
+        </div>
+
+        <!-- 标签内容区 -->
+        <!-- 属性 + 植入体 -->
+        <div id="tab-attributes" class="tab-panel active">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-4">
+                <h2 class="text-lg font-semibold mb-4">角色属性</h2>
+                <div id="attributes-content">
+                    <div class="flex items-center justify-center py-6 text-blue-300">
+                        <span class="spinner mr-3"></span>加载中...
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
+                <h2 class="text-lg font-semibold mb-4">当前植入体</h2>
+                <div id="implants-content">
+                    <div class="flex items-center justify-center py-6 text-blue-300">
+                        <span class="spinner mr-3"></span>加载中...
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 植入体卡片 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-6">
-            <h2 class="text-lg font-semibold mb-4">当前植入体</h2>
-            <div id="implants-content">
-                <div class="flex items-center justify-center py-6 text-blue-300">
-                    <span class="spinner mr-3"></span>加载中...
+        <!-- 克隆体 -->
+        <div id="tab-clones" class="tab-panel">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
+                <h2 class="text-lg font-semibold mb-4">克隆体</h2>
+                <div id="clones-content">
+                    <div class="flex items-center justify-center py-6 text-blue-300">
+                        <span class="spinner mr-3"></span>加载中...
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 克隆体卡片 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-6">
-            <h2 class="text-lg font-semibold mb-4">克隆体</h2>
-            <div id="clones-content">
-                <div class="flex items-center justify-center py-6 text-blue-300">
-                    <span class="spinner mr-3"></span>加载中...
-                </div>
-            </div>
-        </div>
-
-        <!-- 雇佣历史卡片 -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-6">
-            <h2 class="text-lg font-semibold mb-4">雇佣历史</h2>
-            <div id="corphistory-content">
-                <div class="flex items-center justify-center py-6 text-blue-300">
-                    <span class="spinner mr-3"></span>加载中...
+        <!-- 雇佣历史 -->
+        <div id="tab-corphistory" class="tab-panel">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
+                <h2 class="text-lg font-semibold mb-4">雇佣历史</h2>
+                <div id="corphistory-content">
+                    <div class="flex items-center justify-center py-6 text-blue-300">
+                        <span class="spinner mr-3"></span>加载中...
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,6 +246,37 @@
         return '<div class="text-center py-4 text-yellow-300/70 text-sm">' + escapeHtml(message) + '</div>';
     }
 
+    // === 标签切换 ===
+    const tabLoaded = {};
+
+    function switchTab(tabName) {
+        // 切换按钮状态
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+
+        // 切换面板
+        document.querySelectorAll('.tab-panel').forEach(function(panel) {
+            panel.classList.remove('active');
+        });
+        document.getElementById('tab-' + tabName).classList.add('active');
+
+        // 首次切换时加载数据
+        if (!tabLoaded[tabName]) {
+            tabLoaded[tabName] = true;
+            if (tabName === 'attributes') {
+                loadAttributes();
+                loadImplants();
+            } else if (tabName === 'clones') {
+                loadClones();
+            } else if (tabName === 'corphistory') {
+                loadCorpHistory();
+            }
+        }
+    }
+
+    // === 属性 ===
     const ATTR_NAMES = {
         'perception': '感知',
         'intelligence': '智力',
@@ -250,7 +309,6 @@
             }
             html += '</div>';
 
-            // 重映射信息
             if (d.last_remap_date || d.accrued_remap_cooldown_date) {
                 html += '<div class="text-xs text-blue-300/60 space-y-1">';
                 if (d.last_remap_date) {
@@ -271,6 +329,7 @@
         }
     }
 
+    // === 植入体 ===
     async function loadImplants() {
         const container = document.getElementById('implants-content');
         if (!container) return;
@@ -303,6 +362,7 @@
         }
     }
 
+    // === 克隆体 ===
     async function loadClones() {
         const container = document.getElementById('clones-content');
         if (!container) return;
@@ -319,7 +379,6 @@
             const d = result.data;
             let html = '';
 
-            // 基地空间站
             if (d.home_location) {
                 html += '<div class="mb-4 px-4 py-3 bg-white/5 rounded-lg">';
                 html += '<div class="text-xs text-blue-300/60 mb-1">基地空间站</div>';
@@ -327,12 +386,10 @@
                 html += '</div>';
             }
 
-            // 上次跳跃克隆时间
             if (d.last_clone_jump_date) {
                 html += '<div class="text-xs text-blue-300/60 mb-3">上次跳跃克隆: ' + escapeHtml(new Date(d.last_clone_jump_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
             }
 
-            // 跳跃克隆列表
             const clones = d.jump_clones || [];
             if (clones.length === 0) {
                 html += '<div class="text-center py-2 text-blue-300/60 text-sm">没有跳跃克隆</div>';
@@ -348,7 +405,7 @@
                     if (clone.implants && clone.implants.length > 0) {
                         html += '<div class="px-4 py-2 space-y-1">';
                         clone.implants.forEach(function(imp) {
-                            html += '<div class="text-xs text-white/70">  ' + escapeHtml(imp.name) + '</div>';
+                            html += '<div class="text-xs text-white/70">' + escapeHtml(imp.name) + '</div>';
                         });
                         html += '</div>';
                     } else {
@@ -365,6 +422,7 @@
         }
     }
 
+    // === 雇佣历史 ===
     async function loadCorpHistory() {
         const container = document.getElementById('corphistory-content');
         if (!container) return;
@@ -402,11 +460,11 @@
         }
     }
 
+    // 页面加载时，默认加载第一个标签的数据
     document.addEventListener('DOMContentLoaded', function() {
+        tabLoaded['attributes'] = true;
         loadAttributes();
         loadImplants();
-        loadClones();
-        loadCorpHistory();
     });
 </script>
 @endpush

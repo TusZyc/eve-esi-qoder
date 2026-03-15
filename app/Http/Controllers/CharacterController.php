@@ -432,22 +432,35 @@ class CharacterController extends Controller
             $desc = $m[1];
         }
 
-        // 解码 \uXXXX unicode 转义 → 中文
+        // 解码 \uXXXX unicode 转义 → UTF-8
         $desc = preg_replace_callback('/\\\\u([0-9a-fA-F]{4})/', function ($m) {
             return mb_convert_encoding(pack('H*', $m[1]), 'UTF-8', 'UCS-2BE');
         }, $desc);
 
-        // 解码 \xNN 十六进制转义 → UTF-8 字符
+        // 解码 \xNN 作为 Unicode 码点 U+00NN → UTF-8（不是原始字节）
         $desc = preg_replace_callback('/\\\\x([0-9a-fA-F]{2})/', function ($m) {
-            return chr(hexdec($m[1]));
+            return mb_convert_encoding(pack('H*', '00' . $m[1]), 'UTF-8', 'UCS-2BE');
         }, $desc);
 
         // 解码 HTML 实体
         $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // EVE 用 <font> 标签做颜色，转为 span
-        $desc = preg_replace('/<font\s+size="?\d+"?\s*color="?(#[0-9a-fA-F]+)"?\s*>/i', '<span style="color:$1">', $desc);
-        $desc = preg_replace('/<font\s+color="?(#[0-9a-fA-F]+)"?\s*>/i', '<span style="color:$1">', $desc);
+        // EVE 用 <font> 标签做颜色（ARGB 8位格式），转为 CSS span（RGB 6位）
+        $desc = preg_replace_callback('/<font\s+size="?\d+"?\s*color="?#([0-9a-fA-F]+)"?\s*>/i', function ($m) {
+            $color = $m[1];
+            // EVE ARGB: 前2位是alpha，后6位是RGB
+            if (strlen($color) === 8) {
+                $color = substr($color, 2);
+            }
+            return '<span style="color:#' . $color . '">';
+        }, $desc);
+        $desc = preg_replace_callback('/<font\s+color="?#([0-9a-fA-F]+)"?\s*>/i', function ($m) {
+            $color = $m[1];
+            if (strlen($color) === 8) {
+                $color = substr($color, 2);
+            }
+            return '<span style="color:#' . $color . '">';
+        }, $desc);
         $desc = str_ireplace('</font>', '</span>', $desc);
 
         // EVE <a href="showinfo:..."> 链接去掉，只保留文本
@@ -460,10 +473,7 @@ class CharacterController extends Controller
         // 清理其余不安全标签，只保留安全的 HTML
         $desc = strip_tags($desc, '<br><span><b><i><u><p>');
 
-        // 修复 UTF-8 编码
-        if (!mb_check_encoding($desc, 'UTF-8')) {
-            $desc = mb_convert_encoding($desc, 'UTF-8', 'ISO-8859-1');
-        }
+        // 清理可能残留的无效 UTF-8 字节
         $desc = @iconv('UTF-8', 'UTF-8//IGNORE', $desc);
 
         return $desc;
