@@ -1022,7 +1022,8 @@ class KillmailService
             if ($response->ok() && strlen($response->body()) > 0) {
                 $kills = $this->parseBetaKillListProtobuf($response->body());
                 Log::debug("fetchBetaSearchKillsAdvanced: 返回 " . count($kills) . " 条 (params: " . json_encode(array_diff_key($params, ['entity_id' => 1])) . ")");
-                Cache::put($cacheKey, $kills, 300);
+                // 有结果缓存 5 分钟; 空结果只缓存 30 秒 (避免 API 瞬时故障导致长时间无结果)
+                Cache::put($cacheKey, $kills, !empty($kills) ? 300 : 30);
                 return $kills;
             }
 
@@ -1216,9 +1217,10 @@ class KillmailService
      * 1) entity_type=ship → Search API types[] (支持建筑)
      * 2) entity_type=system → Search API systems[]
      * 3) entity_type=pilot/corporation/alliance:
-     *    a) 有 involvement → Search API char+chartype+daterange, 客户端过滤 ship/system
-     *    b) 无 involvement → Search API char+daterange, 客户端过滤 ship/system
-     *    c) Search API 失败 → 回退 list API + 客户端过滤
+     *    a) 正向: Search API entity+chartype+daterange → 客户端过滤 ship/system
+     *    b) 反向补充: 当有 ship/system 过滤且正向结果不足时,
+     *       从 ship/system 方向搜索并验证 entity involvement, 合并结果
+     *    c) Search API 全部失败 → 回退 list API + 客户端过滤
      */
     public function advancedSearch(array $params): array
     {
@@ -1297,7 +1299,7 @@ class KillmailService
             throw new \Exception('不支持的实体类型: ' . $entityType);
         }
 
-        // 3a: 使用 Search API (char + chartype + daterange)
+        // Search API 支持 entity + chartype + types + systems + daterange 全部组合
         $chartype = '';
         if ($involvement && !$isStructure && isset($chartypeMap[$involvement])) {
             $chartype = $chartypeMap[$involvement];
@@ -1310,34 +1312,28 @@ class KillmailService
         if (!empty($chartype)) {
             $searchParams['chartype'] = $chartype;
         }
-        // 日期范围可以与 entity 组合使用 (API 支持)
+        if ($shipId) {
+            $searchParams['types'] = [(int) $shipId];
+        }
+        if ($systemId) {
+            $searchParams['systems'] = [(int) $systemId];
+        }
         if ($timeStart) $searchParams['start_date'] = $timeStart;
         if ($timeEnd) $searchParams['end_date'] = $timeEnd;
 
         $kills = $this->fetchBetaSearchKillsAdvanced($searchParams);
 
-        Log::debug("advancedSearch: Search API 返回 " . count($kills) . " 条 (entity={$entityType}, id={$entityId}, chartype={$chartype})");
+        Log::debug("advancedSearch: Search API 返回 " . count($kills) . " 条 (entity={$entityType}, id={$entityId}, chartype={$chartype}, ship={$shipId}, system={$systemId})");
 
         if (!empty($kills)) {
-            // 客户端过滤 ship/system (API 不支持与 entity 组合)
-            $beforeFilter = count($kills);
-            $kills = $this->filterKills($kills, [
-                'ship_id' => $shipId,
-                'system_id' => $systemId,
-            ]);
-
-            if ($beforeFilter > 0 && count($kills) === 0) {
-                Log::debug("advancedSearch: ship/system 客户端过滤后为空 (ship_id={$shipId}, system_id={$systemId}, 过滤前 {$beforeFilter} 条)");
-            }
-
             $kills = array_slice($kills, 0, 50);
             [$enriched, $detailsMap] = $this->enrichKillList($kills);
-            Log::debug("advancedSearch: Search API 路径, 富化后 " . count($enriched) . " 条");
+            Log::debug("advancedSearch: 富化后 " . count($enriched) . " 条");
             return $enriched;
         }
 
-        // 3b: Search API 失败 → 回退到 list API
-        Log::debug("advancedSearch: Search API 返回空, 回退到 list API");
+        // Search API 无结果 → 回退到 list API
+        Log::debug("advancedSearch: Search API 无结果, 回退到 list API");
 
         $kills = $this->getEntityKills($entityType, (int) $entityId);
 
@@ -1369,6 +1365,118 @@ class KillmailService
         }
 
         return $enriched;
+    }
+
+    /**
+     * 反向搜索: 从 ship/system 方向搜索, 验证 entity involvement 后返回富化结果
+     *
+     * 当正向搜索 (entity → filter ship/system) 结果不足时调用。
+     * 从 ship/system 的 50 条最新 KM 中找出涉及目标 entity 的记录。
+     *
+     * @param int|null $shipId 舰船 type_id
+     * @param int|null $systemId 星系 ID
+     * @param string|null $timeStart 开始日期
+     * @param string|null $timeEnd 结束日期
+     * @param string $entityType pilot/corporation/alliance
+     * @param int $entityId 实体 ID
+     * @param string|null $involvement victim/finalblow/attacker
+     * @param bool $isStructure 是否为建筑搜索
+     * @param array $excludeKillIds 排除已有的 kill_id 列表
+     * @return array 富化后的 KM 列表 (已验证 entity involvement)
+     */
+    protected function reverseSearchByShipSystem(
+        ?int $shipId, ?int $systemId,
+        ?string $timeStart, ?string $timeEnd,
+        string $entityType, int $entityId,
+        ?string $involvement, bool $isStructure,
+        array $excludeKillIds = []
+    ): array {
+        // 构造反向搜索参数 (优先用 ship, 因为更具体)
+        $reverseParams = [];
+        if ($shipId) {
+            $reverseParams['types'] = [(int) $shipId];
+        } elseif ($systemId) {
+            $reverseParams['systems'] = [(int) $systemId];
+        }
+        if ($timeStart) $reverseParams['start_date'] = $timeStart;
+        if ($timeEnd) $reverseParams['end_date'] = $timeEnd;
+
+        if (empty($reverseParams)) return [];
+
+        $reverseRaw = $this->fetchBetaSearchKillsAdvanced($reverseParams);
+        if (empty($reverseRaw)) return [];
+
+        Log::debug("reverseSearch: API 返回 " . count($reverseRaw) . " 条 (params=" . json_encode(array_diff_key($reverseParams, ['start_date' => 1, 'end_date' => 1])) . ")");
+
+        // 排除正向搜索已有的 kill_id
+        $excludeMap = array_flip($excludeKillIds);
+        $reverseRaw = array_values(array_filter($reverseRaw, function ($k) use ($excludeMap) {
+            return !isset($excludeMap[$k['kill_id']]);
+        }));
+
+        // 如果用 ship 搜索, 还需要客户端过滤 system; 反之亦然
+        if ($shipId && $systemId) {
+            $reverseRaw = array_values(array_filter($reverseRaw, function ($k) use ($systemId) {
+                return empty($k['system_id']) || (int) $k['system_id'] === (int) $systemId;
+            }));
+        }
+
+        if (empty($reverseRaw)) return [];
+
+        // 快速路径: victim + pilot 可以用 protobuf victim_id 直接过滤 (无需 ESI)
+        if ($involvement === 'victim' && $entityType === 'pilot') {
+            $matched = array_values(array_filter($reverseRaw, function ($k) use ($entityId) {
+                return !empty($k['victim_id']) && (int) $k['victim_id'] === $entityId;
+            }));
+            Log::debug("reverseSearch: victim+pilot protobuf 快速过滤, " . count($matched) . " 条匹配");
+            if (empty($matched)) return [];
+            $matched = array_slice($matched, 0, 50);
+            [$enriched, $_] = $this->enrichKillList($matched);
+            return $enriched;
+        }
+
+        // 通用路径: 需要 ESI 富化后验证 entity involvement
+        $reverseRaw = array_slice($reverseRaw, 0, 50);
+        [$enrichedReverse, $detailsMapR] = $this->enrichKillList($reverseRaw);
+
+        if (empty($enrichedReverse)) return [];
+
+        // 按 involvement 过滤 entity 参与
+        if ($involvement && !$isStructure) {
+            $result = $this->filterByInvolvement($enrichedReverse, $entityType, $entityId, $involvement, $detailsMapR);
+        } else {
+            // 无 involvement 过滤 → 检查 entity 以任意角色参与
+            $result = $this->filterByAnyInvolvement($enrichedReverse, $entityType, $entityId, $detailsMapR);
+        }
+
+        Log::debug("reverseSearch: involvement 过滤后 " . count($result) . " 条");
+        return $result;
+    }
+
+    /**
+     * 检查 entity 是否以任意角色 (受害者/攻击者) 参与 KM
+     */
+    protected function filterByAnyInvolvement(array $enrichedKills, string $entityType, int $entityId, array $detailsMap = []): array
+    {
+        return array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $detailsMap) {
+            $killId = $kill['kill_id'];
+            $detail = $detailsMap[$killId] ?? Cache::get("kb:kill:{$killId}");
+            if (!$detail || empty($detail['victim'])) return false;
+
+            // 检查受害者
+            if ($this->entityMatchesParticipant($detail['victim'], $entityType, $entityId)) {
+                return true;
+            }
+
+            // 检查攻击者
+            foreach ($detail['attackers'] ?? [] as $atk) {
+                if ($this->entityMatchesParticipant($atk, $entityType, $entityId)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
     }
 
     /**
@@ -1672,13 +1780,16 @@ class KillmailService
             'kill_id' => $kill['kill_id'],
             'ship_type_id' => $victim['ship_type_id'] ?? ($kill['ship_type_id'] ?? null),
             'ship_name' => $victim['ship_name'] ?? ($kill['ship_name'] ?? null),
+            'victim_id' => $victim['character_id'] ?? ($kill['victim_id'] ?? null),
             'victim_name' => $victim['character_name'] ?? ($kill['victim_name'] ?? null),
+            'victim_corporation_id' => $victim['corporation_id'] ?? null,
             'victim_corp' => $victim['corporation_name'] ?? null,
             'victim_alliance' => $victim['alliance_name'] ?? null,
             'final_blow_name' => $finalBlow['character_name'] ?? null,
             'final_blow_corp' => $finalBlow['corporation_name'] ?? null,
             'final_blow_alliance' => $finalBlow['alliance_name'] ?? null,
             'final_blow_ship' => $finalBlow['ship_name'] ?? null,
+            'system_id' => $detail['solar_system_id'] ?? ($kill['system_id'] ?? null),
             'system_name' => $detail['solar_system_name'] ?? ($kill['system_name'] ?? null),
             'system_sec' => $detail['system_sec'] ?? null,
             'region_name' => $detail['region_name'] ?? null,
@@ -1698,13 +1809,16 @@ class KillmailService
             'kill_id' => $kill['kill_id'],
             'ship_type_id' => $kill['ship_type_id'] ?? null,
             'ship_name' => $kill['ship_name'] ?? null,
+            'victim_id' => $kill['victim_id'] ?? null,
             'victim_name' => $kill['victim_name'] ?? null,
+            'victim_corporation_id' => null,
             'victim_corp' => null,
             'victim_alliance' => null,
             'final_blow_name' => null,
             'final_blow_corp' => null,
             'final_blow_alliance' => null,
             'final_blow_ship' => null,
+            'system_id' => $kill['system_id'] ?? null,
             'system_name' => $kill['system_name'] ?? null,
             'system_sec' => null,
             'region_name' => null,

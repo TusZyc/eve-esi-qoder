@@ -46,7 +46,7 @@ class ServerStatusController extends Controller
                         $startTime = $json['start_time'] ?? null;
                         $uptimeSeconds = $startTime ? max(0, $now - strtotime($startTime)) : 0;
 
-                        $result[] = [
+                $result[] = [
                             'name' => $server['name'],
                             'name_en' => $server['name_en'],
                             'is_online' => true,
@@ -54,6 +54,7 @@ class ServerStatusController extends Controller
                             'server_version' => $json['server_version'] ?? '',
                             'start_time' => $startTime,
                             'uptime_seconds' => $uptimeSeconds,
+                            'is_maintenance' => ($json['players'] ?? 0) === 0,
                         ];
                     } else {
                         $result[] = self::offlineEntry($server);
@@ -79,6 +80,7 @@ class ServerStatusController extends Controller
             'server_version' => '',
             'start_time' => null,
             'uptime_seconds' => 0,
+            'is_maintenance' => false,
         ];
     }
 }

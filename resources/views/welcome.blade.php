@@ -29,13 +29,12 @@
             text-shadow: 0 0 40px rgba(59,130,246,0.6), 0 0 80px rgba(59,130,246,0.3), 0 2px 10px rgba(0,0,0,0.8);
         }
 
-        /* 状态灯 */
         .status-dot {
             width: 10px; height: 10px;
             border-radius: 50%;
             display: inline-block;
         }
-        .status-online {
+        .status-online, .status-maintenance {
             background: #22c55e;
             box-shadow: 0 0 8px #22c55e;
             animation: pulse-green 2s ease-in-out infinite;
@@ -190,18 +189,18 @@
         </div>
 
         <!-- 入口按钮 -->
-        <div class="flex flex-col sm:flex-row gap-6 sm:gap-8 anim-3">
-            <div class="text-center">
-                <button onclick="showComingSoon()" class="btn-secondary bg-black/40 backdrop-blur-lg border border-white/20 text-blue-100 font-semibold px-10 py-4 rounded-xl text-lg w-full">
+        <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center justify-center anim-3">
+            <div class="text-center min-w-[200px]">
+                <a href="{{ route('guest.dashboard') }}" class="btn-secondary bg-black/40 backdrop-blur-lg border border-white/20 text-blue-100 font-semibold px-8 py-3 rounded-xl text-base w-full block">
                     无授权使用
-                </button>
-                <p class="text-xs text-blue-300/60 mt-3">使用无需登录的公开功能</p>
+                </a>
+                <p class="text-xs text-blue-300/60 mt-2">使用无需登录的公开功能</p>
             </div>
-            <div class="text-center">
-                <a href="{{ route('auth.guide') }}" class="btn-primary bg-blue-600 hover:bg-blue-500 text-white font-semibold px-10 py-4 rounded-xl text-lg text-center eve-glow block">
+            <div class="text-center min-w-[200px]">
+                <a href="{{ route('auth.guide') }}" class="btn-primary bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-xl text-base w-full block eve-glow">
                     授权使用
                 </a>
-                <p class="text-xs text-blue-300/60 mt-3">通过 EVE Online 官方授权安全登录</p>
+                <p class="text-xs text-blue-300/60 mt-2">通过 EVE Online 官方授权安全登录</p>
             </div>
         </div>
 
@@ -253,7 +252,14 @@
                         var versionEl = document.getElementById('version-' + i);
 
                         if (srv.is_online) {
-                            statusEl.innerHTML = '<span class="status-dot status-online"></span><span class="text-xs text-green-400">在线</span>';
+                            // 根据 is_maintenance 显示不同状态
+                            var statusText = '在线';
+                            if (srv.is_maintenance && srv.players === 0) {
+                                statusText = '调试中';
+                                statusEl.innerHTML = '<span class="status-dot status-maintenance"></span><span class="text-xs text-green-400">' + statusText + '</span>';
+                            } else {
+                                statusEl.innerHTML = '<span class="status-dot status-online"></span><span class="text-xs text-green-400">' + statusText + '</span>';
+                            }
                             playersEl.textContent = formatNumber(srv.players);
                             starttimeEl.textContent = formatStartTime(srv.start_time);
                             versionEl.textContent = srv.server_version || '-';

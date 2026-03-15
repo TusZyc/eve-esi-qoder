@@ -11,8 +11,13 @@ class SkillController extends Controller
      */
     public function index(Request $request)
     {
+        $user = $request->user();
+        // 只有用户有EVE角色ID时才算已授权
+        $isLoggedIn = $user && $user->eve_character_id !== null;
+        
         return view('skills.index', [
-            'user' => $request->user(),
+            'user' => $user,
+            'isLoggedIn' => $isLoggedIn,
         ]);
     }
 }

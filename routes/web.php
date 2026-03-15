@@ -74,6 +74,18 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
 });
 
+// KM 查询（无需授权）
+Route::get('/killmails', [KillmailController::class, 'index'])->name('killmails.index');
+
+// KM 查询 API
+Route::prefix('api/killmails')->group(function () {
+    Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
+    Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
+    Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
+    Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
+    Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
+});
+
 // 市场认证 API（需登录）
 Route::middleware(['auth', 'throttle:30,1'])->prefix('api/market')->group(function () {
     Route::get('/character-orders', [MarketDataController::class, 'characterOrders'])->name('api.market.character-orders');
@@ -81,7 +93,7 @@ Route::middleware(['auth', 'throttle:30,1'])->prefix('api/market')->group(functi
 });
 
 // 需要认证的路由（自动刷新 EVE Token）
-Route::middleware(['auth', 'eve.refresh'])->group(function () {
+Route::middleware(['auth', 'eve.refresh', 'eve.auth'])->group(function () {
     // 仪表盘
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
@@ -102,16 +114,13 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     
     // 钱包
     Route::get('/wallet', [CharacterController::class, 'wallet'])->name('wallet.index');
-    
-    // KM 查询
-    Route::get('/killmails', [KillmailController::class, 'index'])->name('killmails.index');
-    
-    // KM 查询 API
-    Route::prefix('api/killmails')->group(function () {
-        Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
-        Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
-        Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
-        Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
-        Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
-    });
+});
+
+// KM 查询 API
+Route::prefix('api/killmails')->group(function () {
+    Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
+    Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
+    Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
+    Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
+    Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
 });

@@ -1,76 +1,46 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游客仪表盘 - {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .eve-bg {
-            background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
-        }
-        .eve-glow {
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-        }
-        @keyframes shimmer {
-            0% { background-position: -1000px 0; }
-            100% { background-position: 1000px 0; }
-        }
-        .skeleton {
-            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
-            background-size: 1000px 100%;
-            animation: shimmer 2s infinite;
-            border-radius: 4px;
-        }
-        /* 状态指示灯 */
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-        }
-        .status-dot.online {
-            background-color: #22c55e;
-            box-shadow: 0 0 10px #22c55e;
-        }
-        .status-dot.maintenance {
-            background-color: #eab308;
-            box-shadow: 0 0 10px #eab308;
-        }
-        .status-dot.offline {
-            background-color: #ef4444;
-            box-shadow: 0 0 10px #ef4444;
-        }
-    </style>
-</head>
-<body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-2">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">🚀</span>
-                    <div>
-                        <a href="{{ route('guest.dashboard') }}" class="text-xl font-bold">EVE ESI</a>
-                        <span class="text-sm text-blue-200 ml-3">游客模式</span>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <a href="{{ route('market.index') }}" class="p-2 hover:bg-white/10 rounded-lg transition-all" title="市场中心">
-                        <span class="text-xl">📊</span>
-                    </a>
-                    <a href="{{ route('auth.guide') }}" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition-all">
-                        授权使用
-                    </a>
-                    <a href="{{ route('home') }}" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm transition-all">
-                        返回首页
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+@extends('layouts.guest')
 
+@push('styles')
+<style>
+    .eve-glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite;
+        border-radius: 4px;
+    }
+    /* 状态指示灯 */
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .status-dot.online {
+        background-color: #22c55e;
+        box-shadow: 0 0 10px #22c55e;
+    }
+    .status-dot.maintenance {
+        background-color: #eab308;
+        box-shadow: 0 0 10px #eab308;
+    }
+    .status-dot.offline {
+        background-color: #ef4444;
+        box-shadow: 0 0 10px #ef4444;
+    }
+</style>
+@endpush
+
+@section('title', '游客仪表盘 - Tus Esi System')
+
+@section('content')
     <div class="container mx-auto px-4 py-8">
         <!-- 三服务器状态卡片 -->
         <div id="server-status-wrapper" class="bg-white/10 backdrop-blur-lg rounded-xl overflow-hidden mb-6 border border-white/10">
@@ -178,93 +148,92 @@
             <p class="mt-1">授权后即可解锁全部个人数据查询功能</p>
         </div>
     </div>
+@endsection
 
-    <!-- JavaScript 异步加载数据 -->
-    <script>
-        // 工具函数：格式化数字
-        function formatNumber(num) {
-            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        }
+@push('scripts')
+<script>
+    // 工具函数：格式化数字
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 
-        // 工具函数：格式化运行时间
-        function formatUptime(seconds) {
-            if (!seconds || seconds <= 0) return 'N/A';
-            const days = Math.floor(seconds / 86400);
-            const hours = Math.floor((seconds % 86400) / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            if (days > 0) {
-                return `${days}天 ${hours}小时`;
-            }
-            return `${hours}小时 ${mins}分钟`;
-        }
+    // 工具函数：格式化启动时间
+    function formatStartTime(isoStr) {
+        if (!isoStr) return '-';
+        const d = new Date(isoStr);
+        return d.getFullYear() + '-' +
+            String(d.getMonth()+1).padStart(2,'0') + '-' +
+            String(d.getDate()).padStart(2,'0') + ' ' +
+            String(d.getHours()).padStart(2,'0') + ':' +
+            String(d.getMinutes()).padStart(2,'0');
+    }
 
-        // 加载服务器状态
-        async function loadServerStatus() {
-            try {
-                const response = await fetch('{{ route("api.public.server-status") }}', {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                    },
-                });
+    // 加载服务器状态
+    async function loadServerStatus() {
+        try {
+            const response = await fetch('{{ route("api.public.server-status") }}', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
 
-                const data = await response.json();
-                const container = document.getElementById('server-status-content');
+            const data = await response.json();
+            const container = document.getElementById('server-status-content');
 
-                if (data && data.length > 0) {
-                    let html = '<div class="grid grid-cols-3 gap-4">';
+            if (data && data.length > 0) {
+                let html = '<div class="grid grid-cols-3 gap-4">';
 
-                    data.forEach(server => {
-                        const statusClass = server.is_online ? 'online' : 'offline';
-                        const statusText = server.is_online ? '在线' : '离线';
-                        const statusColor = server.is_online ? 'text-green-500' : 'text-red-500';
-                        const playersColor = server.is_online ? 'text-green-400' : 'text-gray-500';
+                data.forEach(server => {
+                    const statusClass = server.is_online ? 'online' : 'offline';
+                    const statusText = server.is_online ? '在线' : '离线';
+                    const statusColor = server.is_online ? 'text-green-500' : 'text-red-500';
+                    const playersColor = server.is_online ? 'text-green-400' : 'text-gray-500';
 
-                        html += `
-                            <div class="text-center p-4 bg-white/5 rounded-lg">
-                                <div class="text-sm font-medium text-cyan-300 mb-2">${server.name}</div>
-                                <div class="text-lg font-bold ${statusColor} mb-2">
-                                    <span class="status-dot ${statusClass}"></span>${statusText}
-                                </div>
-                                <div class="text-lg font-bold ${playersColor}">${formatNumber(server.players)}</div>
-                                <div class="text-xs text-blue-400/70">在线玩家</div>
-                                ${server.is_online ? `
-                                    <div class="mt-2 text-xs text-blue-300/50">${formatUptime(server.uptime_seconds)}</div>
-                                ` : ''}
+                    html += `
+                        <div class="text-center p-4 bg-white/5 rounded-lg">
+                            <div class="text-sm font-medium text-cyan-300 mb-2">${server.name}</div>
+                            <div class="text-lg font-bold ${statusColor} mb-2">
+                                <span class="status-dot ${statusClass}"></span>${statusText}
                             </div>
-                        `;
-                    });
-
-                    html += '</div>';
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `
-                        <div class="text-center py-8">
-                            <p class="text-blue-300/60">暂时无法获取服务器状态</p>
+                            <div class="text-lg font-bold ${playersColor}">${formatNumber(server.players)}</div>
+                            <div class="text-xs text-blue-400/70">在线玩家</div>
+                            ${server.is_online ? `
+                                <div class="mt-2 text-xs text-blue-300/50">${formatStartTime(server.start_time)}</div>
+                            ` : ''}
                         </div>
                     `;
-                }
-            } catch (error) {
-                console.error('加载服务器状态失败:', error);
-                const container = document.getElementById('server-status-content');
+                });
+
+                html += '</div>';
+                container.innerHTML = html;
+            } else {
                 container.innerHTML = `
                     <div class="text-center py-8">
-                        <p class="text-blue-300/60">加载失败，请刷新页面重试</p>
+                        <p class="text-blue-300/60">暂时无法获取服务器状态</p>
                     </div>
                 `;
             }
+        } catch (error) {
+            console.error('加载服务器状态失败:', error);
+            const container = document.getElementById('server-status-content');
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-blue-300/60">加载失败，请刷新页面重试</p>
+                </div>
+            `;
         }
+    }
 
-        // 页面加载完成后开始异步加载数据
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 开始加载服务器状态...');
-            loadServerStatus();
-        });
+    // 页面加载完成后开始异步加载数据
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 开始加载服务器状态...');
+        loadServerStatus();
+    });
 
-        // 每 60 秒刷新一次服务器状态
-        setInterval(() => {
-            loadServerStatus();
-        }, 60000);
-    </script>
-</body>
-</html>
+    // 每 60 秒刷新一次服务器状态
+    setInterval(() => {
+        loadServerStatus();
+    }, 60000);
+</script>
+@endpush

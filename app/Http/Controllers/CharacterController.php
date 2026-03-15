@@ -15,10 +15,12 @@ class CharacterController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        // 只有用户有EVE角色ID时才算已授权
+        $isLoggedIn = $user && $user->eve_character_id !== null;
         
-        // 获取角色资产概览
+        // 获取角色资产概览（仅已授权用户）
         $assets = null;
-        if ($user->eve_character_id) {
+        if ($isLoggedIn && $user->eve_character_id) {
             $response = Http::withToken($user->access_token)
                 ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/assets/');
             
@@ -27,7 +29,7 @@ class CharacterController extends Controller
             }
         }
         
-        return view('characters.index', compact('user', 'assets'));
+        return view('characters.index', compact('user', 'assets', 'isLoggedIn'));
     }
     
     /**
@@ -77,7 +79,9 @@ class CharacterController extends Controller
             $character['description_html'] = $this->decodeEveDescription($character['description']);
         }
 
-        return view('characters.show', compact('character'));
+        $isLoggedIn = $user && $user->eve_character_id !== null;
+        
+        return view('characters.show', compact('character', 'user', 'isLoggedIn'));
     }
     
     /**

@@ -1,80 +1,53 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KM 查询 - EVE ESI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .eve-bg {
-            background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
-        }
-        @keyframes shimmer {
-            0% { background-position: -1000px 0; }
-            100% { background-position: 1000px 0; }
-        }
-        .skeleton {
-            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
-            background-size: 1000px 100%;
-            animation: shimmer 2s infinite;
-            border-radius: 4px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner {
-            border: 2px solid rgba(255,255,255,0.1);
-            border-top-color: #60a5fa;
-            border-radius: 50%;
-            width: 20px; height: 20px;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-        }
-        .ac-dropdown {
-            position: absolute; left: 0; right: 0; top: 100%;
-            z-index: 50; max-height: 240px; overflow-y: auto;
-            background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 0 0 8px 8px; backdrop-filter: blur(12px);
-        }
-        .ac-dropdown .ac-item {
-            padding: 8px 12px; cursor: pointer; font-size: 14px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .ac-dropdown .ac-item:hover, .ac-dropdown .ac-item.active {
-            background: rgba(59, 130, 246, 0.3);
-        }
-        .sec-high { color: #4ade80; }
-        .sec-low { color: #facc15; }
-        .sec-null { color: #f87171; }
-        .item-dropped { color: #4ade80; }
-        .item-destroyed { color: #f87171; }
-    </style>
-</head>
-<body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-2">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">🚀</span>
-                    <div>
-                        <a href="{{ route('dashboard') }}" class="text-xl font-bold">EVE ESI</a>
-                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name }}</span>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <a href="{{ route('dashboard') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="仪表盘"><div class="text-2xl">🏠</div></a>
-                    <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="技能队列"><div class="text-2xl">📚</div></a>
-                    <a href="{{ route('assets.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="我的资产"><div class="text-2xl">📦</div></a>
-                    <a href="{{ route('characters.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="角色管理"><div class="text-2xl">👥</div></a>
-                    <a href="{{ route('killmails.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all bg-white/10" title="KM 查询"><div class="text-2xl">⚔️</div></a>
-                    <form action="{{ route('auth.logout') }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm ml-2">登出</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </nav>
+@extends('layouts.app')
 
+@push('styles')
+<style>
+    .eve-glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite;
+        border-radius: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+        border: 2px solid rgba(255,255,255,0.1);
+        border-top-color: #60a5fa;
+        border-radius: 50%;
+        width: 20px; height: 20px;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+    }
+    .ac-dropdown {
+        position: absolute; left: 0; right: 0; top: 100%;
+        z-index: 50; max-height: 240px; overflow-y: auto;
+        background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 0 0 8px 8px; backdrop-filter: blur(12px);
+    }
+    .ac-dropdown .ac-item {
+        padding: 8px 12px; cursor: pointer; font-size: 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .ac-dropdown .ac-item:hover, .ac-dropdown .ac-item.active {
+        background: rgba(59, 130, 246, 0.3);
+    }
+    .sec-high { color: #4ade80; }
+    .sec-low { color: #facc15; }
+    .sec-null { color: #f87171; }
+    .item-dropped { color: #4ade80; }
+    .item-destroyed { color: #f87171; }
+</style>
+@endpush
+
+@section('title', 'KM 查询 - Tus Esi System')
+
+@section('content')
     <div class="container mx-auto px-4 py-6 max-w-7xl">
         <!-- 搜索区域 -->
         <div class="bg-white/5 backdrop-blur rounded-xl p-6 mb-6 border border-white/10">
@@ -222,7 +195,9 @@
             </div>
         </div>
     </div>
+@endsection
 
+@push('scripts')
 <script>
 var BETA_KB_URL = 'https://beta.ceve-market.org';
 var debounceTimers = {};
@@ -678,5 +653,4 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDetail();
 });
 </script>
-</body>
-</html>
+@endpush

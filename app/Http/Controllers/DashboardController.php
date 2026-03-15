@@ -26,9 +26,11 @@ class DashboardController extends Controller
         }
         
         // 立即返回页面，数据由前端异步加载
+        $isLoggedIn = $user && $user->eve_character_id !== null;
+        
         return view('dashboard', [
             'user' => $user,
-            // 不预加载数据，由前端异步请求
+            'isLoggedIn' => $isLoggedIn,
         ]);
     }
     

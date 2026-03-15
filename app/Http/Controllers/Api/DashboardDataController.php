@@ -55,7 +55,7 @@ class DashboardDataController extends Controller
                         'start_time' => $data['start_time'] ?? null,
                         'status_text' => $this->getStatusText($isVip, $players),
                         'is_online' => true,
-                        'is_maintenance' => false,
+                        'is_maintenance' => $players === 0 && !$isVip,
                     ],
                 ]);
             } elseif ($statusResponse->status() === 503) {
@@ -219,6 +219,11 @@ class DashboardDataController extends Controller
     {
         if ($isVip) {
             return 'VIP 模式（GM 测试中，未正式开服）';
+        }
+        
+        // 玩家数为 0 但服务器在线，说明处于调试状态
+        if ($players === 0) {
+            return '调试中（服务器已启动， currently empty）';
         }
         
         return '已开服';

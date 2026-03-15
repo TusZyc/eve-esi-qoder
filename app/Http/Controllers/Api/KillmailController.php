@@ -20,8 +20,15 @@ class KillmailController extends Controller
      */
     public function index(Request $request)
     {
+        $user = $request->user();
+        // 只有用户有EVE角色ID时才算已授权
+        $isLoggedIn = $user && $user->eve_character_id !== null;
+        
+        // KM 页面不需要授权，任何人可以访问
+        // 但需要正确判断登录状态以显示正确的导航栏
         return view('killmails.index', [
-            'user' => $request->user(),
+            'user' => $user,
+            'isLoggedIn' => $isLoggedIn,
         ]);
     }
 

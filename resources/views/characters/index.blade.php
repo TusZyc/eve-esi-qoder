@@ -1,48 +1,16 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>角色管理 - EVE ESI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .eve-bg {
-            background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
-        }
-        .eve-glow {
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-        }
-    </style>
-</head>
-<body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-2">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">🚀</span>
-                    <div>
-                        <a href="{{ route('dashboard') }}" class="text-xl font-bold">EVE ESI</a>
-                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name }}</span>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <a href="{{ route('dashboard') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="仪表盘"><div class="text-2xl">🏠</div></a>
-                    <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="技能队列"><div class="text-2xl">📚</div></a>
-                    <a href="{{ route('assets.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="我的资产"><div class="text-2xl">📦</div></a>
-                    <a href="{{ route('characters.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all bg-white/10" title="角色管理"><div class="text-2xl">👥</div></a>
-                    <a href="{{ route('killmails.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all" title="KM 查询"><div class="text-2xl">⚔️</div></a>
-                    <form action="{{ route('auth.logout') }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm ml-2">
-                            登出
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </nav>
+@extends('layouts.app')
 
+@push('styles')
+<style>
+    .eve-glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+</style>
+@endpush
+
+@section('title', '角色管理 - Tus Esi System')
+
+@section('content')
     <div class="container mx-auto px-4 py-8">
         <div class="mb-8">
             <h1 class="text-3xl font-bold mb-2">👥 角色管理</h1>
@@ -95,5 +63,4 @@
             </div>
         </div>
     </div>
-</body>
-</html>
+@endsection

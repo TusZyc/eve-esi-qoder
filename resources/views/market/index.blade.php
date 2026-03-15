@@ -1,97 +1,62 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>市场中心 - {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .eve-bg {
-            background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
-        }
-        .eve-glow {
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-        }
-        @keyframes shimmer {
-            0% { background-position: -1000px 0; }
-            100% { background-position: 1000px 0; }
-        }
-        .skeleton {
-            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
-            background-size: 1000px 100%;
-            animation: shimmer 2s infinite;
-            border-radius: 4px;
-        }
-        .my-order {
-            background: rgba(234, 179, 8, 0.1) !important;
-            border-left: 3px solid #eab308 !important;
-        }
-        .market-tree-item {
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .market-tree-item:hover {
-            background: rgba(255,255,255,0.05);
-        }
-        .market-tree-item.selected {
-            background: rgba(59, 130, 246, 0.2);
-            border-left: 2px solid #3b82f6;
-        }
-        .tree-children {
-            margin-left: 1rem;
-            border-left: 1px solid rgba(255,255,255,0.1);
-        }
-        .tab-btn {
-            transition: all 0.2s;
-        }
-        .tab-btn.active {
-            background: rgba(59, 130, 246, 0.3);
-            border-bottom: 2px solid #3b82f6;
-        }
-        .order-row:hover {
-            background: rgba(255,255,255,0.05);
-        }
-    </style>
-</head>
-<body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    <nav class="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-2">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">📊</span>
-                    <a href="{{ route('market.index') }}" class="text-xl font-bold">市场中心</a>
-                    @if($isLoggedIn)
-                        <span class="text-sm text-blue-200 ml-3">已授权</span>
-                    @else
-                        <span class="text-sm text-blue-200 ml-3">游客模式</span>
-                    @endif
-                </div>
-                <div class="flex items-center space-x-2">
-                    @if($isLoggedIn)
-                        <a href="{{ route('dashboard') }}" class="p-2 hover:bg-white/10 rounded-lg transition-all" title="仪表盘">
-                            <span class="text-xl">🏠</span>
-                        </a>
-                        <form action="{{ route('auth.logout') }}" method="POST" class="inline">
-                            @csrf
-                            <button type="submit" class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg text-sm">
-                                登出
-                            </button>
-                        </form>
-                    @else
-                        <a href="{{ route('guest.dashboard') }}" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm transition-all">
-                            返回游客中心
-                        </a>
-                        <a href="{{ route('auth.guide') }}" class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg text-sm transition-all">
-                            授权登录
-                        </a>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </nav>
+@extends('layouts.app')
 
+@push('styles')
+<style>
+    .eve-bg {
+        background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
+    }
+    .eve-glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    }
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+        background-size: 1000px 100%;
+        animation: shimmer 2s infinite;
+        border-radius: 4px;
+    }
+    .my-order {
+        background: rgba(234, 179, 8, 0.1) !important;
+        border-left: 3px solid #eab308 !important;
+    }
+    .market-tree-item {
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .market-tree-item:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    .market-tree-item.selected {
+        background: rgba(59, 130, 246, 0.2);
+        border-left: 2px solid #3b82f6;
+    }
+    .tree-children {
+        margin-left: 1rem;
+        border-left: 1px solid rgba(255,255,255,0.1);
+    }
+    .tab-btn {
+        transition: all 0.2s;
+    }
+    .tab-btn.active {
+        background: rgba(59, 130, 246, 0.3);
+        border-bottom: 2px solid #3b82f6;
+    }
+    .order-row:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    /* 隐藏标签按钮 */
+    .tab-hidden {
+        display: none !important;
+    }
+</style>
+@endpush
+
+@section('title', '市场中心')
+
+@section('content')
     <!-- 标签切换 -->
     <div class="container mx-auto px-4 mt-4">
         <div class="flex border-b border-white/10">
@@ -211,8 +176,7 @@
     </div>
 
     <!-- 我的订单标签内容 -->
-    @if($isLoggedIn)
-        <div id="content-myorders" class="container mx-auto px-4 py-4 hidden">
+    <div id="content-myorders" class="container mx-auto px-4 py-4 hidden" @if(!$isLoggedIn)style="display: none;"@endif>
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 eve-glow">
                 <!-- 筛选 -->
                 <div class="flex gap-2 mb-4">
@@ -240,8 +204,9 @@
                 </div>
             </div>
         </div>
-    @endif
+    </div>
 
+    @push('scripts')
     <script>
         // 全局状态
         let currentRegion = {{ $defaultRegion }};
@@ -262,7 +227,7 @@
             @endif
         };
 
-        const isLoggedIn = {{ $isLoggedIn ? 'true' : 'false' }};
+        const isLoggedIn = {{ $isLoggedIn }};
 
         // 工具函数
         function formatNumber(num) {
@@ -289,14 +254,30 @@
 
         // 标签切换
         function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + tab).classList.add('active');
+            // 隐藏所有标签按钮
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.add('tab-hidden'));
+            
+            // 只显示当前激活的标签按钮
+            const activeBtn = document.getElementById('tab-' + tab);
+            if (activeBtn) {
+                activeBtn.classList.remove('tab-hidden');
+                activeBtn.classList.add('active');
+            }
 
-            document.getElementById('content-browse').classList.toggle('hidden', tab !== 'browse');
-            @if($isLoggedIn)
-            document.getElementById('content-myorders').classList.toggle('hidden', tab !== 'myorders');
-            if (tab === 'myorders') loadMyOrders();
-            @endif
+            // 隐藏所有标签内容
+            document.getElementById('content-browse').classList.add('hidden');
+            const myOrdersContent = document.getElementById('content-myorders');
+            myOrdersContent.classList.add('hidden');
+            myOrdersContent.style.display = 'none';
+            
+            // 针对不同标签显示内容
+            if (tab === 'browse' || !isLoggedIn) {
+                document.getElementById('content-browse').classList.remove('hidden');
+                document.getElementById('content-browse').style.display = 'block';
+            } else if (tab === 'myorders' && isLoggedIn) {
+                document.getElementById('content-myorders').style.display = 'block';
+                loadMyOrders();
+            }
         }
 
         // 加载市场分组
@@ -438,7 +419,7 @@
                 const isMyOrder = myOrderIds.includes(order.order_id);
                 const rowClass = isMyOrder ? 'order-row my-order' : 'order-row';
                 html += '<tr class="' + rowClass + ' border-b border-white/5">';
-                html += '<td class="py-2 px-2 text-' + (type === 'sell' ? 'green' : 'yellow') + '-400">' + formatPrice(order.price) + '</td>';
+                html += '<td class="py-2 px-2 text-' . (type === 'sell' ? 'green' : 'yellow') . '-400">' + formatPrice(order.price) + '</td>';
                 html += '<td class="py-2 px-2 text-right">' + formatNumber(order.volume_remain) + '</td>';
                 html += '<td class="py-2 px-2 text-blue-300 text-xs">' + (order.location_name || order.location_id) + '</td>';
                 html += '<td class="py-2 px-2 text-right text-xs text-blue-300/70">' + formatExpires(order.expires) + '</td>';
@@ -616,5 +597,5 @@
             @endif
         });
     </script>
-</body>
-</html>
+    @endpush
+@endsection
