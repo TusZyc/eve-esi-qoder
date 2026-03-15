@@ -428,10 +428,10 @@
                 allSolarSystems = result.data.solar_systems || [];
                 document.getElementById('skeleton-loader').classList.add('hidden');
                 document.getElementById('asset-list').classList.remove('hidden');
+
                 if (allSolarSystems.length === 1) {
                     const sys = allSolarSystems[0];
                     expandedSystems.add(sys.system_id);
-                    // 自动预加载：如果只有1个位置，或最大位置物品数占比>60%，自动加载
                     if (sys.locations.length === 1) {
                         expandedLocations.add(sys.locations[0].location_id);
                         loadLocationItems(sys.locations[0].location_id);
@@ -442,43 +442,44 @@
                             loadLocationItems(maxLoc.location_id);
                         }
                     }
-                    render();
-                } else {
-                    showError('\u26A0\uFE0F', '加载失败', result.message || '请稍后再试');
                 }
-            } catch (error) {
-                console.error('加载位置列表失败:', error);
-                showError('\u26A0\uFE0F', '加载失败', '网络错误，请刷新页面重试');
+                render();
+            } else {
+                showError('\u26A0\uFE0F', '加载失败', result.message || '请稍后再试');
             }
+        } catch (error) {
+            console.error('加载位置列表失败:', error);
+            showError('\u26A0\uFE0F', '加载失败', '网络错误，请刷新页面重试');
         }
+    }
 
-        function showError(icon, title, message) {
-            document.getElementById('skeleton-loader').classList.add('hidden');
-            const container = document.getElementById('asset-list');
-            container.classList.remove('hidden');
-            container.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">' + icon + '</div><p class="text-xl text-blue-300 mb-2">' + escapeHtml(title) + '</p><p class="text-blue-400">' + escapeHtml(message) + '</p></div>';
-        }
+    function showError(icon, title, message) {
+        document.getElementById('skeleton-loader').classList.add('hidden');
+        const container = document.getElementById('asset-list');
+        container.classList.remove('hidden');
+        container.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">' + icon + '</div><p class="text-xl text-blue-300 mb-2">' + escapeHtml(title) + '</p><p class="text-blue-400">' + escapeHtml(message) + '</p></div>';
+    }
 
-        function setupSearch() {
-            const searchInput = document.getElementById('search-input');
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    searchKeyword = e.target.value.trim();
-                    if (searchKeyword && searchKeyword.length >= 2) {
-                        searchFromBackend(searchKeyword);
-                    } else {
-                        searchResults = null;
-                        expandedItems.clear();
-                        render();
-                    }
-                }, 500);
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            loadLocations();
-            setupSearch();
+    function setupSearch() {
+        const searchInput = document.getElementById('search-input');
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                searchKeyword = e.target.value.trim();
+                if (searchKeyword && searchKeyword.length >= 2) {
+                    searchFromBackend(searchKeyword);
+                } else {
+                    searchResults = null;
+                    expandedItems.clear();
+                    render();
+                }
+            }, 500);
         });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadLocations();
+        setupSearch();
+    });
     </script>
 @endpush

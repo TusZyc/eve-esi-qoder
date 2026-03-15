@@ -144,6 +144,7 @@ class SkillDataController extends Controller
         foreach ($allGroupIds as $groupId) {
             $info = $groupsInfo[$groupId] ?? null;
             if (!$info || empty($info['types'])) continue;
+            if (in_array($info['name'], ['虚构技能'])) continue;
 
             $skills = [];
             $learnedCount = 0;

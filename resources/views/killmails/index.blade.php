@@ -180,9 +180,9 @@
         </div>
 
         <!-- KM 详情模态框 -->
-        <div id="detailModal" class="fixed inset-0 z-50 hidden">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetail()"></div>
-            <div class="absolute inset-4 md:inset-8 lg:inset-12 bg-slate-900/95 backdrop-blur rounded-xl border border-white/20 overflow-hidden flex flex-col">
+        <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-start justify-center overflow-y-auto">
+            <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetail()"></div>
+            <div class="relative mx-auto my-4 md:my-8 w-full max-w-5xl max-h-[90vh] bg-slate-900/95 backdrop-blur rounded-xl border border-white/20 overflow-hidden flex flex-col">
                 <!-- 模态框头部 -->
                 <div class="flex justify-between items-center px-6 py-3 border-b border-white/10 shrink-0">
                     <h3 id="detailTitle" class="font-bold">KM 详情</h3>

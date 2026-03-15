@@ -72,6 +72,12 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
     Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
+
+    // 角色详情页 API
+    Route::get('/character/attributes', [CharacterController::class, 'attributes'])->name('api.dashboard.character-attributes');
+    Route::get('/character/implants', [CharacterController::class, 'implants'])->name('api.dashboard.character-implants');
+    Route::get('/character/clones', [CharacterController::class, 'clones'])->name('api.dashboard.character-clones');
+    Route::get('/character/corphistory', [CharacterController::class, 'corporationHistory'])->name('api.dashboard.character-corphistory');
 });
 
 // KM 查询（无需授权）

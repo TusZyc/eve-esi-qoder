@@ -64,6 +64,10 @@ return [
         
         // 其他
         'esi-ui.open_window.v1',
+
+        // 克隆体和植入体
+        'esi-clones.read_clones.v1',
+        'esi-clones.read_implants.v1',
     ],
     
     /*
