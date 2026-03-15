@@ -73,12 +73,8 @@
         background: rgba(59, 130, 246, 0.3);
         border-color: rgba(59, 130, 246, 0.5);
     }
-    .tab-panel {
-        display: none;
-    }
-    .tab-panel.active {
-        display: block;
-    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 </style>
 @endpush
 
@@ -107,7 +103,6 @@
         <!-- 基础信息卡片 -->
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-6">
             <div class="flex flex-col md:flex-row gap-6">
-                <!-- 左侧: 头像 + 名称 -->
                 <div class="flex-shrink-0 text-center md:text-left">
                     <img src="https://image.evepc.163.com/Character/{{ $user->eve_character_id }}_256.jpg"
                          alt="角色头像"
@@ -118,8 +113,6 @@
                         <div class="text-sm text-blue-300/60 mt-1">ID: {{ $user->eve_character_id }}</div>
                     </div>
                 </div>
-
-                <!-- 右侧: 详细信息 -->
                 <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     @if(isset($character['birthday']))
                     <div>
@@ -127,14 +120,12 @@
                         <div class="text-white">{{ $character['birthday_beijing'] ?? $character['birthday'] }}</div>
                     </div>
                     @endif
-
                     @if(isset($character['gender']))
                     <div>
                         <div class="text-xs text-blue-300/60">性别</div>
                         <div class="text-white">{{ $character['gender'] === 'male' ? '男' : '女' }}</div>
                     </div>
                     @endif
-
                     @if(isset($character['security_status']))
                     <div>
                         <div class="text-xs text-blue-300/60">安全等级</div>
@@ -143,48 +134,50 @@
                         </div>
                     </div>
                     @endif
-
                     @if(isset($character['corporation_id']))
                     <div>
                         <div class="text-xs text-blue-300/60">军团</div>
                         <div class="text-purple-400">{{ $character['corporation_name'] ?? $character['corporation_id'] }}</div>
                     </div>
                     @endif
-
                     @if(isset($character['alliance_id']))
                     <div>
                         <div class="text-xs text-blue-300/60">联盟</div>
                         <div class="text-green-400">{{ $character['alliance_name'] ?? $character['alliance_id'] }}</div>
                     </div>
                     @endif
-
                     <div>
                         <div class="text-xs text-blue-300/60">Token 过期</div>
                         <div class="text-white">{{ $user->token_expires_at ? \Carbon\Carbon::parse($user->token_expires_at)->format('Y-m-d H:i:s') : '未知' }}</div>
                     </div>
                 </div>
             </div>
-
-            @if(!empty($character['description_html']))
-            <div class="mt-6 pt-4 border-t border-white/10">
-                <div class="text-xs text-blue-300/60 mb-2">角色描述</div>
-                <div class="text-sm text-white/80 leading-relaxed">{!! $character['description_html'] !!}</div>
-            </div>
-            @endif
         </div>
 
         <!-- 标签切换按钮 -->
         <div class="flex flex-wrap gap-2 mb-4">
-            <button class="tab-btn active" onclick="switchTab('attributes')">角色属性 &amp; 植入体</button>
-            <button class="tab-btn" onclick="switchTab('clones')">克隆体</button>
-            <button class="tab-btn" onclick="switchTab('corphistory')">雇佣历史</button>
+            <button class="tab-btn active" onclick="switchTab('desc', this)">角色描述</button>
+            <button class="tab-btn" onclick="switchTab('attributes', this)">属性 &amp; 植入体</button>
+            <button class="tab-btn" onclick="switchTab('clones', this)">克隆体</button>
+            <button class="tab-btn" onclick="switchTab('corphistory', this)">雇佣历史</button>
         </div>
 
         <!-- 标签内容区 -->
+        <!-- 角色描述 -->
+        <div id="tab-desc" class="tab-panel active">
+            <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
+                @if(!empty($character['description_html']))
+                <div class="text-sm text-white/80 leading-relaxed">{!! $character['description_html'] !!}</div>
+                @else
+                <div class="text-center py-6 text-blue-300/60 text-sm">该角色没有描述</div>
+                @endif
+            </div>
+        </div>
+
         <!-- 属性 + 植入体 -->
-        <div id="tab-attributes" class="tab-panel active">
+        <div id="tab-attributes" class="tab-panel">
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow mb-4">
-                <h2 class="text-lg font-semibold mb-4">角色属性</h2>
+                <h3 class="text-base font-semibold mb-4">角色属性</h3>
                 <div id="attributes-content">
                     <div class="flex items-center justify-center py-6 text-blue-300">
                         <span class="spinner mr-3"></span>加载中...
@@ -192,7 +185,7 @@
                 </div>
             </div>
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
-                <h2 class="text-lg font-semibold mb-4">当前植入体</h2>
+                <h3 class="text-base font-semibold mb-4">当前植入体</h3>
                 <div id="implants-content">
                     <div class="flex items-center justify-center py-6 text-blue-300">
                         <span class="spinner mr-3"></span>加载中...
@@ -204,7 +197,7 @@
         <!-- 克隆体 -->
         <div id="tab-clones" class="tab-panel">
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
-                <h2 class="text-lg font-semibold mb-4">克隆体</h2>
+                <h3 class="text-base font-semibold mb-4">克隆体</h3>
                 <div id="clones-content">
                     <div class="flex items-center justify-center py-6 text-blue-300">
                         <span class="spinner mr-3"></span>加载中...
@@ -216,7 +209,7 @@
         <!-- 雇佣历史 -->
         <div id="tab-corphistory" class="tab-panel">
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
-                <h2 class="text-lg font-semibold mb-4">雇佣历史</h2>
+                <h3 class="text-base font-semibold mb-4">雇佣历史</h3>
                 <div id="corphistory-content">
                     <div class="flex items-center justify-center py-6 text-blue-300">
                         <span class="spinner mr-3"></span>加载中...
@@ -247,22 +240,15 @@
     }
 
     // === 标签切换 ===
-    const tabLoaded = {};
+    const tabLoaded = { desc: true }; // 角色描述是服务端渲染，不需要加载
 
-    function switchTab(tabName) {
-        // 切换按钮状态
-        document.querySelectorAll('.tab-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
-        event.currentTarget.classList.add('active');
+    function switchTab(tabName, btn) {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
 
-        // 切换面板
-        document.querySelectorAll('.tab-panel').forEach(function(panel) {
-            panel.classList.remove('active');
-        });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
         document.getElementById('tab-' + tabName).classList.add('active');
 
-        // 首次切换时加载数据
         if (!tabLoaded[tabName]) {
             tabLoaded[tabName] = true;
             if (tabName === 'attributes') {
@@ -302,27 +288,16 @@
             let html = '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">';
             for (const [key, label] of Object.entries(ATTR_NAMES)) {
                 const val = d[key] || 0;
-                html += '<div class="attr-card">';
-                html += '<div class="attr-value">' + val + '</div>';
-                html += '<div class="attr-label">' + escapeHtml(label) + '</div>';
-                html += '</div>';
+                html += '<div class="attr-card"><div class="attr-value">' + val + '</div><div class="attr-label">' + escapeHtml(label) + '</div></div>';
             }
             html += '</div>';
-
             if (d.last_remap_date || d.accrued_remap_cooldown_date) {
                 html += '<div class="text-xs text-blue-300/60 space-y-1">';
-                if (d.last_remap_date) {
-                    html += '<div>上次重映射: ' + escapeHtml(new Date(d.last_remap_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
-                }
-                if (d.accrued_remap_cooldown_date) {
-                    html += '<div>下次可重映射: ' + escapeHtml(new Date(d.accrued_remap_cooldown_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
-                }
-                if (d.bonus_remaps !== undefined) {
-                    html += '<div>剩余额外重映射次数: ' + d.bonus_remaps + '</div>';
-                }
+                if (d.last_remap_date) html += '<div>上次重映射: ' + escapeHtml(new Date(d.last_remap_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
+                if (d.accrued_remap_cooldown_date) html += '<div>下次可重映射: ' + escapeHtml(new Date(d.accrued_remap_cooldown_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
+                if (d.bonus_remaps !== undefined) html += '<div>剩余额外重映射次数: ' + d.bonus_remaps + '</div>';
                 html += '</div>';
             }
-
             container.innerHTML = html;
         } catch (e) {
             container.innerHTML = renderError('网络错误，请刷新重试');
@@ -378,18 +353,15 @@
             }
             const d = result.data;
             let html = '';
-
             if (d.home_location) {
                 html += '<div class="mb-4 px-4 py-3 bg-white/5 rounded-lg">';
                 html += '<div class="text-xs text-blue-300/60 mb-1">基地空间站</div>';
                 html += '<div class="text-white font-medium">' + escapeHtml(d.home_location.location_name || 'ID: ' + d.home_location.location_id) + '</div>';
                 html += '</div>';
             }
-
             if (d.last_clone_jump_date) {
                 html += '<div class="text-xs text-blue-300/60 mb-3">上次跳跃克隆: ' + escapeHtml(new Date(d.last_clone_jump_date).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})) + '</div>';
             }
-
             const clones = d.jump_clones || [];
             if (clones.length === 0) {
                 html += '<div class="text-center py-2 text-blue-300/60 text-sm">没有跳跃克隆</div>';
@@ -400,7 +372,7 @@
                     html += '<div class="bg-white/5 rounded-lg overflow-hidden">';
                     html += '<div class="px-4 py-2 border-b border-white/5 flex items-center justify-between">';
                     html += '<span class="text-sm font-medium text-blue-300">#' + (idx + 1) + ' ' + escapeHtml(clone.location_name || 'Unknown') + '</span>';
-                    html += '<span class="text-xs text-blue-300/40">' + escapeHtml(clone.location_type) + '</span>';
+                    html += '<span class="text-xs text-blue-300/40">' + escapeHtml(clone.location_type === 'station' ? 'NPC空间站' : '建筑') + '</span>';
                     html += '</div>';
                     if (clone.implants && clone.implants.length > 0) {
                         html += '<div class="px-4 py-2 space-y-1">';
@@ -415,7 +387,6 @@
                 });
                 html += '</div>';
             }
-
             container.innerHTML = html;
         } catch (e) {
             container.innerHTML = renderError('网络错误，请刷新重试');
@@ -445,12 +416,8 @@
             history.forEach(function(item) {
                 html += '<div class="timeline-item">';
                 html += '<div class="text-sm text-white font-medium">' + escapeHtml(item.corporation_name) + '</div>';
-                if (item.start_date) {
-                    html += '<div class="text-xs text-blue-300/60 mt-0.5">加入时间: ' + escapeHtml(item.start_date) + '</div>';
-                }
-                if (item.is_deleted) {
-                    html += '<div class="text-xs text-red-400/60 mt-0.5">已解散</div>';
-                }
+                if (item.start_date) html += '<div class="text-xs text-blue-300/60 mt-0.5">加入时间: ' + escapeHtml(item.start_date) + '</div>';
+                if (item.is_deleted) html += '<div class="text-xs text-red-400/60 mt-0.5">已解散</div>';
                 html += '</div>';
             });
             html += '</div>';
@@ -459,12 +426,5 @@
             container.innerHTML = renderError('网络错误，请刷新重试');
         }
     }
-
-    // 页面加载时，默认加载第一个标签的数据
-    document.addEventListener('DOMContentLoaded', function() {
-        tabLoaded['attributes'] = true;
-        loadAttributes();
-        loadImplants();
-    });
 </script>
 @endpush

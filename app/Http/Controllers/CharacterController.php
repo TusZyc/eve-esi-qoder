@@ -388,7 +388,7 @@ class CharacterController extends Controller
      */
     private function resolveLocationName(int $locationId, string $locationType, $user): string
     {
-        $cached = Cache::get("eve_location_name_{$locationId}");
+        $cached = Cache::get("eve_location_name_zh_{$locationId}");
         if ($cached !== null) {
             return $cached;
         }
@@ -400,14 +400,14 @@ class CharacterController extends Controller
             if ($locationType === 'structure' && $user) {
                 // 玩家建筑需要token
                 $response = Http::withToken($user->access_token)->timeout(10)
-                    ->get($baseUrl . "universe/structures/{$locationId}/", ['datasource' => 'serenity']);
+                    ->get($baseUrl . "universe/structures/{$locationId}/", ['datasource' => 'serenity', 'language' => 'zh']);
                 if ($response->ok()) {
                     $name = $response->json()['name'] ?? $name;
                 }
             } else {
                 // NPC空间站
                 $response = Http::timeout(10)
-                    ->get($baseUrl . "universe/stations/{$locationId}/", ['datasource' => 'serenity']);
+                    ->get($baseUrl . "universe/stations/{$locationId}/", ['datasource' => 'serenity', 'language' => 'zh']);
                 if ($response->ok()) {
                     $name = $response->json()['name'] ?? $name;
                 }
@@ -416,7 +416,7 @@ class CharacterController extends Controller
             // fallback
         }
 
-        Cache::put("eve_location_name_{$locationId}", $name, 86400);
+        Cache::put("eve_location_name_zh_{$locationId}", $name, 86400);
         return $name;
     }
 
