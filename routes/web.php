@@ -15,6 +15,10 @@ use App\Http\Controllers\Api\ServerStatusController;
 use App\Http\Controllers\Api\MarketDataController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\Api\KillmailController;
+use App\Http\Controllers\Api\SystemDistanceController;
+use App\Http\Controllers\CapitalNavController;
+use App\Http\Controllers\Api\CapitalNavApiController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -75,8 +79,39 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
 });
 
+// KM 查询（公开访问）
+Route::get('/killmails', [KillmailController::class, 'index'])->name('killmails.index');
+
+// 旗舰导航（公开访问）
+Route::get('/capital-nav', [CapitalNavController::class, 'index'])->name('capital-nav.index');
+
+// 旗舰导航 API
+Route::middleware('throttle:30,1')->prefix('api/capital-nav')->group(function () {
+    Route::get('/autocomplete', [CapitalNavApiController::class, 'systemAutocomplete'])->name('api.capital-nav.autocomplete');
+    Route::get('/distance', [CapitalNavApiController::class, 'distance'])->name('api.capital-nav.distance');
+    Route::get('/reachable', [CapitalNavApiController::class, 'reachableSystems'])->name('api.capital-nav.reachable');
+    Route::get('/route', [CapitalNavApiController::class, 'planRoute'])->name('api.capital-nav.route');
+});
+
+// KM 查询 API
+Route::middleware('throttle:30,1')->prefix('api/killmails')->group(function () {
+    Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
+    Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
+    Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
+    Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
+    Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
+});
+
+// 星系距离查询 API
+Route::middleware('throttle:30,1')->prefix('api/system-distance')->group(function () {
+    Route::get('/path', [SystemDistanceController::class, 'pathDistance'])->name('api.system-distance.path');
+    Route::get('/euclidean', [SystemDistanceController::class, 'euclideanDistance'])->name('api.system-distance.euclidean');
+    Route::get('/name', [SystemDistanceController::class, 'systemName'])->name('api.system-distance.name');
+    Route::get('/batch', [SystemDistanceController::class, 'batchInfo'])->name('api.system-distance.batch');
+});
+
 // 市场认证 API（需登录）
-Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/market')->group(function () {
+Route::middleware(['auth', 'throttle:30,1'])->prefix('api/market')->group(function () {
     Route::get('/character-orders', [MarketDataController::class, 'characterOrders'])->name('api.market.character-orders');
     Route::get('/my-order-ids', [MarketDataController::class, 'myOrderIds'])->name('api.market.my-order-ids');
 });
@@ -103,16 +138,4 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     
     // 钱包
     Route::get('/wallet', [CharacterController::class, 'wallet'])->name('wallet.index');
-});
-
-// KM 查询（公开访问）
-Route::get('/killmails', [\App\Http\Controllers\Api\KillmailController::class, 'index'])->name('killmails.index');
-
-// KM API（公开）
-Route::middleware('throttle:30,1')->group(function () {
-    Route::get('/api/killmails/autocomplete', [\App\Http\Controllers\Api\KillmailController::class, 'autocomplete']);
-    Route::get('/api/killmails/advanced-search', [\App\Http\Controllers\Api\KillmailController::class, 'advancedSearch']);
-    Route::get('/api/killmails/search', [\App\Http\Controllers\Api\KillmailController::class, 'search']);
-    Route::get('/api/killmails/pilot/{pilotId}/kills', [\App\Http\Controllers\Api\KillmailController::class, 'pilotKills']);
-    Route::get('/api/killmails/kill/{killId}', [\App\Http\Controllers\Api\KillmailController::class, 'killDetail']);
 });
