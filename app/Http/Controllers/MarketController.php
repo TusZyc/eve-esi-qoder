@@ -7,17 +7,23 @@ use Illuminate\Support\Facades\Auth;
 
 class MarketController extends Controller
 {
+    /**
+     * 显示市场页面
+     * 公开访问，但根据登录状态显示不同功能
+     */
     public function index(Request $request)
     {
         $user = Auth::user();
-        // 只有用户有EVE角色ID时才算已授权
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
+        $isLoggedIn = $user !== null;
+
+        // 获取热门区域配置
         $popularRegions = config('market.popular_regions', []);
         $defaultRegion = config('market.default_region', 10000002);
+
         return view('market.index', [
             'user' => $user,
             'isLoggedIn' => $isLoggedIn,
+            'activePage' => 'market',
             'popularRegions' => $popularRegions,
             'defaultRegion' => $defaultRegion,
         ]);

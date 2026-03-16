@@ -27,27 +27,59 @@ class MarketDataController extends Controller
         return response()->json([
             'success' => true,
             'data' => $tree,
+            'cached' => !empty($tree),
         ]);
     }
 
     /**
-     * 获取分组详情
-     * GET /api/public/market/groups/{id}
+     * 搜索物品（模糊匹配）
+     * GET /api/public/market/search?q=xxx
      */
-    public function groupDetail(Request $request, int $id)
+    public function searchItems(Request $request)
     {
-        $detail = $this->marketService->getGroupDetail($id);
+        $query = trim($request->input('q', ''));
 
-        if (!$detail) {
+        if (mb_strlen($query) < 1) {
             return response()->json([
-                'success' => false,
-                'message' => '分组不存在',
-            ], 404);
+                'success' => true,
+                'data' => [],
+            ]);
         }
+
+        $results = $this->marketService->searchItems($query, 50);
 
         return response()->json([
             'success' => true,
-            'data' => $detail,
+            'data' => $results,
+        ]);
+    }
+
+    /**
+     * 获取所有星域列表
+     * GET /api/public/market/regions
+     */
+    public function regions(Request $request)
+    {
+        $regions = $this->marketService->getAllRegions();
+
+        return response()->json([
+            'success' => true,
+            'data' => $regions,
+        ]);
+    }
+
+    /**
+     * 获取区域活跃物品类型
+     * GET /api/public/market/active-types?region_id=X
+     */
+    public function activeTypes(Request $request)
+    {
+        $regionId = $request->input('region_id', 'all');
+        $typeIds = $this->marketService->getActiveTypeIds($regionId);
+
+        return response()->json([
+            'success' => true,
+            'data' => $typeIds,
         ]);
     }
 
@@ -58,14 +90,18 @@ class MarketDataController extends Controller
     public function orders(Request $request)
     {
         $request->validate([
-            'region_id' => 'required|integer',
+            'region_id' => 'required',
             'type_id' => 'required|integer',
         ]);
 
         $regionId = $request->input('region_id');
-        $typeId = $request->input('type_id');
+        $typeId = (int) $request->input('type_id');
 
         $orders = $this->marketService->getOrders($regionId, $typeId);
+
+        // 为订单计算到期时间
+        $orders['sell'] = $this->marketService->enrichOrdersWithExpires($orders['sell']);
+        $orders['buy'] = $this->marketService->enrichOrdersWithExpires($orders['buy']);
 
         // 为订单添加位置信息
         $orders['sell'] = $this->marketService->enrichOrdersWithLocation($orders['sell']);
@@ -84,12 +120,12 @@ class MarketDataController extends Controller
     public function history(Request $request)
     {
         $request->validate([
-            'region_id' => 'required|integer',
+            'region_id' => 'required',
             'type_id' => 'required|integer',
         ]);
 
         $regionId = $request->input('region_id');
-        $typeId = $request->input('type_id');
+        $typeId = (int) $request->input('type_id');
 
         $history = $this->marketService->getPriceHistory($regionId, $typeId);
 
@@ -139,8 +175,10 @@ class MarketDataController extends Controller
             $user->eve_character_id
         );
 
-        // 为订单添加位置信息
+        // 为订单添加到期时间、位置信息和物品名称
+        $orders = $this->marketService->enrichOrdersWithExpires($orders);
         $orders = $this->marketService->enrichOrdersWithLocation($orders);
+        $orders = $this->marketService->enrichOrdersWithTypeName($orders);
 
         return response()->json([
             'success' => true,

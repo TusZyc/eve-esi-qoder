@@ -40,6 +40,7 @@
 @section('title', '仪表盘')
 
 @section('content')
+    <div class="container mx-auto px-4 py-8">
     <!-- 服务器状态 -->
     <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 eve-glow">
         <h2 class="text-xl font-semibold mb-4">📡 服务器状态</h2>
@@ -120,6 +121,7 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 @endsection
 

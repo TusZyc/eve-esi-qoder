@@ -16,6 +16,11 @@ class Kernel extends ConsoleKernel
         $schedule->command('eve:update-data')
                  ->weeklyOn(1, '02:00')
                  ->withoutOverlapping();
+
+        // 每天凌晨 3 点刷新市场分组树和星域列表缓存
+        $schedule->command('market:cache-groups')
+                 ->dailyAt('03:00')
+                 ->withoutOverlapping();
     }
 
     /**

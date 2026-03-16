@@ -24,16 +24,13 @@
         }
         @stack('styles')
     </style>
+    @stack('head-scripts')
 </head>
 <body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    @include('layouts.partials.navbar', ['isLoggedIn' => $isLoggedIn ?? false])
-    
-    <!-- 页面内容区域 -->
-    <div class="container mx-auto px-4 py-8">
-        @yield('content')
-    </div>
-    
+    @include('layouts.partials.navbar', ['isLoggedIn' => $isLoggedIn ?? false, 'activePage' => $activePage ?? ''])
+
+    @yield('content')
+
     @stack('scripts')
 </body>
 </html>

@@ -228,14 +228,6 @@ class EveDataService
             // 更新本地数据库
             $this->addToDatabase($id, $name);
             
-            // 触发数据更新（可能数据过期了）- 暂时禁用，避免队列问题
-            // if ($this->needsUpdate()) {
-            //     Log::info('发现新物品，触发数据更新');
-            //     dispatch(function() {
-            //         $this->updateData();
-            //     })->afterResponse();
-            // }
-            
             return $name;
         }
         
@@ -348,7 +340,7 @@ class EveDataService
     /**
      * 按名称模糊搜索 (用于自动补全)
      * @param string $query 搜索关键词
-     * @param string $category 'ship' | 'system'
+     * @param string $category 'ship' | 'system' | 'item'
      * @param int $limit 最大返回数
      * @return array [{id, name}]
      */
@@ -369,11 +361,13 @@ class EveDataService
                 if ($id < 30000000 || $id > 31999999) continue;
             } elseif ($category === 'ship') {
                 if ($useWhitelist) {
-                    // 白名单模式：只允许舰船+建筑 type_id
                     if (!isset($validIds[$id])) continue;
                 } else {
                     if ($id >= 30000000 || $id < 500) continue;
                 }
+            } elseif ($category === 'item') {
+                // 市场物品搜索：排除星系等非物品 ID
+                if ($id >= 30000000) continue;
             }
 
             // 名称模糊匹配

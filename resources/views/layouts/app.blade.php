@@ -34,7 +34,6 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        /* 状态指示灯 */
         .status-dot {
             width: 12px;
             height: 12px;
@@ -54,19 +53,16 @@
             background-color: #ef4444;
             box-shadow: 0 0 10px #ef4444;
         }
-        
+
         @stack('styles')
     </style>
+    @stack('head-scripts')
 </head>
 <body class="eve-bg min-h-screen text-white">
-    <!-- 导航栏 -->
-    @include('layouts.partials.navbar', ['isLoggedIn' => $isLoggedIn ?? false])
-    
-    <!-- 页面内容区域 -->
-    <div class="container mx-auto px-4 py-8">
-        @yield('content')
-    </div>
-    
+    @include('layouts.partials.navbar', ['isLoggedIn' => $isLoggedIn ?? false, 'activePage' => $activePage ?? ''])
+
+    @yield('content')
+
     @stack('scripts')
 </body>
 </html>
