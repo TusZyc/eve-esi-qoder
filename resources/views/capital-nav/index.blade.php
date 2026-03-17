@@ -48,7 +48,7 @@
 @section('content')
     <div class="container mx-auto px-4 py-6 max-w-7xl">
         <!-- 标签栏 -->
-        <div class="bg-white/5 backdrop-blur rounded-xl border border-white/10 mb-6 overflow-hidden">
+        <div class="bg-white/5 backdrop-blur rounded-xl border border-white/10 mb-6">
             <div class="px-4 py-3 border-b border-white/10 flex justify-between items-center">
                 <h2 class="font-bold text-sm">旗舰导航</h2>
             </div>
@@ -326,6 +326,11 @@ function switchTab(tab) {
     document.getElementById('content-reachable').classList.add('hidden');
     document.getElementById('content-route').classList.add('hidden');
     document.getElementById('content-' + tab).classList.remove('hidden');
+    // 清除所有结果区域
+    document.getElementById('dist-result').classList.add('hidden');
+    document.getElementById('reach-result').classList.add('hidden');
+    document.getElementById('route-result').classList.add('hidden');
+    document.getElementById('loadingArea').classList.add('hidden');
 }
 
 // ==================== 工具函数 ====================

@@ -71,33 +71,95 @@ class CacheMarketGroups extends Command
         $bar->finish();
         $this->newLine();
 
-        $this->info('Fetched ' . count($details) . ' group details. Enriching with item names...');
+        $this->info('Fetched ' . count($details) . ' group details.');
+
+        // 收集所有 type_ids
+        $allTypeIds = [];
+        foreach ($details as $group) {
+            if (!empty($group['types']) && is_array($group['types'])) {
+                foreach ($group['types'] as $typeId) {
+                    if (is_numeric($typeId)) {
+                        $allTypeIds[] = (int)$typeId;
+                    }
+                }
+            }
+        }
+        $allTypeIds = array_unique($allTypeIds);
+        $this->info('Found ' . count($allTypeIds) . ' unique type IDs. Checking published status...');
+
+        // 批量查询 type 的 published 状态
+        $publishedTypes = [];
+        $typeBatches = array_chunk($allTypeIds, 50);
+        $barPub = $this->output->createProgressBar(count($typeBatches));
+        $barPub->start();
+
+        foreach ($typeBatches as $batch) {
+            $responses = Http::pool(function ($pool) use ($batch, $baseUrl, $datasource) {
+                foreach ($batch as $typeId) {
+                    $pool->as("type_{$typeId}")
+                        ->timeout(10)
+                        ->get($baseUrl . "universe/types/{$typeId}/", [
+                            'datasource' => $datasource,
+                            'language' => 'zh',
+                        ]);
+                }
+            });
+
+            foreach ($batch as $typeId) {
+                $r = $responses["type_{$typeId}"] ?? null;
+                if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
+                    $d = $r->json();
+                    if (!empty($d['published'])) {
+                        $publishedTypes[$typeId] = [
+                            'name' => $d['name'] ?? null,
+                        ];
+                    }
+                }
+            }
+
+            $barPub->advance();
+            usleep(100000); // 100ms delay
+        }
+
+        $barPub->finish();
+        $this->newLine();
+        $this->info('Published types: ' . count($publishedTypes) . ' / ' . count($allTypeIds));
 
         // 加载物品名称数据库
         $eveData = app(EveDataService::class);
         $itemDb = $eveData->getItemDatabase();
         $this->info('Item database loaded: ' . count($itemDb) . ' entries.');
 
-        // 为叶子分组的 types 附加名称
+        // 为叶子分组的 types 附加名称，并过滤掉未发布的物品
         $enrichedCount = 0;
+        $filteredCount = 0;
         foreach ($details as $id => &$group) {
             if (!empty($group['types']) && is_array($group['types'])) {
                 $namedTypes = [];
                 foreach ($group['types'] as $typeId) {
                     if (is_numeric($typeId)) {
-                        $name = $itemDb[(int)$typeId] ?? null;
+                        $tid = (int)$typeId;
+                        // 只保留已发布的物品
+                        if (!isset($publishedTypes[$tid])) {
+                            $filteredCount++;
+                            continue;
+                        }
+                        // 优先使用 ESI 返回的名称，其次使用本地数据库
+                        $name = $publishedTypes[$tid]['name'] ?? $itemDb[$tid] ?? ('物品#' . $tid);
                         $namedTypes[] = [
-                            'id' => (int)$typeId,
-                            'name' => $name ?? ('物品#' . $typeId),
+                            'id' => $tid,
+                            'name' => $name,
                         ];
                     }
                 }
                 $group['types'] = $namedTypes;
-                $enrichedCount++;
+                if (!empty($namedTypes)) {
+                    $enrichedCount++;
+                }
             }
         }
         unset($group);
-        $this->info("Enriched {$enrichedCount} groups with item names.");
+        $this->info("Enriched {$enrichedCount} groups with item names. Filtered {$filteredCount} unpublished items.");
 
         // Build tree
         $this->info('Building tree...');
@@ -156,6 +218,14 @@ class CacheMarketGroups extends Command
                     $r = $responses["region_{$rid}"] ?? null;
                     if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
                         $d = $r->json();
+                        
+                        // 过滤掉特殊区域（虫洞、深渊、未开放区域等）
+                        // 只保留 K-space 星域 (10000001-10000070) 和赞颂之域 (10001000)
+                        if ($rid >= 11000000) {
+                            // 排除虫洞(11xxxxx)、深渊(12xxxxx)、特殊区域(14xxxxx, 15xxxxx, 19xxxxx)
+                            continue;
+                        }
+                        
                         $regions[] = [
                             'id' => $d['region_id'],
                             'name' => $d['name'],

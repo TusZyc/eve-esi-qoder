@@ -233,19 +233,30 @@ class MarketDataController extends Controller
      */
     public function characterOrders(Request $request)
     {
+        \Log::info('[我的订单] API 被调用');
+
         $user = $request->user();
 
+        \Log::info('[我的订单] 用户信息', [
+            'user_id' => $user?->id,
+            'has_token' => $user?->access_token ? true : false,
+            'character_id' => $user?->eve_character_id,
+        ]);
+
         if (!$user || !$user->access_token) {
+            \Log::warning('[我的订单] 未授权访问');
             return response()->json([
                 'success' => false,
                 'message' => '未授权',
             ], 401);
         }
 
+        \Log::info('[我的订单] 开始获取订单');
         $orders = $this->marketService->getCharacterOrders(
             $user->access_token,
             $user->eve_character_id
         );
+        \Log::info('[我的订单] 获取到订单数量', ['count' => count($orders)]);
 
         // 为订单添加到期时间、位置信息和物品名称
         $orders = $this->marketService->enrichOrdersWithExpires($orders);

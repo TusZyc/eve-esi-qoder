@@ -9,15 +9,16 @@ class CapitalNavigationService
 {
     /**
      * 舰船跳跃基础属性
+     * highsec: true 表示该舰船可进入高安（战略货舰/长须鲸级/黑隐特勤舰）
      */
     const SHIP_DATA = [
-        'jump_freighter' => ['name' => '战略货舰',     'base_range' => 5.0, 'base_fuel' => 10000],
-        'rorqual'        => ['name' => '长须鲸级',     'base_range' => 5.0, 'base_fuel' => 4000],
-        'black_ops'      => ['name' => '黑隐特勤舰',   'base_range' => 4.0, 'base_fuel' => 700],
-        'carrier'        => ['name' => '航空母舰',     'base_range' => 3.5, 'base_fuel' => 3000],
-        'dreadnought'    => ['name' => '无畏舰',       'base_range' => 3.5, 'base_fuel' => 3000],
-        'supercarrier'   => ['name' => '超级航母',     'base_range' => 3.0, 'base_fuel' => 3000],
-        'titan'          => ['name' => '泰坦',         'base_range' => 3.0, 'base_fuel' => 3000],
+        'jump_freighter' => ['name' => '战略货舰',     'base_range' => 5.0, 'base_fuel' => 10000, 'highsec' => true],
+        'rorqual'        => ['name' => '长须鲸级',     'base_range' => 5.0, 'base_fuel' => 4000,  'highsec' => true],
+        'black_ops'      => ['name' => '黑隐特勤舰',   'base_range' => 4.0, 'base_fuel' => 700,   'highsec' => true],
+        'carrier'        => ['name' => '航空母舰',     'base_range' => 3.5, 'base_fuel' => 3000,  'highsec' => false],
+        'dreadnought'    => ['name' => '无畏舰',       'base_range' => 3.5, 'base_fuel' => 3000,  'highsec' => false],
+        'supercarrier'   => ['name' => '超级航母',     'base_range' => 3.0, 'base_fuel' => 3000,  'highsec' => false],
+        'titan'          => ['name' => '泰坦',         'base_range' => 3.0, 'base_fuel' => 3000,  'highsec' => false],
     ];
 
     /**
@@ -128,17 +129,36 @@ class CapitalNavigationService
     }
 
     /**
-     * 判断星系是否允许旗舰进入
+     * 判断星系是否允许指定舰船存在（用于起点验证和星门经过）
+     * 战略货舰/长须鲸级/黑隐特勤舰可进入高安，其余旗舰不可
      */
-    public function isSystemAllowed(int $systemId, array $systemData): bool
+    public function isSystemAllowed(int $systemId, array $systemData, string $shipType = ''): bool
     {
-        // 排除高安
-        $displaySec = round($systemData['sec'] * 10) / 10;
-        if ($displaySec >= 0.5) {
-            return false;
-        }
         // 排除 Pochven
         if (in_array($systemId, self::POCHVEN_SYSTEMS)) {
+            return false;
+        }
+        // 高安检查：仅对不可进入高安的舰船排除
+        $displaySec = round($systemData['sec'] * 10) / 10;
+        if ($displaySec >= 0.5) {
+            $canEnterHighsec = !empty($shipType) && (self::SHIP_DATA[$shipType]['highsec'] ?? false);
+            if (!$canEnterHighsec) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 判断星系是否可以作为跳跃目的地（高安不能开诱导，所有舰船都不能跳到高安）
+     */
+    public function isJumpTargetAllowed(int $systemId, array $systemData): bool
+    {
+        if (in_array($systemId, self::POCHVEN_SYSTEMS)) {
+            return false;
+        }
+        $displaySec = round($systemData['sec'] * 10) / 10;
+        if ($displaySec >= 0.5) {
             return false;
         }
         return true;
@@ -201,6 +221,12 @@ class CapitalNavigationService
             throw new Exception("起始星系不存在: {$originId}");
         }
 
+        // 检查起始星系是否允许该舰船存在
+        if (!$this->isSystemAllowed($originId, $origin, $shipType)) {
+            $displaySec = round($origin['sec'] * 10) / 10;
+            throw new Exception("起始星系 {$origin['name']} 安等 {$displaySec}，该舰船无法进入");
+        }
+
         $maxRange = $this->calculateJumpRange($shipType, $jdcLevel);
         $fuelRate = $this->calculateFuelRate($shipType, $fuelEffLevel, $jfLevel);
         $originPos = ['x' => $origin['x'], 'y' => $origin['y'], 'z' => $origin['z']];
@@ -209,8 +235,7 @@ class CapitalNavigationService
         foreach ($systems as $sysId => $sys) {
             $sysIdInt = (int) $sysId;
             if ($sysIdInt === $originId) continue;
-            if (!$this->isSystemAllowed($sysIdInt, $sys)) continue;
-
+            if (!$this->isJumpTargetAllowed($sysIdInt, $sys)) continue;
             $dist = $this->distanceLY($originPos, ['x' => $sys['x'], 'y' => $sys['y'], 'z' => $sys['z']]);
             if ($dist <= $maxRange) {
                 $reachable[] = [
@@ -256,23 +281,31 @@ class CapitalNavigationService
             return ['found' => false, 'reason' => '起始或目标星系不存在'];
         }
 
-        // 检查目标是否允许旗舰进入
-        if (!$this->isSystemAllowed($fromId, $from)) {
+        // 检查起始星系是否允许该舰船存在
+        if (!$this->isSystemAllowed($fromId, $from, $shipType)) {
             $displaySec = round($from['sec'] * 10) / 10;
-            return ['found' => false, 'reason' => "起始星系 {$from['name']} 安等 {$displaySec}，旗舰无法进入"];
+            return ['found' => false, 'reason' => "起始星系 {$from['name']} 安等 {$displaySec}，该舰船无法进入"];
         }
-        if (!$this->isSystemAllowed($toId, $to)) {
-            $displaySec = round($to['sec'] * 10) / 10;
-            return ['found' => false, 'reason' => "目标星系 {$to['name']} 安等 {$displaySec}，旗舰无法进入"];
+        // 检查目标星系：纯跳跃模式目标必须能开诱导，混合模式可通过星门到达高安
+        if ($useStargates) {
+            if (!$this->isSystemAllowed($toId, $to, $shipType)) {
+                $displaySec = round($to['sec'] * 10) / 10;
+                return ['found' => false, 'reason' => "目标星系 {$to['name']} 安等 {$displaySec}，该舰船无法进入"];
+            }
+        } else {
+            if (!$this->isJumpTargetAllowed($toId, $to)) {
+                $displaySec = round($to['sec'] * 10) / 10;
+                return ['found' => false, 'reason' => "目标星系 {$to['name']} 安等 {$displaySec}，高安无法开启诱导力场"];
+            }
         }
 
         $maxRange = $this->calculateJumpRange($shipType, $jdcLevel);
         $fuelRate = $this->calculateFuelRate($shipType, $fuelEffLevel, $jfLevel);
 
         if ($useStargates) {
-            $route = $this->dijkstraHybridRoute($fromId, $toId, $maxRange, $fuelRate, $systems);
+            $route = $this->dijkstraHybridRoute($fromId, $toId, $maxRange, $fuelRate, $systems, $shipType);
         } else {
-            $route = $this->bfsJumpRoute($fromId, $toId, $maxRange, $fuelRate, $systems);
+            $route = $this->bfsJumpRoute($fromId, $toId, $maxRange, $fuelRate, $systems, $shipType);
         }
 
         $route['jump_range'] = round($maxRange, 2);
@@ -284,7 +317,7 @@ class CapitalNavigationService
     /**
      * BFS 纯跳跃路径（最少跳跃次数）
      */
-    protected function bfsJumpRoute(int $fromId, int $toId, float $maxRange, int $fuelRate, array $systems): array
+    protected function bfsJumpRoute(int $fromId, int $toId, float $maxRange, int $fuelRate, array $systems, string $shipType = ''): array
     {
         if ($fromId === $toId) {
             return ['found' => true, 'jumps' => 0, 'gates' => 0, 'total_fuel' => 0, 'total_distance' => 0, 'path' => []];
@@ -302,11 +335,11 @@ class CapitalNavigationService
             $curSys = $systems[(string) $current['id']];
             $curPos = ['x' => $curSys['x'], 'y' => $curSys['y'], 'z' => $curSys['z']];
 
-            // 查找跳跃可达星系
+            // 查找跳跃可达星系（高安不能开诱导，所有舰船都不能跳到高安）
             foreach ($systems as $sysId => $sys) {
                 $sysIdInt = (int) $sysId;
                 if (isset($visited[$sysIdInt])) continue;
-                if (!$this->isSystemAllowed($sysIdInt, $sys)) continue;
+                if (!$this->isJumpTargetAllowed($sysIdInt, $sys)) continue;
 
                 $dist = $this->distanceLY($curPos, ['x' => $sys['x'], 'y' => $sys['y'], 'z' => $sys['z']]);
                 if ($dist > $maxRange) continue;
@@ -350,7 +383,7 @@ class CapitalNavigationService
     /**
      * Dijkstra 混合路径（星门+跳跃，最小燃料）
      */
-    protected function dijkstraHybridRoute(int $fromId, int $toId, float $maxRange, int $fuelRate, array $systems): array
+    protected function dijkstraHybridRoute(int $fromId, int $toId, float $maxRange, int $fuelRate, array $systems, string $shipType = ''): array
     {
         if ($fromId === $toId) {
             return ['found' => true, 'jumps' => 0, 'gates' => 0, 'total_fuel' => 0, 'total_distance' => 0, 'path' => []];
@@ -393,7 +426,7 @@ class CapitalNavigationService
                 if (isset($visited[$neighborId])) continue;
                 $neighborSys = $systems[(string) $neighborId] ?? null;
                 if (!$neighborSys) continue;
-                if (!$this->isSystemAllowed($neighborId, $neighborSys)) continue;
+                if (!$this->isSystemAllowed($neighborId, $neighborSys, $shipType)) continue;
 
                 $newCost = $currentCost; // 星门无燃料成本
                 if (!isset($dist[$neighborId]) || $newCost < $dist[$neighborId]) {
@@ -407,12 +440,12 @@ class CapitalNavigationService
                 }
             }
 
-            // 跳跃邻居（cost = fuel）
+            // 跳跃邻居（cost = fuel，高安不能开诱导）
             foreach ($systems as $sysId => $sys) {
                 $sysIdInt = (int) $sysId;
                 if (isset($visited[$sysIdInt])) continue;
                 if ($sysIdInt === $currentId) continue;
-                if (!$this->isSystemAllowed($sysIdInt, $sys)) continue;
+                if (!$this->isJumpTargetAllowed($sysIdInt, $sys)) continue;
 
                 $jumpDist = $this->distanceLY($curPos, ['x' => $sys['x'], 'y' => $sys['y'], 'z' => $sys['z']]);
                 if ($jumpDist > $maxRange) continue;
