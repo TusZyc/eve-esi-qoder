@@ -33,7 +33,7 @@ class CacheMarketGroups extends Command
         $this->info('Found ' . count($allGroupIds) . ' market groups.');
 
         $details = [];
-        $batchSize = 50;
+        $batchSize = 100;  // 增加批量大小
         $batches = array_chunk($allGroupIds, $batchSize);
         $bar = $this->output->createProgressBar(count($batches));
         $bar->start();
@@ -42,7 +42,7 @@ class CacheMarketGroups extends Command
             $responses = Http::pool(function ($pool) use ($batch, $baseUrl, $datasource) {
                 foreach ($batch as $id) {
                     $pool->as("group_{$id}")
-                        ->timeout(10)
+                        ->timeout(15)
                         ->get($baseUrl . "markets/groups/{$id}/", [
                             'datasource' => $datasource,
                             'language' => 'zh',
@@ -65,7 +65,7 @@ class CacheMarketGroups extends Command
             }
 
             $bar->advance();
-            usleep(100000); // 100ms delay between batches
+            usleep(50000); // 50ms delay between batches
         }
 
         $bar->finish();
@@ -73,7 +73,13 @@ class CacheMarketGroups extends Command
 
         $this->info('Fetched ' . count($details) . ' group details.');
 
-        // 收集所有 type_ids
+        // 加载物品名称数据库（先加载，用于快速填充名称）
+        $this->info('Loading item name database...');
+        $eveData = app(EveDataService::class);
+        $itemDb = $eveData->getItemDatabase();
+        $this->info('Item database loaded: ' . count($itemDb) . ' entries.');
+
+        // 收集所有 type_ids（只用于统计）
         $allTypeIds = [];
         foreach ($details as $group) {
             if (!empty($group['types']) && is_array($group['types'])) {
@@ -85,71 +91,27 @@ class CacheMarketGroups extends Command
             }
         }
         $allTypeIds = array_unique($allTypeIds);
-        $this->info('Found ' . count($allTypeIds) . ' unique type IDs. Checking published status...');
+        $this->info('Found ' . count($allTypeIds) . ' unique type IDs.');
 
-        // 批量查询 type 的 published 状态
-        $publishedTypes = [];
-        $typeBatches = array_chunk($allTypeIds, 50);
-        $barPub = $this->output->createProgressBar(count($typeBatches));
-        $barPub->start();
-
-        foreach ($typeBatches as $batch) {
-            $responses = Http::pool(function ($pool) use ($batch, $baseUrl, $datasource) {
-                foreach ($batch as $typeId) {
-                    $pool->as("type_{$typeId}")
-                        ->timeout(10)
-                        ->get($baseUrl . "universe/types/{$typeId}/", [
-                            'datasource' => $datasource,
-                            'language' => 'zh',
-                        ]);
-                }
-            });
-
-            foreach ($batch as $typeId) {
-                $r = $responses["type_{$typeId}"] ?? null;
-                if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
-                    $d = $r->json();
-                    if (!empty($d['published'])) {
-                        $publishedTypes[$typeId] = [
-                            'name' => $d['name'] ?? null,
-                        ];
-                    }
-                }
-            }
-
-            $barPub->advance();
-            usleep(100000); // 100ms delay
-        }
-
-        $barPub->finish();
-        $this->newLine();
-        $this->info('Published types: ' . count($publishedTypes) . ' / ' . count($allTypeIds));
-
-        // 加载物品名称数据库
-        $eveData = app(EveDataService::class);
-        $itemDb = $eveData->getItemDatabase();
-        $this->info('Item database loaded: ' . count($itemDb) . ' entries.');
-
-        // 为叶子分组的 types 附加名称，并过滤掉未发布的物品
+        // 直接使用本地数据库为叶子分组的 types 附加名称
+        // 不再查询 ESI 检查 published 状态，大幅提升速度
         $enrichedCount = 0;
-        $filteredCount = 0;
+        $namedCount = 0;
         foreach ($details as $id => &$group) {
             if (!empty($group['types']) && is_array($group['types'])) {
                 $namedTypes = [];
                 foreach ($group['types'] as $typeId) {
                     if (is_numeric($typeId)) {
                         $tid = (int)$typeId;
-                        // 只保留已发布的物品
-                        if (!isset($publishedTypes[$tid])) {
-                            $filteredCount++;
-                            continue;
+                        // 使用本地数据库中的名称
+                        $name = $itemDb[$tid] ?? null;
+                        if ($name) {
+                            $namedTypes[] = [
+                                'id' => $tid,
+                                'name' => $name,
+                            ];
+                            $namedCount++;
                         }
-                        // 优先使用 ESI 返回的名称，其次使用本地数据库
-                        $name = $publishedTypes[$tid]['name'] ?? $itemDb[$tid] ?? ('物品#' . $tid);
-                        $namedTypes[] = [
-                            'id' => $tid,
-                            'name' => $name,
-                        ];
                     }
                 }
                 $group['types'] = $namedTypes;
@@ -159,7 +121,7 @@ class CacheMarketGroups extends Command
             }
         }
         unset($group);
-        $this->info("Enriched {$enrichedCount} groups with item names. Filtered {$filteredCount} unpublished items.");
+        $this->info("Enriched {$enrichedCount} groups with {$namedCount} named items.");
 
         // Build tree
         $this->info('Building tree...');
