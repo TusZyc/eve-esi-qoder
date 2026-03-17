@@ -203,7 +203,6 @@
     </div>
 
     <!-- 我的订单标签内容 -->
-    @if($isLoggedIn)
     <div id="content-myorders" class="container mx-auto px-4 py-4 hidden">
             <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 eve-glow">
                 <div class="flex gap-2 mb-4">
@@ -230,7 +229,6 @@
                 </div>
             </div>
         </div>
-    @endif
 @endsection
 
 @push('scripts')
@@ -319,10 +317,8 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-' + tab).classList.add('active');
         document.getElementById('content-browse').classList.toggle('hidden', tab !== 'browse');
-        @if($isLoggedIn)
         document.getElementById('content-myorders').classList.toggle('hidden', tab !== 'myorders');
         if (tab === 'myorders') loadMyOrders();
-        @endif
     }
 
     // ==================== 区域列表 ====================
@@ -907,7 +903,6 @@
     }
 
     // ==================== 我的订单 ====================
-    @if($isLoggedIn)
     async function loadMyOrders() {
         document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-blue-300/50">加载中...</td></tr>';
         try {
@@ -985,7 +980,6 @@
             console.error('加载订单ID失败:', e);
         }
     }
-    @endif
 
     // ==================== 初始化 ====================
     document.addEventListener('DOMContentLoaded', async function() {
@@ -997,9 +991,7 @@
         // 然后加载市场分组（内部会调用 applyFilters，需要 activeTypeIds 已准备好）
         await loadMarketGroups();
         setupSearch();
-        @if($isLoggedIn)
         loadMyOrderIds();
-        @endif
     });
 </script>
 @endpush
