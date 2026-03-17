@@ -911,7 +911,9 @@
     async function loadMyOrders() {
         document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-blue-300/50">加载中...</td></tr>';
         try {
-            const resp = await fetch(API.characterOrders);
+            const resp = await fetch(API.characterOrders, {
+                credentials: 'same-origin'  // 确保 session cookie 被发送
+            });
             const result = await resp.json();
             if (result.success) {
                 allMyOrders = result.data || [];
@@ -967,7 +969,9 @@
 
     async function loadMyOrderIds() {
         try {
-            const resp = await fetch(API.myOrderIds);
+            const resp = await fetch(API.myOrderIds, {
+                credentials: 'same-origin'  // 确保 session cookie 被发送
+            });
             const result = await resp.json();
             if (result.success) {
                 myOrderIds = result.data || [];
