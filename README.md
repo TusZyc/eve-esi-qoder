@@ -1,194 +1,217 @@
-# Tus Esi System (Beta)
+# EVE ESI Tools (eve-esi-qoder)
 
-基于 Laravel 的 EVE Online 国服 ESI 数据工具平台
+EVE Online 国服 (Serenity) ESI 数据工具网站，基于 Laravel 构建的全功能 EVE 角色管理平台。
 
-## 功能概览
+> **线上地址**：部署于阿里云 ECS  
+> **GitHub**: https://github.com/TusZyc/eve-esi-qoder
 
-### 首页
-- eve.webm 视频背景沉浸式首页
-- 实时服务器状态面板：晨曦(Serenity) / 曙光(Infinity) / 欧服(Tranquility)
-- 显示在线人数、启动时间、版本号，60 秒自动刷新
+## 功能列表
 
-### OAuth2 认证
-- 国服 OAuth2 授权流程（网易通行证）
-- 3V 完整 73 个 ESI 权限（含克隆体/植入体读取权限）
-- Refresh Token 自动刷新（AutoRefreshEveToken 中间件）
-
-### 仪表盘
-- 异步数据加载 + 骨架屏
-- 服务器状态、角色信息、技能概览、在线状态
-
-### 技能系统
-- 全量 673 个技能按分组展示，区分已学/未学（已过滤虚构技能分类）
-- 技能队列实时监控（训练中/等待中/已完成）
-- 异步加载架构：SkillDataController 提供 3 个 API 端点
-
-### 资产管理
-- 两步加载：先加载位置列表，再按需加载物品详情
-- 搜索功能：按物品名称搜索，结果按位置分组
-- 舰船机库/物品机库自动分类
-- 树形展示：容器内嵌套物品支持展开/折叠
-
-### 角色信息
-- 四标签切换界面：角色描述 / 属性&植入体 / 克隆体 / 雇佣历史
-- 角色描述：完整 EVE 富文本解码（Python unicode 转义、HTML 实体、hex 序列、ARGB 颜色转 CSS RGB）
-- 属性&植入体：五大属性值 + 当前植入体列表，异步加载
-- 克隆体：跳跃克隆体位置与植入体，空间站名称逐段中文翻译（星系名 + 军团名 + 设施类型映射）
-- 雇佣历史：军团历史含起止时间与天数统计
-
-### KM（击杀记录）查询
-- 数据源：beta.ceve-market.org API，自定义 Protobuf 解码器
-- 高级搜索：角色/军团/联盟/舰船/星系多维度
-- 位置搜索：中文星系名模糊匹配自动补全
-- 舰船搜索：支持具体舰船和舰船类别，自动补全
-- 时间范围：精确到秒（datetime-local），支持仅时间条件搜索
-- KM 详情弹窗：参与者列表、损失装配、伤害统计
-
-### 市场查询
-- 公开访问，无需登录
-- 市场分组树 + 物品搜索
-- MarketService 三级缓存策略
-
-### 本地数据服务
-- 离线物品/星系/空间站中文名称数据库（约 36,800 条，含 8,534 个星系中文名）
-- 数据来源 ceve-market.org + ESI 批量抓取，Python 脚本自动更新
+| 功能 | 说明 |
+|------|------|
+| **EVE SSO 登录** | 国服 OAuth2 授权，支持 73 个 ESI 权限 |
+| **仪表盘** | 角色概览、服务器状态、ISK 余额、在线玩家数 |
+| **技能队列** | 训练队列监控、全量技能分组展示（673 个技能） |
+| **资产管理** | 两步加载、搜索、位置翻译、舰船/物品机库分类 |
+| **击杀报告 (KM)** | 多维度搜索、自动补全、KM 详情查看 |
+| **市场工具** | 跨星域价格查询、分组浏览、价格历史图表 |
+| **角色信息** | 属性、植入体、克隆体、雇佣历史四标签页 |
+| **旗舰导航** | 跳跃距离计算、一跳可达、路线规划（BFS/Dijkstra） |
+| **星系距离** | 两星系间跳数/光年距离计算 |
+| **游客仪表盘** | 未登录用户可查看服务器状态和功能预览 |
+| **共享布局** | 统一导航栏、认证/游客双布局系统 |
+| **数据自动更新** | Cron 定时任务每周更新 EVE 数据 |
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端 | Laravel 10 + PHP 8.2 |
-| 前端 | Blade + TailwindCSS (CDN) |
-| 数据库 | SQLite |
-| 缓存 | Redis（三级缓存策略） |
-| 部署 | Docker + Docker Compose |
-| 数据 | Python 3 + openpyxl |
-
-## 部署
-
-### 环境要求
-
-- Docker 20.10+
-- Docker Compose 2.0+
-
-### 启动
-
-```bash
-git clone https://github.com/TusZyc/eve-esi-qoder.git
-cd eve-esi-qoder
-
-cp .env.example .env
-
-docker compose up -d
-docker compose exec app composer install
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate
-```
-
-### ESI 配置
-
-```env
-ESI_BASE_URL=https://ali-esi.evepc.163.com/latest/
-ESI_OAUTH_URL=https://login.evepc.163.com/v2/oauth/
-ESI_CLIENT_ID=your_client_id
-```
-
-## API 端点
-
-### 公开（无需认证）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | /api/public/server-status | 三服务器状态 |
-| GET | /api/public/market/* | 市场数据 |
-
-### 需认证（/api/dashboard/）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | /server-status | 服务器状态 |
-| GET | /character-info | 角色信息 |
-| GET | /character-location | 角色位置 |
-| GET | /character-online | 在线状态 |
-| GET | /character/attributes | 角色属性 |
-| GET | /character/implants | 当前植入体 |
-| GET | /character/clones | 克隆体信息 |
-| GET | /character/corphistory | 雇佣历史 |
-| GET | /skills | 技能概览（仪表盘用） |
-| GET | /skill-queue | 技能队列（仪表盘用） |
-| GET | /skills/overview | 技能总览 |
-| GET | /skills/queue | 技能队列详情 |
-| GET | /skills/groups | 全量技能分组 |
-| GET | /assets/locations | 资产位置列表 |
-| GET | /assets/location/{id} | 位置物品详情 |
-| GET | /assets/search?q= | 资产搜索 |
-
-### KM 查询（/api/killmails/）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | /autocomplete | 自动补全（角色/军团/联盟/舰船/星系） |
-| GET | /advanced-search | 高级搜索 |
+- **后端**: Laravel 10 + PHP 8.2
+- **前端**: Blade + Tailwind CSS (CDN) + Alpine.js
+- **缓存**: Redis（多级缓存策略）
+- **数据库**: SQLite
+- **部署**: Docker Compose（php-fpm + nginx + redis）
+- **数据**: Python 3 + openpyxl（数据更新脚本）
 
 ## 项目结构
 
 ```
-eve-esi/
+eve-esi-qoder/
 ├── app/
+│   ├── Console/Commands/       # Artisan 命令
 │   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Api/              # 异步数据 API
-│   │   │   │   ├── AssetDataController.php
-│   │   │   │   ├── DashboardDataController.php
-│   │   │   │   ├── KillmailController.php
-│   │   │   │   ├── MarketDataController.php
-│   │   │   │   ├── ServerStatusController.php
-│   │   │   │   └── SkillDataController.php
-│   │   │   ├── AuthController.php
-│   │   │   ├── CharacterController.php  # 角色信息（属性/植入体/克隆体/雇佣历史）
-│   │   │   ├── DashboardController.php
-│   │   │   ├── AssetController.php
-│   │   │   ├── MarketController.php
-│   │   │   └── SkillController.php
-│   │   └── Middleware/
-│   │       └── AutoRefreshEveToken.php
-│   ├── Services/
-│   │   ├── EveDataService.php       # 本地数据服务
-│   │   ├── KillmailService.php      # KM 查询 + Protobuf 解码
-│   │   ├── MarketService.php        # 市场数据服务
-│   │   └── TokenRefreshService.php
-│   └── Helpers/
-│       └── EveHelper.php            # 静态门面
+│   │   ├── Controllers/        # 控制器（含 Api/ 子目录）
+│   │   └── Middleware/         # Token 自动刷新等中间件
+│   ├── Services/               # 业务服务层
+│   │   ├── EveEsiService.php   # ESI API 基础服务
+│   │   ├── KillmailService.php # 击杀报告服务
+│   │   ├── MarketService.php   # 市场服务
+│   │   └── ...
+│   └── Helpers/EveHelper.php   # EVE 通用辅助函数
 ├── config/
-│   └── esi.php                      # ESI 配置（含 OAuth 权限列表）
-├── data/
-│   ├── items.json                   # 物品/星系中文名（~36,800 条）
-│   └── eve_station_systems.json     # 空间站→星系映射
-├── resources/views/
-│   ├── welcome.blade.php            # 首页（视频背景）
-│   ├── dashboard.blade.php          # 仪表盘
-│   ├── skills/index.blade.php       # 技能页
-│   ├── assets/index.blade.php       # 资产页
-│   ├── characters/index.blade.php   # 角色信息页（四标签）
-│   └── killmails/index.blade.php    # KM 查询页
-├── routes/web.php
-├── scripts/update_evedata.py        # 数据更新脚本
+│   ├── esi.php                 # ESI API 配置
+│   └── market.php              # 市场配置
+├── data/                       # 本地数据文件
+│   ├── items.json              # 物品名称数据
+│   └── solar_system_jumps.json # 星系跳跃数据
 ├── docker/
-│   ├── app/Dockerfile
-│   └── nginx/default.conf
-└── docker-compose.yml
+│   ├── app/Dockerfile          # PHP-FPM 容器
+│   └── nginx/default.conf      # Nginx 配置
+├── resources/views/
+│   ├── layouts/                # 共享布局
+│   └── ...                     # 各功能视图
+├── routes/
+│   ├── web.php                 # Web 路由
+│   └── api.php                 # API 路由
+├── scripts/update_evedata.py   # 数据更新脚本
+├── docker-compose.yml
+└── .env.example
 ```
+
+## 环境要求
+
+- Docker 20.10+
+- Docker Compose 2.0+
+- PHP 8.2+（容器内）
+- Python 3.8+（数据更新脚本）
+
+## 安装部署
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/TusZyc/eve-esi-qoder.git
+cd eve-esi-qoder
+```
+
+### 2. 配置环境变量
+
+```bash
+cp .env.example .env
+# 编辑 .env 文件，配置 ESI 相关参数
+```
+
+### 3. 启动 Docker 容器
+
+```bash
+docker compose up -d
+```
+
+### 4. 初始化应用
+
+```bash
+# 安装依赖
+docker compose exec app composer install
+
+# 生成应用密钥
+docker compose exec app php artisan key:generate
+
+# 执行数据库迁移
+docker compose exec app php artisan migrate
+
+# 缓存市场分组（可选，加速首次加载）
+docker compose exec app php artisan cache:market-groups
+```
+
+### 5. 访问应用
+
+打开浏览器访问 `http://localhost` 或服务器 IP
+
+## 配置说明
+
+### .env 关键配置项
+
+```env
+# 应用配置
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-domain.com
+
+# EVE ESI 配置（国服）
+ESI_BASE_URL=https://ali-esi.evepc.163.com/latest/
+ESI_OAUTH_URL=https://login.evepc.163.com/v2/oauth/
+ESI_CLIENT_ID=your_client_id
+
+# 缓存配置
+CACHE_DRIVER=redis
+REDIS_HOST=eve-esi-redis
+REDIS_PORT=6379
+
+# 会话配置
+SESSION_DRIVER=redis
+```
+
+## 开发说明
+
+### 本地开发
+
+1. 按照上述安装步骤启动项目
+2. 修改代码后，Blade 视图会自动刷新
+3. PHP 代码修改后需清理缓存：
+   ```bash
+   docker compose exec app php artisan cache:clear
+   docker compose exec app php artisan view:clear
+   ```
+
+### 部署到服务器
+
+项目使用 SCP 直传方式部署（避免 tarball 导致的 PHP 变量符号问题）：
+
+```bash
+# 1. 上传文件到服务器 /tmp
+scp -i your-key.pem file.php root@server:/tmp/
+
+# 2. 复制到容器内
+ssh -i your-key.pem root@server "docker cp /tmp/file.php eve-esi-app:/var/www/html/path/"
+
+# 3. 清理缓存
+ssh -i your-key.pem root@server "cd /opt/eve-esi && docker compose exec -T app php artisan cache:clear && docker compose exec -T app php artisan view:clear"
+```
+
+## 定时任务
+
+服务器 crontab 配置（host 级别）：
+
+```cron
+# 每周一凌晨 2:00 更新 EVE 数据
+0 2 * * 1 cd /opt/eve-esi && docker compose exec -T app php artisan eve:update-data >> /var/log/eve-update.log 2>&1
+```
+
+## 已知问题与待优化
+
+### 性能问题
+
+- 资产页面首次加载较慢（15-30s），多阶段 API 调用 + 位置翻译
+- 角色信息页串行 ESI 调用（10-20s）
+- 技能分组加载需 26 次 ESI 调用
+
+### 架构问题
+
+- KillmailService 代码膨胀（2600+ 行），需拆分
+- AssetDataController 约 900 行，过于臃肿
+- 缺少数据转换层 (DTO)
+- 缓存策略不统一
+
+### 安全问题
+
+- Redis 无密码保护
+- OAuth2 缺少 state 参数验证
+- 日志级别为 DEBUG（生产环境应改为 ERROR）
+
+### 待开发功能
+
+- 钱包查询页面
+- 资产估值功能
+- 军团管理页面
 
 ## 相关资源
 
-- [EVE 国服 API 文档](https://ali-esi.evepc.163.com/ui)
+- [EVE 国服 ESI API 文档](https://ali-esi.evepc.163.com/ui)
 - [EVE ESI 规范](https://esi.evetech.net/ui/)
 - [Laravel 文档](https://laravel.com/docs)
 
-## 许可证
+## License
 
 MIT License
 
 ---
 
-*最后更新：2026-03-15*
+*开发者：TusZyc (图斯) | 最后更新：2026-03-17*

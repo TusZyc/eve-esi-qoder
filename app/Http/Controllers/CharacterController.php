@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use App\Helpers\EveHelper;
+use App\Services\CharacterDataService;
+use App\Services\CacheKeyService;
+use App\Services\ApiErrorHandler;
+use App\Exceptions\EveApiException;
 
 class CharacterController extends Controller
 {
@@ -76,20 +80,30 @@ class CharacterController extends Controller
     {
         $user = $request->user();
         $baseUrl = config('esi.base_url');
+        $cacheKey = "char:attributes:{$user->eve_character_id}";
 
         try {
-            $response = Http::withToken($user->access_token)->timeout(10)
-                ->get($baseUrl . 'characters/' . $user->eve_character_id . '/attributes/');
+            $data = Cache::remember($cacheKey, CacheKeyService::TTL_SHORT, function () use ($user, $baseUrl) {
+                $response = Http::withToken($user->access_token)->timeout(10)
+                    ->get($baseUrl . 'characters/' . $user->eve_character_id . '/attributes/');
 
-            if ($response->failed()) {
-                $status = $response->status();
+                if ($response->failed()) {
+                    return ['_error' => true, '_status' => $response->status()];
+                }
+
+                return $response->json();
+            });
+
+            if (isset($data['_error'])) {
+                Cache::forget($cacheKey);
+                $status = $data['_status'];
                 if ($status === 403) {
                     return response()->json(['success' => false, 'message' => '权限不足，请重新授权以获取属性数据'], 403);
                 }
                 return response()->json(['success' => false, 'message' => '获取属性失败'], $status);
             }
 
-            return response()->json(['success' => true, 'data' => $response->json()]);
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => '请求超时'], 500);
         }
@@ -102,34 +116,43 @@ class CharacterController extends Controller
     {
         $user = $request->user();
         $baseUrl = config('esi.base_url');
+        $cacheKey = "char:implants:{$user->eve_character_id}";
 
         try {
-            $response = Http::withToken($user->access_token)->timeout(10)
-                ->get($baseUrl . 'characters/' . $user->eve_character_id . '/implants/');
+            $data = Cache::remember($cacheKey, CacheKeyService::TTL_SHORT, function () use ($user, $baseUrl) {
+                $response = Http::withToken($user->access_token)->timeout(10)
+                    ->get($baseUrl . 'characters/' . $user->eve_character_id . '/implants/');
 
-            if ($response->failed()) {
-                $status = $response->status();
+                if ($response->failed()) {
+                    return ['_error' => true, '_status' => $response->status()];
+                }
+
+                $typeIds = $response->json() ?: [];
+                $implants = [];
+                if (!empty($typeIds)) {
+                    $names = EveHelper::getNamesByIds($typeIds, 'item');
+                    foreach ($typeIds as $typeId) {
+                        $implants[] = [
+                            'type_id' => $typeId,
+                            'name' => $names[$typeId] ?? "Unknown #{$typeId}",
+                        ];
+                    }
+                    usort($implants, fn($a, $b) => strcmp($a['name'], $b['name']));
+                }
+
+                return $implants;
+            });
+
+            if (isset($data['_error'])) {
+                Cache::forget($cacheKey);
+                $status = $data['_status'];
                 if ($status === 403) {
                     return response()->json(['success' => false, 'message' => '权限不足，请重新授权以获取植入体数据'], 403);
                 }
                 return response()->json(['success' => false, 'message' => '获取植入体失败'], $status);
             }
 
-            $typeIds = $response->json() ?: [];
-            $implants = [];
-            if (!empty($typeIds)) {
-                $names = EveHelper::getNamesByIds($typeIds, 'item');
-                foreach ($typeIds as $typeId) {
-                    $implants[] = [
-                        'type_id' => $typeId,
-                        'name' => $names[$typeId] ?? "Unknown #{$typeId}",
-                    ];
-                }
-                // 按名称排序
-                usort($implants, fn($a, $b) => strcmp($a['name'], $b['name']));
-            }
-
-            return response()->json(['success' => true, 'data' => $implants]);
+            return response()->json(['success' => true, 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => '请求超时'], 500);
         }
@@ -316,6 +339,82 @@ class CharacterController extends Controller
 
         return redirect()->route('characters.index')
             ->with('success', '角色已解绑');
+    }
+    
+    /**
+     * 获取角色全部数据 - 聚合 API 端点
+     * 并行获取属性、植入体、克隆体、雇佣历史
+     */
+    public function allData(Request $request)
+    {
+        try {
+            $user = ApiErrorHandler::requireAuth($request);
+            // 使用 CharacterDataService 并行获取数据
+            $data = CharacterDataService::getAllCharacterData(
+                $user->eve_character_id,
+                $user->access_token
+            );
+            
+            // 处理植入体名称
+            $implants = [];
+            if (!empty($data['implants'])) {
+                $typeIds = $data['implants'];
+                $names = EveHelper::getNamesByIds($typeIds, 'item');
+                foreach ($typeIds as $typeId) {
+                    $implants[] = [
+                        'type_id' => $typeId,
+                        'name' => $names[$typeId] ?? "Unknown #{$typeId}",
+                    ];
+                }
+                usort($implants, fn($a, $b) => strcmp($a['name'], $b['name']));
+            }
+            
+            // 处理雇佣历史
+            $history = [];
+            if (!empty($data['history'])) {
+                $corpIds = array_unique(array_column($data['history'], 'corporation_id'));
+                $corpNames = !empty($corpIds) ? $this->resolveNames($corpIds) : [];
+                $now = Carbon::now('Asia/Shanghai');
+                
+                for ($i = 0; $i < count($data['history']); $i++) {
+                    $item = $data['history'][$i];
+                    $corpId = $item['corporation_id'] ?? 0;
+                    $startCarbon = !empty($item['start_date']) ? Carbon::parse($item['start_date'])->timezone('Asia/Shanghai') : null;
+                    
+                    if ($i === 0) {
+                        $endDate = '至今';
+                        $days = $startCarbon ? (int) $startCarbon->diffInDays($now) : 0;
+                    } else {
+                        $prevStart = !empty($data['history'][$i - 1]['start_date']) ? Carbon::parse($data['history'][$i - 1]['start_date'])->timezone('Asia/Shanghai') : null;
+                        $endDate = $prevStart ? $prevStart->format('Y-m-d') : '未知';
+                        $days = ($startCarbon && $prevStart) ? (int) $startCarbon->diffInDays($prevStart) : 0;
+                    }
+                    
+                    $history[] = [
+                        'corporation_id' => $corpId,
+                        'corporation_name' => $corpNames[$corpId] ?? "Unknown #{$corpId}",
+                        'start_date' => $startCarbon ? $startCarbon->format('Y-m-d') : null,
+                        'end_date' => $endDate,
+                        'days' => $days,
+                    ];
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'attributes' => $data['attributes'],
+                    'implants' => $implants,
+                    'clones' => $data['clones'],
+                    'corporation_history' => $history,
+                ],
+            ]);
+            
+        } catch (EveApiException $e) {
+            return $e->toResponse();
+        } catch (\Exception $e) {
+            return ApiErrorHandler::error('unknown_error', $e->getMessage(), 500);
+        }
     }
 
     /**

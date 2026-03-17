@@ -77,6 +77,9 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
     Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
+    
+    // 角色数据聚合 API（并行获取属性、植入体、克隆体、雇佣历史）
+    Route::get('/character/all-data', [CharacterController::class, 'allData'])->name('api.dashboard.character-all-data');
 });
 
 // KM 查询（公开访问）

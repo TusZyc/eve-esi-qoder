@@ -42,6 +42,19 @@ class Handler extends ExceptionHandler
     }
     
     /**
+     * Render an exception into an HTTP response.
+     */
+    public function render($request, Throwable $exception)
+    {
+        // 处理 EveApiException
+        if ($exception instanceof \App\Exceptions\EveApiException) {
+            return $exception->toResponse();
+        }
+        
+        return parent::render($request, $exception);
+    }
+    
+    /**
      * Convert an authentication exception into a response.
      */
     protected function unauthenticated($request, AuthenticationException $exception)

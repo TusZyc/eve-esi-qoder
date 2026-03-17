@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 use App\Helpers\EveHelper;
+use App\Services\CacheKeyService;
+use App\Services\ApiErrorHandler;
+use App\Exceptions\EveApiException;
 
 /**
  * Dashboard 数据 API 控制器
@@ -27,6 +31,14 @@ class DashboardDataController extends Controller
      */
     public function serverStatus()
     {
+        // 成功响应缓存 5 分钟，错误响应缓存 60 秒
+        $cacheKey = CacheKeyService::serverStatus();
+        $cached = Cache::get($cacheKey);
+        
+        if ($cached !== null) {
+            return response()->json($cached['data'], $cached['status']);
+        }
+        
         try {
             $statusUrl = config('esi.base_url') . 'status/';
             $statusResponse = Http::timeout(5)->get($statusUrl);
@@ -46,7 +58,7 @@ class DashboardDataController extends Controller
                     'vip' => $isVip,
                 ]);
                 
-                return response()->json([
+                $response = [
                     'success' => true,
                     'data' => [
                         'players' => $players,
@@ -57,46 +69,72 @@ class DashboardDataController extends Controller
                         'is_online' => true,
                         'is_maintenance' => $players === 0 && !$isVip,
                     ],
-                ]);
+                ];
+                
+                // 成功响应缓存 5 分钟
+                Cache::put($cacheKey, ['data' => $response, 'status' => 200], CacheKeyService::TTL_SHORT);
+                
+                return response()->json($response);
             } elseif ($statusResponse->status() === 503) {
                 Log::warning('服务器维护中 (HTTP 503)');
-                return response()->json([
+                $response = [
                     'success' => false,
                     'error' => 'server_maintenance',
                     'message' => '服务器维护中',
                     'detail' => 'API 可访问，但服务器处于维护状态',
-                ], 503);
+                ];
+                
+                // 错误响应缓存 60 秒
+                Cache::put($cacheKey, ['data' => $response, 'status' => 503], 60);
+                
+                return response()->json($response, 503);
             } elseif ($statusResponse->status() === 504) {
                 Log::warning('服务器网关超时 (HTTP 504)');
-                return response()->json([
+                $response = [
                     'success' => false,
                     'error' => 'gateway_timeout',
                     'message' => '网关超时',
-                ], 504);
+                ];
+                
+                Cache::put($cacheKey, ['data' => $response, 'status' => 504], 60);
+                
+                return response()->json($response, 504);
             }
             
-            return response()->json([
+            $response = [
                 'success' => false,
                 'error' => 'http_error',
                 'message' => 'HTTP ' . $statusResponse->status(),
-            ], $statusResponse->status());
+            ];
+            
+            Cache::put($cacheKey, ['data' => $response, 'status' => $statusResponse->status()], 60);
+            
+            return response()->json($response, $statusResponse->status());
             
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // 连接超时 - 服务器不在线，正在重启
             Log::warning('服务器连接失败，正在重启中：' . $e->getMessage());
-            return response()->json([
+            $response = [
                 'success' => false,
                 'error' => 'server_offline',
                 'message' => '服务器不在线',
                 'detail' => '服务器正在重启中，请等待开服',
-            ], 503);
+            ];
+            
+            Cache::put($cacheKey, ['data' => $response, 'status' => 503], 60);
+            
+            return response()->json($response, 503);
         } catch (\Exception $e) {
             Log::error('服务器状态请求异常：' . $e->getMessage());
-            return response()->json([
+            $response = [
                 'success' => false,
                 'error' => 'unknown_error',
                 'message' => '未知错误',
-            ], 500);
+            ];
+            
+            Cache::put($cacheKey, ['data' => $response, 'status' => 500], 60);
+            
+            return response()->json($response, 500);
         }
     }
     
@@ -105,32 +143,13 @@ class DashboardDataController extends Controller
      */
     public function characterInfo(Request $request)
     {
-        $user = $request->user();
-        
-        Log::info('👤 [API] 请求角色信息', [
-            'user_id' => $user->id ?? 'null',
-            'character_id' => $user->eve_character_id ?? 'null',
-        ]);
-        
-        if (!$user || !$user->eve_character_id) {
-            Log::warning('👤 [API] 未授权或无角色', ['user_id' => $user->id ?? 'null']);
-            return response()->json([
-                'success' => false,
-                'error' => 'unauthorized',
-                'message' => '未授权，请重新登录',
-            ], 401);
-        }
-        
-        if (empty($user->access_token)) {
-            Log::warning('👤 [API] 缺少 Access Token', ['user_id' => $user->id]);
-            return response()->json([
-                'success' => false,
-                'error' => 'no_token',
-                'message' => '缺少访问令牌',
-            ], 401);
-        }
-        
         try {
+            $user = ApiErrorHandler::requireAuth($request);
+            
+            Log::info('👤 [API] 请求角色信息', [
+                'user_id' => $user->id,
+                'character_id' => $user->eve_character_id,
+            ]);
             Log::info('👤 [API] 请求 EVE API 角色信息');
             
             // 获取角色公开信息（包含军团和联盟 ID）
@@ -195,20 +214,14 @@ class DashboardDataController extends Controller
                 ],
             ]);
             
+        } catch (EveApiException $e) {
+            return $e->toResponse();
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('👤 [API] 角色信息连接失败：' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'error' => 'connection_timeout',
-                'message' => '连接超时，EVE API 可能不可用',
-            ], 503);
+            return ApiErrorHandler::error('connection_timeout', '连接超时，EVE API 可能不可用', 503);
         } catch (\Exception $e) {
             Log::error('👤 [API] 角色信息请求异常：' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'error' => 'unknown_error',
-                'message' => '未知错误',
-            ], 500);
+            return ApiErrorHandler::error('unknown_error', '未知错误', 500);
         }
     }
     
@@ -234,34 +247,15 @@ class DashboardDataController extends Controller
      */
     public function skills(Request $request)
     {
-        $user = $request->user();
-        
-        Log::info('📚 [API] 请求技能数据', [
-            'user_id' => $user->id ?? 'null',
-            'character_id' => $user->eve_character_id ?? 'null',
-            'has_token' => !empty($user->access_token),
-            'token_expired' => $user->isTokenExpired(),
-        ]);
-        
-        if (!$user || !$user->eve_character_id) {
-            Log::warning('📚 [API] 未授权或无角色', ['user_id' => $user->id ?? 'null']);
-            return response()->json([
-                'success' => false,
-                'error' => 'unauthorized',
-                'message' => '未授权，请重新登录',
-            ], 401);
-        }
-        
-        if (empty($user->access_token)) {
-            Log::warning('📚 [API] 缺少 Access Token', ['user_id' => $user->id]);
-            return response()->json([
-                'success' => false,
-                'error' => 'no_token',
-                'message' => '缺少访问令牌',
-            ], 401);
-        }
-        
         try {
+            $user = ApiErrorHandler::requireAuth($request);
+            
+            Log::info('📚 [API] 请求技能数据', [
+                'user_id' => $user->id,
+                'character_id' => $user->eve_character_id,
+                'has_token' => !empty($user->access_token),
+                'token_expired' => $user->isTokenExpired(),
+            ]);
             Log::info('📚 [API] 请求 EVE API 技能数据');
             
             $skillsResponse = Http::timeout(10)
@@ -292,34 +286,20 @@ class DashboardDataController extends Controller
                     'status' => $skillsResponse->status(),
                     'body' => $skillsResponse->body(),
                 ]);
-                return response()->json([
-                    'success' => false,
-                    'error' => 'token_expired',
-                    'message' => 'Token 已过期，请刷新 Token 或重新授权',
-                ], 401);
+                throw EveApiException::tokenExpired('Token 已过期，请刷新 Token 或重新授权');
             }
             
             Log::warning('📚 [API] 技能数据获取失败', ['status' => $skillsResponse->status()]);
-            return response()->json([
-                'success' => false,
-                'error' => 'http_error',
-                'message' => 'HTTP ' . $skillsResponse->status(),
-            ], $skillsResponse->status());
+            return ApiErrorHandler::error('http_error', 'HTTP ' . $skillsResponse->status(), $skillsResponse->status());
             
+        } catch (EveApiException $e) {
+            return $e->toResponse();
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('📚 [API] 技能数据连接失败：' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'error' => 'connection_timeout',
-                'message' => '连接超时，EVE API 可能不可用',
-            ], 503);
+            return ApiErrorHandler::error('connection_timeout', '连接超时，EVE API 可能不可用', 503);
         } catch (\Exception $e) {
             Log::error('📚 [API] 技能数据请求异常：' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'error' => 'unknown_error',
-                'message' => '未知错误',
-            ], 500);
+            return ApiErrorHandler::error('unknown_error', '未知错误', 500);
         }
     }
     
