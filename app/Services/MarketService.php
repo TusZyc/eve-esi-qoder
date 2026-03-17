@@ -62,14 +62,19 @@ class MarketService
         $regionId = (int) $regionId;
         return Cache::remember("market_active_types_{$regionId}", 300, function () use ($regionId) {
             try {
+                Log::info("获取区域 {$regionId} 的活跃物品类型...");
                 $r = Http::timeout(15)->get($this->baseUrl . "markets/{$regionId}/types/", [
                     'datasource' => $this->datasource,
                     'page' => 1,
                 ]);
-                if (!$r->ok()) return [];
+                if (!$r->ok()) {
+                    Log::warning("获取区域 {$regionId} 活跃物品类型失败: HTTP " . $r->status());
+                    return [];
+                }
 
                 $allTypes = $r->json() ?: [];
                 $totalPages = (int) ($r->header('X-Pages') ?? 1);
+                Log::info("区域 {$regionId} 共 {$totalPages} 页，第一页获取到 " . count($allTypes) . " 个物品类型");
 
                 if ($totalPages > 1) {
                     $responses = Http::pool(function ($pool) use ($regionId, $totalPages) {
@@ -93,6 +98,7 @@ class MarketService
                     }
                 }
 
+                Log::info("区域 {$regionId} 总计获取到 " . count($allTypes) . " 个活跃物品类型");
                 return $allTypes;
             } catch (\Exception $e) {
                 Log::error("获取活跃物品类型失败 (region={$regionId}): " . $e->getMessage());
@@ -180,11 +186,45 @@ class MarketService
         $regionId = (int) $regionId;
         return Cache::remember("market_orders_{$regionId}_{$typeId}", 300, function () use ($regionId, $typeId) {
             try {
+                Log::info("获取订单: region={$regionId}, type_id={$typeId}");
                 $r = Http::timeout(15)->get($this->baseUrl . "markets/$regionId/orders/", [
                     'datasource' => $this->datasource, 'type_id' => $typeId, 'page' => 1]);
-                if (!$r->ok()) return ['sell' => [], 'buy' => []];
+                if (!$r->ok()) {
+                    Log::warning("获取订单失败: region={$regionId}, type_id={$typeId}, status=" . $r->status());
+                    return ['sell' => [], 'buy' => []];
+                }
                 $orders = $r->json();
                 if (!is_array($orders)) return ['sell' => [], 'buy' => []];
+
+                $totalPages = (int) ($r->header('X-Pages') ?? 1);
+                Log::info("订单分页: 共 {$totalPages} 页，第一页 " . count($orders) . " 条");
+
+                // 获取所有页的数据
+                if ($totalPages > 1) {
+                    $responses = Http::pool(function ($pool) use ($regionId, $typeId, $totalPages) {
+                        for ($page = 2; $page <= $totalPages; $page++) {
+                            $pool->as("page_{$page}")->timeout(15)
+                                ->get($this->baseUrl . "markets/$regionId/orders/", [
+                                    'datasource' => $this->datasource,
+                                    'type_id' => $typeId,
+                                    'page' => $page,
+                                ]);
+                        }
+                    });
+
+                    for ($page = 2; $page <= $totalPages; $page++) {
+                        $resp = $responses["page_{$page}"] ?? null;
+                        if ($resp instanceof \Illuminate\Http\Client\Response && $resp->ok()) {
+                            $pageOrders = $resp->json();
+                            if (is_array($pageOrders)) {
+                                $orders = array_merge($orders, $pageOrders);
+                            }
+                        }
+                    }
+                }
+
+                Log::info("订单总数: " . count($orders) . " 条");
+
                 $sell = []; $buy = [];
                 foreach ($orders as $o) {
                     if (!is_array($o)) continue;

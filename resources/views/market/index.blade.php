@@ -44,17 +44,28 @@
         background: rgba(59, 130, 246, 0.15);
         color: #93c5fd;
     }
-    .type-item.no-orders {
-        opacity: 0.35;
+    .type-item.filtered-out {
+        display: none;
+    }
+    .type-item.search-match {
+        background: rgba(34, 197, 94, 0.15);
+        color: #86efac;
+    }
+    .tree-node.filtered-out {
+        display: none;
     }
     .search-result-item { cursor: pointer; transition: all 0.15s; }
     .search-result-item:hover { background: rgba(255,255,255,0.08); }
-    .search-result-item.no-orders {
-        opacity: 0.35;
-    }
     .panel-scroll::-webkit-scrollbar { width: 4px; }
     .panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
     .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+    .filter-status {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(59, 130, 246, 0.2);
+        color: #93c5fd;
+    }
 @endpush
 
 @section('content')
@@ -88,7 +99,7 @@
             <!-- 左栏：区域列表 -->
             <div class="w-44 flex-shrink-0">
                 <div class="bg-white/10 backdrop-blur-lg rounded-xl p-3 eve-glow h-full flex flex-col">
-                    <h3 class="text-xs font-medium text-blue-300 mb-2">区域选择</h3>
+                    <h3 class="text-xs font-medium text-blue-300 mb-2">区域选择 <span id="current-region-debug" class="text-[9px] text-blue-300/50"></span></h3>
                     <div id="region-list" class="flex-1 overflow-y-auto panel-scroll space-y-0.5">
                         <div class="skeleton h-6 w-full mb-1"></div>
                         <div class="skeleton h-6 w-3/4 mb-1"></div>
@@ -97,17 +108,17 @@
                 </div>
             </div>
 
-            <!-- 中栏：市场分类树 / 搜索结果 -->
+            <!-- 中栏：市场分类树 -->
             <div class="w-72 flex-shrink-0">
                 <div class="bg-white/10 backdrop-blur-lg rounded-xl p-3 eve-glow h-full flex flex-col">
                     <div class="flex items-center justify-between mb-2">
                         <h3 id="middle-panel-title" class="text-xs font-medium text-blue-300">市场分类</h3>
-                        <label id="order-filter-checkbox" class="hidden items-center gap-1 cursor-pointer">
+                        <label id="order-filter-checkbox" class="flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" id="only-with-orders" class="w-3 h-3 accent-blue-500" onchange="onOrderFilterChange()">
                             <span class="text-[10px] text-blue-300/70 whitespace-nowrap">仅有订单</span>
                         </label>
                     </div>
-                    <!-- 分类树模式 -->
+                    <!-- 分类树 -->
                     <div id="market-tree-container" class="flex-1 overflow-y-auto panel-scroll">
                         <div id="market-tree">
                             <div class="space-y-2">
@@ -117,41 +128,40 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 搜索结果模式 -->
-                    <div id="search-results-container" class="flex-1 overflow-y-auto panel-scroll hidden">
-                        <div id="search-results"></div>
-                    </div>
                 </div>
             </div>
 
             <!-- 右栏：物品详情 + 订单 -->
-            <div class="flex-1 overflow-y-auto panel-scroll space-y-4">
-                <!-- 空状态提示 -->
-                <div id="empty-state" class="bg-white/10 backdrop-blur-lg rounded-xl p-12 eve-glow text-center">
-                    <div class="text-4xl mb-4">📦</div>
-                    <p class="text-blue-300/70">请在左侧选择物品查看市场订单</p>
-                    <p class="text-blue-300/40 text-xs mt-2">可通过顶部搜索框快速查找物品</p>
-                </div>
-
-                <!-- 物品信息卡（单行：名称 + 分类） -->
-                <div id="type-info-card" class="bg-white/10 backdrop-blur-lg rounded-xl px-4 py-2.5 eve-glow hidden">
-                    <div class="flex items-center gap-3">
-                        <h2 id="type-name" class="text-lg font-bold text-blue-300 flex-shrink-0">-</h2>
-                        <span id="type-category" class="text-xs text-blue-400/60 truncate">-</span>
+            <div class="flex-1 flex flex-col">
+                <!-- 顶部：物品信息卡（与中栏标题对齐） -->
+                <div class="flex items-center justify-between mb-2 h-6">
+                    <div id="type-info-card" class="hidden">
+                        <div class="flex items-center gap-3">
+                            <h2 id="type-name" class="text-sm font-bold text-blue-300">-</h2>
+                            <span id="type-category" class="text-xs text-blue-400/60">-</span>
+                        </div>
                     </div>
                 </div>
+                <!-- 内容区域 -->
+                <div id="right-content" class="flex-1 overflow-y-auto panel-scroll space-y-4">
+                    <!-- 空状态提示 -->
+                    <div id="empty-state" class="bg-white/10 backdrop-blur-lg rounded-xl p-12 eve-glow text-center">
+                        <div class="text-4xl mb-4">📦</div>
+                        <p class="text-blue-300/70">请在左侧选择物品查看市场订单</p>
+                        <p class="text-blue-300/40 text-xs mt-2">可通过顶部搜索框快速查找物品</p>
+                    </div>
 
-                <!-- 出售订单 -->
+                    <!-- 出售订单 -->
                 <div id="sell-orders-card" class="bg-white/10 backdrop-blur-lg rounded-xl p-4 eve-glow hidden">
-                    <h3 class="text-lg font-semibold text-green-400 mb-3">💰 出售订单</h3>
+                    <h3 class="text-base font-semibold text-green-400 mb-3">💰 出售订单</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="text-blue-300 border-b border-white/10">
-                                    <th class="text-left py-2 px-2">价格 (ISK)</th>
-                                    <th class="text-right py-2 px-2">数量</th>
-                                    <th class="text-left py-2 px-2">位置</th>
-                                    <th class="text-right py-2 px-2">到期时间</th>
+                                <tr class="text-blue-300/70 border-b border-white/10 text-xs">
+                                    <th class="text-left py-2 px-3">价格 (ISK)</th>
+                                    <th class="text-left py-2 px-3">数量</th>
+                                    <th class="text-left py-2 px-3">位置</th>
+                                    <th class="text-left py-2 px-3">到期时间</th>
                                 </tr>
                             </thead>
                             <tbody id="sell-orders-body">
@@ -163,15 +173,15 @@
 
                 <!-- 求购订单 -->
                 <div id="buy-orders-card" class="bg-white/10 backdrop-blur-lg rounded-xl p-4 eve-glow hidden">
-                    <h3 class="text-lg font-semibold text-yellow-400 mb-3">📋 求购订单</h3>
+                    <h3 class="text-base font-semibold text-yellow-400 mb-3">📋 求购订单</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="text-blue-300 border-b border-white/10">
-                                    <th class="text-left py-2 px-2">价格 (ISK)</th>
-                                    <th class="text-right py-2 px-2">数量</th>
-                                    <th class="text-left py-2 px-2">位置</th>
-                                    <th class="text-right py-2 px-2">到期时间</th>
+                                <tr class="text-blue-300/70 border-b border-white/10 text-xs">
+                                    <th class="text-left py-2 px-3">价格 (ISK)</th>
+                                    <th class="text-left py-2 px-3">数量</th>
+                                    <th class="text-left py-2 px-3">位置</th>
+                                    <th class="text-left py-2 px-3">到期时间</th>
                                 </tr>
                             </thead>
                             <tbody id="buy-orders-body">
@@ -183,7 +193,7 @@
 
                 <!-- 价格历史图表 -->
                 <div id="price-chart-container" class="bg-white/10 backdrop-blur-lg rounded-xl p-4 eve-glow hidden">
-                    <h3 class="text-lg font-semibold text-purple-400 mb-3">📈 价格历史（30天）</h3>
+                    <h3 class="text-base font-semibold text-purple-400 mb-3">📈 价格历史（30天）</h3>
                     <div class="h-64">
                         <canvas id="price-chart"></canvas>
                     </div>
@@ -227,7 +237,7 @@
 <script>
     // ==================== 全局状态 ====================
     const FORGE_REGION_ID = 10000002;
-    let currentRegion = FORGE_REGION_ID; // 默认伏尔戈
+    let currentRegion = FORGE_REGION_ID;
     let currentTypeId = null;
     let currentTypeCategory = '';
     let myOrderIds = [];
@@ -235,7 +245,6 @@
     let marketGroups = [];
     let priceChart = null;
     let activeTypeIds = new Set();
-    let activeTypesLoading = false;
 
     // 订单分页状态
     let currentSellOrders = [];
@@ -244,9 +253,14 @@
     let buyOrdersExpanded = false;
     const ORDER_PAGE_SIZE = 10;
 
-    // 搜索结果缓存
-    let lastSearchResults = [];
-    let lastSearchKeyword = '';
+    // 筛选状态
+    let searchKeyword = '';
+    let searchResultIds = new Set();  // 搜索结果 type_id 集合
+    let searchResultMap = {};  // 搜索结果详情 {id: {name, category}}
+    let onlyWithOrders = false;
+
+    // 分组名称映射
+    let marketGroupNameMap = {};
 
     // API 端点
     const API = {
@@ -294,7 +308,6 @@
         return div.innerHTML;
     }
 
-    /** 判断字符串是否以中文字符开头 */
     function startsWithChinese(str) {
         if (!str) return false;
         const code = str.charCodeAt(0);
@@ -328,8 +341,6 @@
 
     function renderRegionList(regions) {
         const container = document.getElementById('region-list');
-
-        // 分离中文星域和其他星域，中文排前面
         const cnRegions = regions.filter(r => startsWithChinese(r.name));
         const otherRegions = regions.filter(r => !startsWithChinese(r.name));
         cnRegions.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
@@ -337,18 +348,13 @@
         const sortedRegions = [...cnRegions, ...otherRegions];
 
         let html = '';
-
-        // "伏尔戈（吉他）"快捷选项 — 默认选中
         html += '<div class="region-item selected rounded px-2 py-1.5 text-sm font-medium text-green-300 border-b border-white/10 mb-0.5" data-region="' + FORGE_REGION_ID + '" onclick="selectRegion(' + FORGE_REGION_ID + ', this)">';
         html += '⭐ 伏尔戈（吉他）';
         html += '</div>';
-
-        // "全部"选项
         html += '<div class="region-item rounded px-2 py-1.5 text-sm font-medium text-yellow-300 border-b border-white/10 mb-1" data-region="all" onclick="selectRegion(\'all\', this)">';
         html += '🌌 全部';
         html += '</div>';
 
-        // 所有星域（中文在前）
         sortedRegions.forEach(r => {
             const isForge = r.id === FORGE_REGION_ID;
             html += '<div class="region-item rounded px-2 py-1.5 text-xs' + (isForge ? ' text-green-300/70' : '') + '" data-region="' + r.id + '" onclick="selectRegion(' + r.id + ', this)">';
@@ -364,49 +370,43 @@
         document.querySelectorAll('.region-item').forEach(e => e.classList.remove('selected'));
         if (el) el.classList.add('selected');
 
-        // 切换区域时重新加载活跃物品类型
-        loadActiveTypes();
-
-        if (currentTypeId) {
-            loadOrders();
-            loadHistory();
+        // 更新调试显示
+        const debugEl = document.getElementById('current-region-debug');
+        if (debugEl) {
+            debugEl.textContent = '(ID: ' + regionId + ')';
         }
+
+        // 加载该区域的活跃物品类型，然后重新应用筛选
+        loadActiveTypes().then(() => {
+            applyFilters();
+            // 如果有选中的物品，重新加载订单
+            if (currentTypeId) {
+                loadOrders();
+                loadHistory();
+            }
+        });
     }
 
-    // ==================== 活跃物品类型 ====================
+    // ==================== 活跃物品类型（有订单的物品） ====================
     async function loadActiveTypes() {
-        activeTypesLoading = true;
         try {
+            console.log('加载活跃物品类型，区域:', currentRegion);
             const resp = await fetch(API.activeTypes + '?region_id=' + currentRegion);
             const result = await resp.json();
             if (result.success) {
                 activeTypeIds = new Set(result.data);
+                console.log('活跃物品类型数量:', activeTypeIds.size);
+                if (activeTypeIds.size > 0) {
+                    console.log('前10个活跃物品ID:', [...activeTypeIds].slice(0, 10));
+                }
+            } else {
+                console.error('获取活跃物品类型失败:', result.message);
+                activeTypeIds = new Set();
             }
         } catch (e) {
             console.error('加载活跃物品类型失败:', e);
             activeTypeIds = new Set();
         }
-        activeTypesLoading = false;
-
-        // 刷新当前显示的物品样式
-        refreshItemStyles();
-
-        // 如果有搜索结果且勾选了"仅有订单"，重新过滤
-        if (!document.getElementById('search-results-container').classList.contains('hidden')) {
-            applySearchFilter();
-        }
-    }
-
-    /** 刷新树和搜索结果中的物品样式（有/无订单） */
-    function refreshItemStyles() {
-        document.querySelectorAll('.type-item[data-typeid]').forEach(el => {
-            const tid = parseInt(el.dataset.typeid);
-            el.classList.toggle('no-orders', activeTypeIds.size > 0 && !activeTypeIds.has(tid));
-        });
-        document.querySelectorAll('.search-result-item[data-typeid]').forEach(el => {
-            const tid = parseInt(el.dataset.typeid);
-            el.classList.toggle('no-orders', activeTypeIds.size > 0 && !activeTypeIds.has(tid));
-        });
     }
 
     // ==================== 市场分组树 ====================
@@ -416,6 +416,7 @@
             const result = await resp.json();
             if (result.success && result.data && result.data.length > 0) {
                 marketGroups = result.data;
+                buildGroupNameMap(marketGroups, '');
                 renderMarketTree();
             } else {
                 document.getElementById('market-tree').innerHTML =
@@ -428,10 +429,28 @@
         }
     }
 
+    function buildGroupNameMap(nodes, parentPath) {
+        if (!nodes) return;
+        nodes.forEach(node => {
+            const currentPath = parentPath ? (parentPath + ' > ' + node.name) : node.name;
+            marketGroupNameMap[node.id] = currentPath;
+            if (node.types && node.types.length > 0) {
+                node.types.forEach(t => {
+                    const typeId = typeof t === 'object' ? t.id : t;
+                    marketGroupNameMap[typeId] = currentPath;
+                });
+            }
+            if (node.children) {
+                buildGroupNameMap(node.children, currentPath);
+            }
+        });
+    }
+
     function renderMarketTree() {
         const container = document.getElementById('market-tree');
         container.innerHTML = renderTreeNodes(marketGroups);
-        refreshItemStyles();
+        // 渲染后应用筛选
+        applyFilters();
     }
 
     function renderTreeNodes(nodes) {
@@ -462,8 +481,7 @@
                     node.types.forEach(t => {
                         const typeId = typeof t === 'object' ? t.id : t;
                         const typeName = typeof t === 'object' ? t.name : ('物品#' + t);
-                        const noOrders = activeTypeIds.size > 0 && !activeTypeIds.has(typeId);
-                        html += '<div class="type-item py-1 px-2 rounded text-xs truncate' + (noOrders ? ' no-orders' : '') + '" data-typeid="' + typeId + '" onclick="selectType(' + typeId + ', event)" title="' + escapeHtml(typeName) + '">';
+                        html += '<div class="type-item py-1 px-2 rounded text-xs truncate" data-typeid="' + typeId + '" onclick="selectType(' + typeId + ', event)" title="' + escapeHtml(typeName) + '">';
                         html += escapeHtml(typeName);
                         html += '</div>';
                     });
@@ -491,42 +509,201 @@
         }
     }
 
+    // ==================== 核心筛选逻辑 ====================
+    /**
+     * 统一的筛选函数
+     * 规则：
+     * 1. 如果有搜索词，只显示搜索结果中的物品
+     * 2. 如果勾选"仅有订单"，只显示当前区域有订单的物品
+     * 3. 两个条件同时满足时，取交集
+     * 4. 显示匹配物品及其父分类，隐藏其他
+     */
+    function applyFilters() {
+        console.log('applyFilters 被调用, onlyWithOrders:', onlyWithOrders, 'activeTypeIds.size:', activeTypeIds.size, 'currentRegion:', currentRegion);
+
+        // 清除之前的筛选状态
+        document.querySelectorAll('.type-item.filtered-out, .type-item.search-match').forEach(el => {
+            el.classList.remove('filtered-out', 'search-match');
+        });
+        document.querySelectorAll('.tree-node.filtered-out').forEach(el => {
+            el.classList.remove('filtered-out');
+        });
+
+        // 收集应该显示的 type_id
+        let visibleTypeIds = null;  // null 表示显示全部
+
+        // 搜索筛选
+        if (searchKeyword && searchResultIds.size > 0) {
+            visibleTypeIds = new Set(searchResultIds);
+        }
+
+        // "仅有订单"筛选
+        if (onlyWithOrders) {
+            if (activeTypeIds.size === 0) {
+                console.warn('勾选了仅有订单，但 activeTypeIds 为空，可能正在加载或数据不存在');
+            }
+            if (activeTypeIds.size > 0) {
+                if (visibleTypeIds) {
+                    // 取交集
+                    visibleTypeIds = new Set([...visibleTypeIds].filter(id => activeTypeIds.has(id)));
+                } else {
+                    visibleTypeIds = new Set(activeTypeIds);
+                }
+            }
+        }
+
+        console.log('筛选结果: visibleTypeIds 数量 =', visibleTypeIds ? visibleTypeIds.size : '显示全部');
+
+        // 更新标题
+        updatePanelTitle(visibleTypeIds);
+
+        // 如果没有任何筛选条件，显示全部
+        if (visibleTypeIds === null) {
+            return;
+        }
+
+        // 应用筛选：标记匹配的物品，隐藏不匹配的
+        const matchedTypeIds = new Set();
+
+        document.querySelectorAll('.type-item[data-typeid]').forEach(el => {
+            const tid = parseInt(el.dataset.typeid);
+            if (visibleTypeIds.has(tid)) {
+                el.classList.add('search-match');
+                matchedTypeIds.add(tid);
+                // 展开父节点
+                let parent = el.closest('.tree-children');
+                while (parent) {
+                    parent.classList.remove('hidden');
+                    const toggle = parent.previousElementSibling?.querySelector('.tree-toggle');
+                    if (toggle) toggle.textContent = '▼';
+                    parent = parent.parentElement?.closest('.tree-children');
+                }
+            } else {
+                el.classList.add('filtered-out');
+            }
+        });
+
+        // 收集应该显示的分类节点
+        const visibleNodes = new Set();
+        document.querySelectorAll('.type-item.search-match').forEach(item => {
+            let node = item.closest('.tree-node');
+            while (node) {
+                visibleNodes.add(node);
+                node = node.parentElement?.closest('.tree-node');
+            }
+        });
+
+        // 隐藏不包含匹配物品的分类
+        document.querySelectorAll('.tree-node').forEach(node => {
+            if (!visibleNodes.has(node)) {
+                node.classList.add('filtered-out');
+            }
+        });
+    }
+
+    function updatePanelTitle(visibleTypeIds) {
+        const title = document.getElementById('middle-panel-title');
+        let text = '市场分类';
+        let count = '';
+        
+        if (searchKeyword) {
+            text = '搜索: ' + searchKeyword;
+            count = visibleTypeIds ? ' (' + visibleTypeIds.size + ')' : ' (' + searchResultIds.size + ')';
+        }
+        
+        if (onlyWithOrders) {
+            text += ' [有订单]';
+        }
+        
+        title.textContent = text + count;
+    }
+
+    // ==================== 搜索功能 ====================
+    let searchTimer = null;
+
+    function setupSearch() {
+        const input = document.getElementById('type-search');
+        input.addEventListener('input', function(e) {
+            clearTimeout(searchTimer);
+            const keyword = e.target.value.trim();
+
+            if (keyword.length < 1) {
+                // 清空搜索
+                searchKeyword = '';
+                searchResultIds = new Set();
+                searchResultMap = {};
+                document.getElementById('search-indicator').classList.add('hidden');
+                applyFilters();
+                return;
+            }
+
+            document.getElementById('search-indicator').classList.remove('hidden');
+            searchTimer = setTimeout(() => performSearch(keyword), 300);
+        });
+    }
+
+    async function performSearch(keyword) {
+        try {
+            const resp = await fetch(API.search + '?q=' + encodeURIComponent(keyword));
+            const result = await resp.json();
+            document.getElementById('search-indicator').classList.add('hidden');
+
+            if (result.success) {
+                searchKeyword = keyword;
+                searchResultIds = new Set(result.data.map(r => r.id));
+                searchResultMap = {};
+                result.data.forEach(r => {
+                    searchResultMap[r.id] = r;
+                });
+                applyFilters();
+            }
+        } catch (e) {
+            console.error('搜索失败:', e);
+            document.getElementById('search-indicator').classList.add('hidden');
+        }
+    }
+
+    // "仅有订单"复选框变化
+    function onOrderFilterChange() {
+        onlyWithOrders = document.getElementById('only-with-orders').checked;
+        applyFilters();
+    }
+
     // ==================== 物品选择 ====================
     async function selectType(typeId, event, category) {
         if (event) event.stopPropagation();
         currentTypeId = typeId;
-        currentTypeCategory = category || '';
+        currentTypeCategory = category || searchResultMap[typeId]?.category || '';
 
-        // 更新选中状态
         document.querySelectorAll('.type-item').forEach(el => el.classList.remove('selected'));
-        document.querySelectorAll('.search-result-item').forEach(el => el.classList.remove('selected'));
         const clicked = event ? event.currentTarget : document.querySelector('[data-typeid="' + typeId + '"]');
         if (clicked) clicked.classList.add('selected');
 
-        // 显示订单面板，隐藏空状态
         document.getElementById('empty-state').classList.add('hidden');
         document.getElementById('type-info-card').classList.remove('hidden');
         document.getElementById('sell-orders-card').classList.remove('hidden');
         document.getElementById('buy-orders-card').classList.remove('hidden');
 
-        // 加载物品详情（仅名称和分类）
+        // 加载物品详情
         try {
             const resp = await fetch(API.typeDetail(typeId));
             const result = await resp.json();
             if (result.success) {
                 document.getElementById('type-name').textContent = result.data.name || '-';
-                // 分类信息：优先用搜索结果带回的 category，否则用 market_group
                 if (currentTypeCategory) {
                     document.getElementById('type-category').textContent = currentTypeCategory;
+                } else if (marketGroupNameMap[typeId]) {
+                    document.getElementById('type-category').textContent = marketGroupNameMap[typeId];
+                } else if (result.data.market_group_id && marketGroupNameMap[result.data.market_group_id]) {
+                    document.getElementById('type-category').textContent = marketGroupNameMap[result.data.market_group_id];
                 } else {
-                    document.getElementById('type-category').textContent = result.data.market_group_id ? ('分组 #' + result.data.market_group_id) : '';
+                    document.getElementById('type-category').textContent = '';
                 }
             }
         } catch (e) {
             console.error('加载物品详情失败:', e);
         }
 
-        // 加载订单和历史
         loadOrders();
         loadHistory();
     }
@@ -535,11 +712,12 @@
     async function loadOrders() {
         if (!currentTypeId) return;
 
-        // 重置分页状态
+        console.log('加载订单: type_id=' + currentTypeId + ', region_id=' + currentRegion);
+        console.log('activeTypeIds 包含该物品?', activeTypeIds.has(currentTypeId));
+
         sellOrdersExpanded = false;
         buyOrdersExpanded = false;
 
-        // 显示加载状态
         document.getElementById('sell-orders-body').innerHTML = '<tr><td colspan="4" class="text-center py-4"><span class="skeleton inline-block h-4 w-24"></span></td></tr>';
         document.getElementById('buy-orders-body').innerHTML = '<tr><td colspan="4" class="text-center py-4"><span class="skeleton inline-block h-4 w-24"></span></td></tr>';
 
@@ -549,6 +727,12 @@
             if (result.success) {
                 currentSellOrders = result.data.sell || [];
                 currentBuyOrders = result.data.buy || [];
+
+                console.log('订单加载完成: 出售=' + currentSellOrders.length + ', 求购=' + currentBuyOrders.length);
+
+                // 注：如果物品在activeTypeIds中但订单为空，可能是00区域无NPC空间站的情况
+                // renderOrders会显示相应提示，无需特殊处理
+
                 renderOrders(currentSellOrders, 'sell');
                 renderOrders(currentBuyOrders, 'buy');
             }
@@ -562,7 +746,18 @@
     function renderOrders(orders, type) {
         const tbody = document.getElementById(type + '-orders-body');
         if (!orders || orders.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-blue-300/50">暂无订单</td></tr>';
+            // 判断是否可能是00区域无NPC空间站的情况
+            // 条件：物品在activeTypeIds中（说明ESI认为有订单），但实际获取不到订单
+            if (activeTypeIds.has(currentTypeId)) {
+                // 该物品在活跃列表中，说明区域内有此物品的交易，但ESI无法返回订单
+                // 这通常发生在00区域，订单位于玩家建筑中，ESI公开API无法查询
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">' +
+                    '<div class="text-yellow-400/80 text-sm mb-1">📡 无法获取订单数据</div>' +
+                    '<div class="text-blue-300/50 text-xs">该物品在此区域有交易，但订单可能位于玩家建筑中。<br>ESI公开API无法查询玩家建筑的订单，请通过游戏内市场查看。</div>' +
+                    '</td></tr>';
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-blue-300/50">暂无订单</td></tr>';
+            }
             return;
         }
 
@@ -574,14 +769,13 @@
             const isMyOrder = myOrderIds.includes(order.order_id);
             const rowClass = isMyOrder ? 'order-row my-order' : 'order-row';
             html += '<tr class="' + rowClass + ' border-b border-white/5">';
-            html += '<td class="py-1.5 px-2 text-' + (type === 'sell' ? 'green' : 'yellow') + '-400 whitespace-nowrap">' + formatPrice(order.price) + '</td>';
-            html += '<td class="py-1.5 px-2 text-right whitespace-nowrap">' + formatNumber(order.volume_remain) + '</td>';
-            html += '<td class="py-1.5 px-2 text-blue-300 text-xs truncate max-w-xs" title="' + escapeHtml(order.location_name || '') + '">' + escapeHtml(order.location_name || String(order.location_id)) + '</td>';
-            html += '<td class="py-1.5 px-2 text-right text-xs text-blue-300/70 whitespace-nowrap">' + formatExpires(order.expires) + '</td>';
+            html += '<td class="py-2 px-3 text-' + (type === 'sell' ? 'green' : 'yellow') + '-400 whitespace-nowrap">' + formatPrice(order.price) + '</td>';
+            html += '<td class="py-2 px-3 text-left whitespace-nowrap">' + formatNumber(order.volume_remain) + '</td>';
+            html += '<td class="py-2 px-3 text-blue-300 text-xs truncate max-w-[200px]" title="' + escapeHtml(order.location_name || '') + '">' + escapeHtml(order.location_name || String(order.location_id)) + '</td>';
+            html += '<td class="py-2 px-3 text-left text-xs text-blue-300/70 whitespace-nowrap">' + formatExpires(order.expires) + '</td>';
             html += '</tr>';
         });
 
-        // 加载更多 / 折叠 按钮
         if (orders.length > ORDER_PAGE_SIZE) {
             if (expanded) {
                 html += '<tr><td colspan="4" class="text-center py-2">';
@@ -637,119 +831,79 @@
             const date = new Date(d.date);
             return (date.getMonth() + 1) + '/' + date.getDate();
         });
-        const avgPrices = data.map(d => d.average);
+        const sellPrices = data.map(d => d.highest);
+        const buyPrices = data.map(d => d.lowest);
 
         priceChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
-                datasets: [{
-                    label: '平均价格',
-                    data: avgPrices,
-                    borderColor: '#a855f7',
-                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    yAxisID: 'y'
-                }]
+                datasets: [
+                    {
+                        label: '出售订单（最高价）',
+                        data: sellPrices,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                    },
+                    {
+                        label: '求购订单（最低价）',
+                        data: buyPrices,
+                        borderColor: '#eab308',
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointHoverRadius: 4
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 }, boxWidth: 12, padding: 15 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: 'rgba(255,255,255,0.8)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString('zh-CN', {minimumFractionDigits: 2}) + ' ISK';
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)' } },
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)' } }
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.5)',
+                            font: { size: 10 },
+                            callback: function(value) {
+                                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                                return value;
+                            }
+                        }
+                    }
                 }
             }
         });
-    }
-
-    // ==================== 搜索功能 ====================
-    let searchTimer = null;
-    function setupSearch() {
-        const input = document.getElementById('type-search');
-        input.addEventListener('input', function(e) {
-            clearTimeout(searchTimer);
-            const keyword = e.target.value.trim();
-
-            if (keyword.length < 1) {
-                showTreeMode();
-                return;
-            }
-
-            document.getElementById('search-indicator').classList.remove('hidden');
-            searchTimer = setTimeout(() => searchItems(keyword), 300);
-        });
-    }
-
-    async function searchItems(keyword) {
-        try {
-            const resp = await fetch(API.search + '?q=' + encodeURIComponent(keyword));
-            const result = await resp.json();
-            document.getElementById('search-indicator').classList.add('hidden');
-
-            if (result.success) {
-                lastSearchResults = result.data;
-                lastSearchKeyword = keyword;
-                applySearchFilter();
-            }
-        } catch (e) {
-            console.error('搜索失败:', e);
-            document.getElementById('search-indicator').classList.add('hidden');
-        }
-    }
-
-    /** 应用搜索过滤（考虑"仅有订单"勾选） */
-    function applySearchFilter() {
-        const onlyWithOrders = document.getElementById('only-with-orders').checked;
-        let results = lastSearchResults;
-
-        if (onlyWithOrders && activeTypeIds.size > 0) {
-            results = results.filter(item => activeTypeIds.has(item.id));
-        }
-
-        showSearchMode(results, lastSearchKeyword);
-    }
-
-    function showSearchMode(results, keyword) {
-        document.getElementById('market-tree-container').classList.add('hidden');
-        document.getElementById('search-results-container').classList.remove('hidden');
-        document.getElementById('middle-panel-title').textContent = '搜索结果 (' + results.length + ')';
-        document.getElementById('order-filter-checkbox').classList.remove('hidden');
-        document.getElementById('order-filter-checkbox').style.display = 'flex';
-
-        const container = document.getElementById('search-results');
-        if (results.length === 0) {
-            container.innerHTML = '<div class="text-xs text-blue-300/50 text-center py-4">未找到匹配物品</div>';
-            return;
-        }
-
-        let html = '';
-        results.forEach(item => {
-            const isSelected = item.id === currentTypeId;
-            const noOrders = activeTypeIds.size > 0 && !activeTypeIds.has(item.id);
-            html += '<div class="search-result-item py-1.5 px-2 rounded' + (isSelected ? ' selected' : '') + (noOrders ? ' no-orders' : '') + '" data-typeid="' + item.id + '" onclick="selectType(' + item.id + ', event, ' + JSON.stringify(item.category || '').replace(/"/g, '&quot;') + ')" title="' + escapeHtml(item.name) + '">';
-            html += '<div class="text-xs truncate">' + escapeHtml(item.name) + '</div>';
-            if (item.category) {
-                html += '<div class="text-[10px] text-blue-400/40 truncate">' + escapeHtml(item.category) + '</div>';
-            }
-            html += '</div>';
-        });
-        container.innerHTML = html;
-    }
-
-    function showTreeMode() {
-        document.getElementById('market-tree-container').classList.remove('hidden');
-        document.getElementById('search-results-container').classList.add('hidden');
-        document.getElementById('middle-panel-title').textContent = '市场分类';
-        document.getElementById('order-filter-checkbox').classList.add('hidden');
-        document.getElementById('search-indicator').classList.add('hidden');
-    }
-
-    /** "仅有订单"勾选变化 */
-    function onOrderFilterChange() {
-        applySearchFilter();
     }
 
     // ==================== 我的订单 ====================
@@ -826,12 +980,13 @@
 
     // ==================== 初始化 ====================
     document.addEventListener('DOMContentLoaded', async function() {
-        // 并行加载区域、分组和活跃物品类型
+        // 先加载区域列表和活跃物品类型（并行）
         await Promise.all([
             loadRegions(),
-            loadMarketGroups(),
             loadActiveTypes(),
         ]);
+        // 然后加载市场分组（内部会调用 applyFilters，需要 activeTypeIds 已准备好）
+        await loadMarketGroups();
         setupSearch();
         @if($isLoggedIn)
         loadMyOrderIds();

@@ -156,6 +156,78 @@ class MarketDataController extends Controller
     }
 
     /**
+     * 调试：检查区域订单的location_id分布
+     * GET /api/public/market/debug-region-orders?region_id=X
+     */
+    public function debugRegionOrders(Request $request)
+    {
+        $regionId = $request->input('region_id', 10000002);
+        $baseUrl = config('esi.base_url');
+        $datasource = config('esi.datasource', 'serenity');
+
+        // 获取该区域有订单的物品列表
+        $typesResponse = \Illuminate\Support\Facades\Http::timeout(15)
+            ->get($baseUrl . "markets/{$regionId}/types/", [
+                'datasource' => $datasource,
+                'page' => 1,
+            ]);
+
+        if (!$typesResponse->ok()) {
+            return response()->json([
+                'success' => false,
+                'message' => '获取物品列表失败',
+            ]);
+        }
+
+        $typeIds = $typesResponse->json() ?: [];
+        $sampleTypeIds = array_slice($typeIds, 0, 5); // 取前5个物品测试
+
+        $results = [];
+        foreach ($sampleTypeIds as $typeId) {
+            $ordersResponse = \Illuminate\Support\Facades\Http::timeout(15)
+                ->get($baseUrl . "markets/{$regionId}/orders/", [
+                    'datasource' => $datasource,
+                    'type_id' => $typeId,
+                    'page' => 1,
+                ]);
+
+            if ($ordersResponse->ok()) {
+                $orders = $ordersResponse->json() ?: [];
+                $locationIds = array_unique(array_column($orders, 'location_id'));
+
+                // 分析 location_id 的分布
+                $npcStations = 0;
+                $playerStructures = 0;
+                foreach ($locationIds as $locId) {
+                    if ($locId >= 1000000000000) {
+                        $playerStructures++;
+                    } else {
+                        $npcStations++;
+                    }
+                }
+
+                $results[] = [
+                    'type_id' => $typeId,
+                    'total_orders' => count($orders),
+                    'unique_locations' => count($locationIds),
+                    'npc_stations' => $npcStations,
+                    'player_structures' => $playerStructures,
+                    'sample_location_ids' => array_slice($locationIds, 0, 3),
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'region_id' => $regionId,
+                'total_types' => count($typeIds),
+                'sample_results' => $results,
+            ],
+        ]);
+    }
+
+    /**
      * 获取角色市场订单（需认证）
      * GET /api/market/character-orders
      */
