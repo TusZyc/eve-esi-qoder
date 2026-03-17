@@ -930,7 +930,12 @@
     function renderMyOrders(orders) {
         const tbody = document.getElementById('my-orders-body');
         if (!orders || orders.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-blue-300/50">暂无订单</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12">' +
+                '<div class="flex flex-col items-center gap-2">' +
+                '<div class="text-4xl">📋</div>' +
+                '<div class="text-blue-300/80 text-base">暂无订单</div>' +
+                '<div class="text-blue-300/40 text-xs">您当前没有活跃的市场订单</div>' +
+                '</div></td></tr>';
             return;
         }
 
