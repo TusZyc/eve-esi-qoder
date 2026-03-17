@@ -52,7 +52,6 @@ Route::middleware('throttle:30,1')->group(function () {
     Route::get('/api/public/market/orders', [MarketDataController::class, 'orders'])->name('api.public.market.orders');
     Route::get('/api/public/market/history', [MarketDataController::class, 'history'])->name('api.public.market.history');
     Route::get('/api/public/market/types/{id}', [MarketDataController::class, 'typeDetail'])->name('api.public.market.type-detail');
-    Route::get('/api/public/market/debug-region-orders', [MarketDataController::class, 'debugRegionOrders'])->name('api.public.market.debug-region-orders');
 });
 
 // OAuth2 路由
