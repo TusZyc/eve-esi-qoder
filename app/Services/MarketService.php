@@ -310,13 +310,22 @@ class MarketService
 
     public function getCharacterOrders(string $token, int $charId): array
     {
-        return Cache::remember("character_orders_$charId", 300, function () use ($token, $charId) {
-            try {
-                $r = Http::timeout(15)->withToken($token)
-                    ->get($this->baseUrl . "characters/$charId/orders/", ['datasource' => $this->datasource]);
-                return $r->ok() ? ($r->json() ?: []) : [];
-            } catch (\Exception $e) { return []; }
-        });
+        // 不使用缓存，每次都从 ESI 获取最新数据
+        // 避免 Token 过期后缓存错误结果
+        try {
+            $r = Http::timeout(15)->withToken($token)
+                ->get($this->baseUrl . "characters/$charId/orders/", ['datasource' => $this->datasource]);
+            
+            if (!$r->ok()) {
+                Log::warning("获取角色订单失败: charId=$charId, status=" . $r->status());
+                return [];
+            }
+            
+            return $r->json() ?: [];
+        } catch (\Exception $e) {
+            Log::error("获取角色订单异常: charId=$charId, error=" . $e->getMessage());
+            return [];
+        }
     }
 
     /**

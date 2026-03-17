@@ -80,6 +80,12 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     
     // 角色数据聚合 API（并行获取属性、植入体、克隆体、雇佣历史）
     Route::get('/character/all-data', [CharacterController::class, 'allData'])->name('api.dashboard.character-all-data');
+    
+    // 角色详细信息 API
+    Route::get('/character/attributes', [CharacterController::class, 'attributes'])->name('api.dashboard.character-attributes');
+    Route::get('/character/implants', [CharacterController::class, 'implants'])->name('api.dashboard.character-implants');
+    Route::get('/character/clones', [CharacterController::class, 'clones'])->name('api.dashboard.character-clones');
+    Route::get('/character/corphistory', [CharacterController::class, 'corporationHistory'])->name('api.dashboard.character-corphistory');
 });
 
 // KM 查询（公开访问）
@@ -113,8 +119,8 @@ Route::middleware('throttle:30,1')->prefix('api/system-distance')->group(functio
     Route::get('/batch', [SystemDistanceController::class, 'batchInfo'])->name('api.system-distance.batch');
 });
 
-// 市场认证 API（需登录）
-Route::middleware(['auth', 'throttle:30,1'])->prefix('api/market')->group(function () {
+// 市场认证 API（需登录，自动刷新 Token）
+Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/market')->group(function () {
     Route::get('/character-orders', [MarketDataController::class, 'characterOrders'])->name('api.market.character-orders');
     Route::get('/my-order-ids', [MarketDataController::class, 'myOrderIds'])->name('api.market.my-order-ids');
 });

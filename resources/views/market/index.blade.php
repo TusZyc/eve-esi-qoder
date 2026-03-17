@@ -113,10 +113,15 @@
                 <div class="bg-white/10 backdrop-blur-lg rounded-xl p-3 eve-glow h-full flex flex-col">
                     <div class="flex items-center justify-between mb-2">
                         <h3 id="middle-panel-title" class="text-xs font-medium text-blue-300">市场分类</h3>
-                        <label id="order-filter-checkbox" class="flex items-center gap-1 cursor-pointer">
-                            <input type="checkbox" id="only-with-orders" class="w-3 h-3 accent-blue-500" onchange="onOrderFilterChange()">
-                            <span class="text-[10px] text-blue-300/70 whitespace-nowrap">仅有订单</span>
-                        </label>
+                        <div class="flex items-center gap-2">
+                            <button id="toggle-all-btn" class="text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-blue-300/70 hover:text-blue-300 transition whitespace-nowrap" onclick="toggleAllCategories()" title="折叠/展开所有分类">
+                                折叠全部
+                            </button>
+                            <label id="order-filter-checkbox" class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="only-with-orders" class="w-3 h-3 accent-blue-500" onchange="onOrderFilterChange()">
+                                <span class="text-[10px] text-blue-300/70 whitespace-nowrap">仅有订单</span>
+                            </label>
+                        </div>
                     </div>
                     <!-- 分类树 -->
                     <div id="market-tree-container" class="flex-1 overflow-y-auto panel-scroll">
@@ -201,6 +206,7 @@
             </div>
         </div>
     </div>
+</div>
 
     <!-- 我的订单标签内容 -->
     <div id="content-myorders" class="container mx-auto px-4 py-4 hidden">
@@ -229,6 +235,7 @@
                 </div>
             </div>
         </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -665,6 +672,37 @@
         applyFilters();
     }
 
+    // ==================== 折叠/展开所有分类 ====================
+    let allCategoriesExpanded = true;
+
+    function toggleAllCategories() {
+        const btn = document.getElementById('toggle-all-btn');
+        const allChildrenContainers = document.querySelectorAll('.tree-children');
+        const allToggles = document.querySelectorAll('.tree-toggle');
+
+        if (allCategoriesExpanded) {
+            // 折叠所有
+            allChildrenContainers.forEach(container => {
+                container.classList.add('hidden');
+            });
+            allToggles.forEach(toggle => {
+                toggle.textContent = '▶';
+            });
+            btn.textContent = '展开全部';
+            allCategoriesExpanded = false;
+        } else {
+            // 展开所有
+            allChildrenContainers.forEach(container => {
+                container.classList.remove('hidden');
+            });
+            allToggles.forEach(toggle => {
+                toggle.textContent = '▼';
+            });
+            btn.textContent = '折叠全部';
+            allCategoriesExpanded = true;
+        }
+    }
+
     // ==================== 物品选择 ====================
     async function selectType(typeId, event, category) {
         if (event) event.stopPropagation();
@@ -904,12 +942,41 @@
 
     // ==================== 我的订单 ====================
     async function loadMyOrders() {
+        console.log('loadMyOrders called, isLoggedIn:', isLoggedIn, 'API.characterOrders:', API.characterOrders);
+        
+        if (!isLoggedIn || !API.characterOrders) {
+            document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-yellow-400/80">' +
+                '<div class="flex flex-col items-center gap-2">' +
+                '<div class="text-4xl">🔐</div>' +
+                '<div>请先登录查看订单</div>' +
+                '</div></td></tr>';
+            return;
+        }
+        
         document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-blue-300/50">加载中...</td></tr>';
         try {
             const resp = await fetch(API.characterOrders, {
-                credentials: 'same-origin'  // 确保 session cookie 被发送
+                credentials: 'same-origin',  // 确保 session cookie 被发送
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
+            
+            console.log('API response status:', resp.status);
+            
+            if (resp.status === 401) {
+                document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-yellow-400/80">' +
+                    '<div class="flex flex-col items-center gap-2">' +
+                    '<div class="text-4xl">🔐</div>' +
+                    '<div>登录已过期，请重新登录</div>' +
+                    '</div></td></tr>';
+                return;
+            }
+            
             const result = await resp.json();
+            console.log('API response:', result);
+            
             if (result.success) {
                 allMyOrders = result.data || [];
                 renderMyOrders(allMyOrders);
@@ -918,13 +985,15 @@
             }
         } catch (e) {
             console.error('加载角色订单失败:', e);
-            document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-400">加载失败</td></tr>';
+            document.getElementById('my-orders-body').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-400">加载失败: ' + e.message + '</td></tr>';
         }
     }
 
     function renderMyOrders(orders) {
+        console.log('renderMyOrders called with orders:', orders);
         const tbody = document.getElementById('my-orders-body');
         if (!orders || orders.length === 0) {
+            console.log('No orders to render');
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12">' +
                 '<div class="flex flex-col items-center gap-2">' +
                 '<div class="text-4xl">📋</div>' +
@@ -935,20 +1004,33 @@
         }
 
         let html = '';
-        orders.forEach(order => {
-            const typeLabel = order.is_buy_order ? '求购' : '出售';
-            const typeColor = order.is_buy_order ? 'text-yellow-400' : 'text-green-400';
-            const typeName = order.type_name || ('物品#' + order.type_id);
-            html += '<tr class="order-row border-b border-white/5">';
-            html += '<td class="py-2 px-2">' + escapeHtml(typeName) + '</td>';
-            html += '<td class="py-2 px-2 text-center ' + typeColor + '">' + typeLabel + '</td>';
-            html += '<td class="py-2 px-2 text-right">' + formatPrice(order.price) + '</td>';
-            html += '<td class="py-2 px-2 text-right">' + formatNumber(order.volume_remain) + '/' + formatNumber(order.volume_total) + '</td>';
-            html += '<td class="py-2 px-2 text-xs text-blue-300 truncate max-w-xs">' + escapeHtml(order.location_name || String(order.location_id)) + '</td>';
-            html += '<td class="py-2 px-2 text-right text-xs text-blue-300/70">' + formatExpires(order.expires) + '</td>';
-            html += '</tr>';
-        });
-        tbody.innerHTML = html;
+        try {
+            orders.forEach((order, index) => {
+                console.log('Rendering order ' + index + ':', order);
+                // ESI API 角色订单中，is_buy_order 表示买卖类型
+                const isBuyOrder = order.is_buy_order === true;
+                const typeLabel = isBuyOrder ? '求购' : '出售';
+                const typeColor = isBuyOrder ? 'text-yellow-400' : 'text-green-400';
+                const typeName = order.type_name || ('物品#' + order.type_id);
+                // ESI API 返回的字段可能是 volume_total 或 volume_entered
+                const volumeTotal = order.volume_total || order.volume_entered || order.volume_remain || 0;
+                html += '<tr class="order-row border-b border-white/5">';
+                html += '<td class="py-2 px-2">' + escapeHtml(typeName) + '</td>';
+                html += '<td class="py-2 px-2 text-center ' + typeColor + '">' + typeLabel + '</td>';
+                html += '<td class="py-2 px-2 text-right">' + formatPrice(order.price) + '</td>';
+                html += '<td class="py-2 px-2 text-right">' + formatNumber(order.volume_remain) + '/' + formatNumber(volumeTotal) + '</td>';
+                html += '<td class="py-2 px-2 text-xs text-blue-300 truncate max-w-xs">' + escapeHtml(order.location_name || String(order.location_id)) + '</td>';
+                html += '<td class="py-2 px-2 text-right text-xs text-blue-300/70">' + formatExpires(order.expires) + '</td>';
+                html += '</tr>';
+            });
+            console.log('Generated HTML:', html.substring(0, 200) + '...');
+            tbody.innerHTML = html;
+            console.log('Orders rendered successfully');
+            console.log('tbody content after render:', tbody.innerHTML.substring(0, 200));
+        } catch (e) {
+            console.error('渲染订单失败:', e);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-400">渲染订单失败: ' + e.message + '</td></tr>';
+        }
     }
 
     function filterOrders(filter) {
