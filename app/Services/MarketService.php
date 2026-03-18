@@ -20,19 +20,185 @@ class MarketService
     }
 
     /**
-     * 获取市场分组树（纯缓存读取，不做 ESI 调用）
+     * 获取市场分组树（cache-through 模式：缓存不存在时自动从 ESI 获取）
      */
     public function getMarketGroupsTree(): array
     {
-        return Cache::get('market_groups_tree', []);
+        return Cache::remember('market_groups_tree', 86400 * 7, function () {
+            Log::info('Market groups tree cache miss, rebuilding from ESI...');
+            return $this->buildMarketGroupsTreeFromApi();
+        });
     }
 
     /**
-     * 获取所有星域列表（纯缓存读取）
+     * 获取所有星域列表（cache-through 模式：缓存不存在时自动从 ESI 获取）
      */
     public function getAllRegions(): array
     {
-        return Cache::get('market_regions_list', []);
+        return Cache::remember('market_regions_list', 86400 * 7, function () {
+            Log::info('Market regions list cache miss, rebuilding from ESI...');
+            return $this->fetchAllRegionsFromApi();
+        });
+    }
+
+    /**
+     * 从 ESI API 获取并构建市场分组树
+     */
+    private function buildMarketGroupsTreeFromApi(): array
+    {
+        try {
+            // 获取所有市场分组 ID
+            $response = Http::timeout(15)->get($this->baseUrl . 'markets/groups/', [
+                'datasource' => $this->datasource,
+                'language' => 'zh',
+            ]);
+
+            if (!$response->ok()) {
+                Log::error('Failed to fetch market groups: ' . $response->status());
+                return [];
+            }
+
+            $allGroupIds = $response->json();
+            if (empty($allGroupIds)) {
+                return [];
+            }
+
+            // 批量获取分组详情
+            $details = [];
+            $batchSize = 50;
+            $batches = array_chunk($allGroupIds, $batchSize);
+
+            foreach ($batches as $batch) {
+                $responses = Http::pool(function ($pool) use ($batch) {
+                    foreach ($batch as $id) {
+                        $pool->as("group_{$id}")
+                            ->timeout(10)
+                            ->get($this->baseUrl . "markets/groups/{$id}/", [
+                                'datasource' => $this->datasource,
+                                'language' => 'zh',
+                            ]);
+                    }
+                });
+
+                foreach ($batch as $id) {
+                    $r = $responses["group_{$id}"] ?? null;
+                    if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
+                        $d = $r->json();
+                        $details[$id] = [
+                            'id' => $d['market_group_id'],
+                            'name' => $d['name'],
+                            'parent_id' => $d['parent_group_id'] ?? null,
+                            'types' => $d['types'] ?? [],
+                            'children' => [],
+                        ];
+                    }
+                }
+
+                usleep(100000); // 100ms delay between batches
+            }
+
+            // 加载物品名称数据库
+            $itemDb = $this->eveDataService->getItemDatabase();
+
+            // 为叶子分组的 types 附加名称
+            foreach ($details as $id => &$group) {
+                if (!empty($group['types']) && is_array($group['types'])) {
+                    $namedTypes = [];
+                    foreach ($group['types'] as $typeId) {
+                        if (is_numeric($typeId)) {
+                            $name = $itemDb[(int)$typeId] ?? null;
+                            $namedTypes[] = [
+                                'id' => (int)$typeId,
+                                'name' => $name ?? ('物品#' . $typeId),
+                            ];
+                        }
+                    }
+                    $group['types'] = $namedTypes;
+                }
+            }
+            unset($group);
+
+            // 构建树结构
+            $tree = [];
+            $lookup = [];
+            foreach ($details as $id => $group) {
+                $lookup[$id] = $group;
+            }
+            foreach ($lookup as $id => &$group) {
+                if ($group['parent_id'] === null) {
+                    $tree[] = &$group;
+                } elseif (isset($lookup[$group['parent_id']])) {
+                    $lookup[$group['parent_id']]['children'][] = &$group;
+                }
+            }
+            usort($tree, fn($a, $b) => $a['name'] <=> $b['name']);
+
+            Log::info('Market groups tree rebuilt successfully: ' . count($tree) . ' top-level groups');
+            return $tree;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to build market groups tree: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * 从 ESI API 获取所有星域列表
+     */
+    private function fetchAllRegionsFromApi(): array
+    {
+        try {
+            $regionResp = Http::timeout(15)->get($this->baseUrl . 'universe/regions/', [
+                'datasource' => $this->datasource,
+            ]);
+
+            if (!$regionResp->ok()) {
+                Log::error('Failed to fetch regions: ' . $regionResp->status());
+                return [];
+            }
+
+            $regionIds = $regionResp->json();
+            if (empty($regionIds)) {
+                return [];
+            }
+
+            $regions = [];
+            $regionBatches = array_chunk($regionIds, 30);
+
+            foreach ($regionBatches as $batch) {
+                $responses = Http::pool(function ($pool) use ($batch) {
+                    foreach ($batch as $rid) {
+                        $pool->as("region_{$rid}")
+                            ->timeout(10)
+                            ->get($this->baseUrl . "universe/regions/{$rid}/", [
+                                'datasource' => $this->datasource,
+                                'language' => 'zh',
+                            ]);
+                    }
+                });
+
+                foreach ($batch as $rid) {
+                    $r = $responses["region_{$rid}"] ?? null;
+                    if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
+                        $d = $r->json();
+                        $regions[] = [
+                            'id' => $d['region_id'],
+                            'name' => $d['name'],
+                        ];
+                    }
+                }
+
+                usleep(100000); // 100ms delay between batches
+            }
+
+            usort($regions, fn($a, $b) => $a['name'] <=> $b['name']);
+            Log::info('Market regions list rebuilt successfully: ' . count($regions) . ' regions');
+            return $regions;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch regions: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**

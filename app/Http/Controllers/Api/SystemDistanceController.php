@@ -213,7 +213,7 @@ class SystemDistanceController extends Controller
         foreach ($systemIds as $id) {
             $name = $this->distanceService->getSystemName($id, $language);
             $coords = $this->distanceService->getSystemCoordinates($id);
-            
+
             $result[] = [
                 'system_id' => $id,
                 'name' => $name,

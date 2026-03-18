@@ -8,7 +8,7 @@ use Exception;
 
 /**
  * 星系距离计算服务
- * 
+ *
  * 提供基于星系连接关系的跳跃路径计算
  * 使用 BFS 算法计算最短跳跃路径
  */
@@ -51,7 +51,7 @@ class SystemDistanceService
      */
     protected function getAdjacencyList(): array
     {
-        $cacheKey = 'eve_system adjacency_list';
+        $cacheKey = 'eve_system_adjacency_list';
 
         return Cache::remember($cacheKey, $this->cacheTtl, function () {
             if (!file_exists($this->jumpsFile)) {
@@ -171,7 +171,7 @@ class SystemDistanceService
     public function getEuclideanDistanceLightYears(int $fromSystemId, int $toSystemId): ?float
     {
         $distanceMeters = $this->getEuclideanDistance($fromSystemId, $toSystemId);
-        
+
         if ($distanceMeters === null) {
             return null;
         }
@@ -230,7 +230,7 @@ class SystemDistanceService
                     if ($neighbor === $toSystemId) {
                         // 构建路径
                         $path = $this->reconstructPath($predecessors, $fromSystemId, $toSystemId);
-                        
+
                         return [$distance[$toSystemId], $path];
                     }
                 }

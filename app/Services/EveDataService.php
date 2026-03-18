@@ -240,8 +240,11 @@ class EveDataService
     private function fetchNameFromApi($id, $type = 'item')
     {
         try {
-            // 使用批量查询接口（最多 1000 个 ID）
-            $response = Http::post(config('esi.base_url') . 'universe/names/', [
+            $baseUrl = rtrim(config('esi.base_url'), '/');
+            $datasource = config('esi.datasource', 'serenity');
+            
+            // 使用批量查询接口（最多 1000 个 ID），加上 datasource 和 language 参数获取中文
+            $response = Http::post($baseUrl . '/universe/names/?datasource=' . $datasource . '&language=zh', [
                 $id
             ]);
             
@@ -254,7 +257,7 @@ class EveDataService
             
             // 如果批量接口失败，尝试单个查询
             if ($type === 'item' || $type === 'skill') {
-                $response = Http::get(config('esi.base_url') . 'universe/types/' . $id . '/');
+                $response = Http::get($baseUrl . '/universe/types/' . $id . '/?datasource=' . $datasource . '&language=zh');
                 if ($response->ok()) {
                     $data = $response->json();
                     return $data['name'] ?? null;
@@ -290,7 +293,8 @@ class EveDataService
         // 批量查询缺失的 ID
         if (!empty($missingIds)) {
             $apiNames = $this->fetchNamesFromApi($missingIds, $type);
-            $names = array_merge($names, $apiNames);
+            // 使用 + 运算符保留数字键（array_merge 会重新索引）
+            $names = $names + $apiNames;
         }
         
         return $names;
@@ -302,8 +306,11 @@ class EveDataService
     private function fetchNamesFromApi($ids, $type = 'item')
     {
         try {
-            // 使用批量查询接口
-            $response = Http::post(config('esi.base_url') . 'universe/names/', $ids);
+            $baseUrl = rtrim(config('esi.base_url'), '/');
+            $datasource = config('esi.datasource', 'serenity');
+            
+            // 使用批量查询接口，加上 datasource 和 language 参数获取中文
+            $response = Http::post($baseUrl . '/universe/names/?datasource=' . $datasource . '&language=zh', $ids);
             
             if ($response->ok()) {
                 $result = $response->json();

@@ -20,6 +20,9 @@
                 <!-- 旗舰导航（所有用户） -->
                 <a href="{{ route('capital-nav.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all{{ $activePage === 'capital-nav' ? ' bg-white/10' : '' }}" title="旗舰导航"><div class="text-2xl">📍</div></a>
 
+                <!-- LP 商店（所有用户） -->
+                <a href="{{ route('lp-store.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all{{ $activePage === 'lp-store' ? ' bg-white/10' : '' }}" title="LP 商店"><div class="text-2xl">💎</div></a>
+
                 <!-- 技能队列（仅认证用户） -->
                 @if($isLogged)
                     <a href="{{ route('skills.index') }}" class="p-3 hover:bg-white/10 rounded-lg transition-all{{ $activePage === 'skills' ? ' bg-white/10' : '' }}" title="技能队列"><div class="text-2xl">📚</div></a>

@@ -31,7 +31,6 @@
     .skill-desc { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; line-height: 1.4; }
     .step-jump { border-left: 3px solid #3b82f6; }
     .step-gate { border-left: 3px solid #f59e0b; }
-    /* Fix: select option text invisible on white/system background */
     select option { background-color: #1e293b; color: #e2e8f0; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
@@ -58,7 +57,7 @@
                 <button id="tab-route" class="tab-btn" onclick="switchTab('route')">📍 路线规划</button>
             </div>
 
-            <!-- ==================== Tab 1: 星系距离 ==================== -->
+            <!-- Tab 1: 星系距离 -->
             <div id="content-distance" class="p-6">
                 <div class="space-y-4 max-w-2xl">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -85,10 +84,9 @@
                 </div>
             </div>
 
-            <!-- ==================== Tab 2: 一跳可达 ==================== -->
+            <!-- Tab 2: 一跳可达 -->
             <div id="content-reachable" class="hidden p-6">
                 <div class="space-y-4">
-                    <!-- 舰船和技能 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm text-blue-200 mb-1">舰船类型</label>
@@ -131,7 +129,6 @@
                             <div class="skill-desc">每升一级，战略货舰护盾、装甲和结构值各增加10%，跳跃燃料需求减少10%</div>
                         </div>
                     </div>
-                    <!-- 起始星系 -->
                     <div class="max-w-md">
                         <label class="block text-sm text-blue-200 mb-1">起始星系</label>
                         <div class="relative">
@@ -141,16 +138,14 @@
                             <div id="reach-origin-dropdown" class="ac-dropdown hidden"></div>
                         </div>
                     </div>
-                    <!-- 预览 -->
                     <div id="reach-preview" class="text-xs text-white/50"></div>
                     <button onclick="queryReachable()" id="reach-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg text-sm transition-all">查询可达星系</button>
                 </div>
             </div>
 
-            <!-- ==================== Tab 3: 路线规划 ==================== -->
+            <!-- Tab 3: 路线规划 -->
             <div id="content-route" class="hidden p-6">
                 <div class="space-y-4">
-                    <!-- 舰船和技能 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm text-blue-200 mb-1">舰船类型</label>
@@ -193,7 +188,6 @@
                             <div class="skill-desc">每升一级，战略货舰护盾、装甲和结构值各增加10%，跳跃燃料需求减少10%</div>
                         </div>
                     </div>
-                    <!-- 起始/目标星系 + 选项 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm text-blue-200 mb-1">起始星系</label>
@@ -304,7 +298,6 @@
 
 @push('scripts')
 <script>
-// ==================== 舰船数据 ====================
 var SHIP_DATA = {
     'jump_freighter': { name: '战略货舰', baseRange: 5.0, baseFuel: 10000 },
     'rorqual':        { name: '长须鲸级', baseRange: 5.0, baseFuel: 4000 },
@@ -318,7 +311,6 @@ var SHIP_DATA = {
 var debounceTimers = {};
 var reachableData = [];
 
-// ==================== 标签切换 ====================
 function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     document.getElementById('tab-' + tab).classList.add('active');
@@ -326,14 +318,12 @@ function switchTab(tab) {
     document.getElementById('content-reachable').classList.add('hidden');
     document.getElementById('content-route').classList.add('hidden');
     document.getElementById('content-' + tab).classList.remove('hidden');
-    // 清除所有结果区域
     document.getElementById('dist-result').classList.add('hidden');
     document.getElementById('reach-result').classList.add('hidden');
     document.getElementById('route-result').classList.add('hidden');
     document.getElementById('loadingArea').classList.add('hidden');
 }
 
-// ==================== 工具函数 ====================
 function escapeHtml(str) {
     var d = document.createElement('div');
     d.appendChild(document.createTextNode(str || ''));
@@ -366,7 +356,6 @@ function hideLoading() {
     document.getElementById('loadingArea').classList.add('hidden');
 }
 
-// ==================== 前端跳跃计算 ====================
 function calcJumpRange(shipType, jdcLevel) {
     var ship = SHIP_DATA[shipType];
     if (!ship) return 0;
@@ -409,7 +398,6 @@ function updatePreview(prefix) {
     }
 }
 
-// ==================== 自动补全 ====================
 function setupAutocomplete(inputId, dropdownId, hiddenId) {
     var input = document.getElementById(inputId);
     var dropdown = document.getElementById(dropdownId);
@@ -471,7 +459,6 @@ function setupAutocomplete(inputId, dropdownId, hiddenId) {
     });
 }
 
-// ==================== Tab 1: 星系距离 ====================
 function calcDistance() {
     var fromId = document.getElementById('dist-from-id').value;
     var toId = document.getElementById('dist-to-id').value;
@@ -508,7 +495,6 @@ function calcDistance() {
         });
 }
 
-// ==================== Tab 2: 一跳可达 ====================
 function queryReachable() {
     var originId = document.getElementById('reach-origin-id').value;
     var shipType = document.getElementById('reach-ship').value;
@@ -581,7 +567,6 @@ function filterReachable() {
     renderReachableTable(filtered);
 }
 
-// ==================== Tab 3: 路线规划 ====================
 function planRoute() {
     var fromId = document.getElementById('route-from-id').value;
     var toId = document.getElementById('route-to-id').value;
@@ -612,7 +597,6 @@ function planRoute() {
                 return;
             }
 
-            // 摘要
             var html = '<div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">';
             html += '<div class="text-center"><div class="text-white/50 text-xs">跳跃能力</div><div class="text-blue-400 font-bold text-lg">' + d.jump_range + ' LY</div></div>';
             html += '<div class="text-center"><div class="text-white/50 text-xs">总燃料</div><div class="text-yellow-300 font-bold text-lg">' + formatNumber(d.total_fuel) + '</div></div>';
@@ -622,7 +606,6 @@ function planRoute() {
             html += '</div>';
             document.getElementById('route-summary').innerHTML = html;
 
-            // 路线表格
             var tbody = document.getElementById('route-tbody');
             if (!d.path || !d.path.length) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-white/40">已在同一星系</td></tr>';
@@ -653,7 +636,6 @@ function planRoute() {
         });
 }
 
-// ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
     setupAutocomplete('dist-from-input', 'dist-from-dropdown', 'dist-from-id');
     setupAutocomplete('dist-to-input', 'dist-to-dropdown', 'dist-to-id');

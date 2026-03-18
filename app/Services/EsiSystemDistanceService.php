@@ -8,7 +8,7 @@ use Exception;
 
 /**
  * 纯 ESI 版星系距离计算服务
- * 
+ *
  * 不依赖外部 SDE 数据,完全通过 ESI API 动态获取星系连接关系
  * 使用星门(destination)信息构建邻接表
  */
@@ -143,9 +143,6 @@ class EsiSystemDistanceService
             $adjacency = [];
             $checked = [];
 
-            // 先从缓存中获取部分数据
-            $cachedKeys = Cache::tags(['esi_system_adjacency'])->getTags()->flush();
-            
             // 获取 SDE 提供的起始星系列表
             try {
                 $response = Http::timeout(30)
@@ -176,7 +173,6 @@ class EsiSystemDistanceService
 
             } catch (Exception $e) {
                 // 如果 ESI 请求失败,返回空数组
-                // 实际使用中可以改用 Fuzzwork SDE 数据
             }
 
             return $adjacency;
@@ -283,7 +279,7 @@ class EsiSystemDistanceService
     public function getEuclideanDistanceLightYears(int $fromSystemId, int $toSystemId): ?float
     {
         $distanceMeters = $this->getEuclideanDistance($fromSystemId, $toSystemId);
-        
+
         if ($distanceMeters === null) {
             return null;
         }
@@ -294,7 +290,7 @@ class EsiSystemDistanceService
 
     /**
      * 使用 BFS 算法查找两个星系之间的最短跳跃路径
-     * 
+     *
      * 通过 ESI 动态获取星系连接关系
      *
      * @param int $fromSystemId
@@ -311,7 +307,6 @@ class EsiSystemDistanceService
         // 检查起点是否存在相邻星系
         $fromAdjacency = $this->getSystemAdjacency($fromSystemId);
         if (empty($fromAdjacency)) {
-            // 可能是数据未缓存,尝试直接检查
             $fromSystems = $this->getAllSystems();
             if (!in_array($fromSystemId, $fromSystems)) {
                 return [null, []];

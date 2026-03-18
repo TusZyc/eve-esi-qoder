@@ -1,0 +1,235 @@
+{
+  "factions": [
+    {
+      "faction_id": 500001,
+      "name": "加达里合众国",
+      "name_en": "Caldari State",
+      "corporations": [
+        {"id": 1000033, "name": "Caldari Business Tribunal"},
+        {"id": 1000034, "name": "House of Records"},
+        {"id": 1000035, "name": "Caldari Navy"},
+        {"id": 1000036, "name": "Internal Security"},
+        {"id": 1000037, "name": "Lai Dai Protection Service"},
+        {"id": 1000038, "name": "Ishukone Watch"},
+        {"id": 1000039, "name": "Home Guard"},
+        {"id": 1000040, "name": "Peace and Order Unit"},
+        {"id": 1000041, "name": "Spacelane Patrol"},
+        {"id": 1000042, "name": "Corporate Police Force"},
+        {"id": 1000043, "name": "State War Academy"},
+        {"id": 1000044, "name": "School of Applied Knowledge"},
+        {"id": 1000045, "name": "Science and Trade Institute"},
+        {"id": 1000180, "name": "State Protectorate"}
+      ]
+    },
+    {
+      "faction_id": 500002,
+      "name": "米玛塔尔共和国",
+      "name_en": "Minmatar Republic",
+      "corporations": [
+        {"id": 1000046, "name": "Native Freshfood"},
+        {"id": 1000047, "name": "Brutor Tribe"},
+        {"id": 1000048, "name": "Sebiestor Tribe"},
+        {"id": 1000049, "name": "Krusual Tribe"},
+        {"id": 1000050, "name": "Vherokior Tribe"},
+        {"id": 1000051, "name": "Republic Fleet"},
+        {"id": 1000052, "name": "Republic Parliament"},
+        {"id": 1000053, "name": "Republic Justice Department"},
+        {"id": 1000054, "name": "Republic Security Services"},
+        {"id": 1000055, "name": "Minmatar Mining Corporation"},
+        {"id": 1000056, "name": "Core Complexion Inc."},
+        {"id": 1000057, "name": "Boundless Creation"},
+        {"id": 1000058, "name": "Eifyr and Co."},
+        {"id": 1000059, "name": "Republic Military School"},
+        {"id": 1000060, "name": "Pator Tech School"},
+        {"id": 1000061, "name": "Republic University"},
+        {"id": 1000062, "name": "Freedom Extension"},
+        {"id": 1000182, "name": "Tribal Liberation Force"}
+      ]
+    },
+    {
+      "faction_id": 500003,
+      "name": "艾玛帝国",
+      "name_en": "Amarr Empire",
+      "corporations": [
+        {"id": 1000063, "name": "Amarr Navy"},
+        {"id": 1000064, "name": "Amarr Constructions"},
+        {"id": 1000065, "name": "Ministry of War"},
+        {"id": 1000066, "name": "Ministry of Internal Order"},
+        {"id": 1000067, "name": "Ministry of Assessment"},
+        {"id": 1000068, "name": "Theology Council"},
+        {"id": 1000069, "name": "Emperor Family"},
+        {"id": 1000070, "name": "Sarum Family"},
+        {"id": 1000071, "name": "Tash-Murkon Family"},
+        {"id": 1000072, "name": "Kador Family"},
+        {"id": 1000073, "name": "Kor-Azor Family"},
+        {"id": 1000074, "name": "Ardishapur Family"},
+        {"id": 1000075, "name": "Royal Amarr Institute"},
+        {"id": 1000076, "name": "Hedion University"},
+        {"id": 1000077, "name": "Imperial Academy"},
+        {"id": 1000078, "name": "Carthum Conglomerate"},
+        {"id": 1000079, "name": "Viziam"},
+        {"id": 1000080, "name": "Ducia Foundry"},
+        {"id": 1000081, "name": "Joint Harvesting"},
+        {"id": 1000082, "name": "Nurtura"},
+        {"id": 1000083, "name": "Imperial Armaments"},
+        {"id": 1000084, "name": "Imperial Shipment"},
+        {"id": 1000085, "name": "HZO Refinery"},
+        {"id": 1000086, "name": "Inherent Implants"},
+        {"id": 1000087, "name": "Zoar and Sons"},
+        {"id": 1000179, "name": "24th Imperial Crusade"}
+      ]
+    },
+    {
+      "faction_id": 500004,
+      "name": "盖伦特联邦",
+      "name_en": "Gallente Federation",
+      "corporations": [
+        {"id": 1000115, "name": "Federation Navy"},
+        {"id": 1000116, "name": "Federal Intelligence Office"},
+        {"id": 1000117, "name": "Federal Administration"},
+        {"id": 1000118, "name": "Senate"},
+        {"id": 1000119, "name": "President"},
+        {"id": 1000120, "name": "University of Caille"},
+        {"id": 1000121, "name": "Federal Navy Academy"},
+        {"id": 1000122, "name": "Center for Advanced Studies"},
+        {"id": 1000123, "name": "Aliastra"},
+        {"id": 1000124, "name": "Quafe Company"},
+        {"id": 1000125, "name": "CreoDron"},
+        {"id": 1000126, "name": "Roden Shipyards"},
+        {"id": 1000127, "name": "Duvolle Laboratories"},
+        {"id": 1000128, "name": "Material Acquisition"},
+        {"id": 1000129, "name": "Chemal Tech"},
+        {"id": 1000130, "name": "Garoun Investment Bank"},
+        {"id": 1000131, "name": "Bank of Luminaire"},
+        {"id": 1000132, "name": "Pend Insurance"},
+        {"id": 1000133, "name": "Impetus"},
+        {"id": 1000134, "name": "The Scope"},
+        {"id": 1000135, "name": "Egonics Inc."},
+        {"id": 1000136, "name": "Poteque Pharmaceuticals"},
+        {"id": 1000181, "name": "Federal Defense Union"}
+      ]
+    },
+    {
+      "faction_id": 500010,
+      "name": "古斯塔斯",
+      "name_en": "Guristas Pirates",
+      "corporations": [
+        {"id": 1000379, "name": "Guristas Pirates"},
+        {"id": 1000437, "name": "Guristas Production"}
+      ]
+    },
+    {
+      "faction_id": 500011,
+      "name": "天使企业联合体",
+      "name_en": "Angel Cartel",
+      "corporations": [
+        {"id": 1000380, "name": "Angel Cartel"},
+        {"id": 1000436, "name": "Dominations"}
+      ]
+    },
+    {
+      "faction_id": 500012,
+      "name": "血袭者盟约",
+      "name_en": "Blood Raider Covenant",
+      "corporations": [
+        {"id": 1000381, "name": "Blood Raiders"},
+        {"id": 1000438, "name": "Corpus"}
+      ]
+    },
+    {
+      "faction_id": 500019,
+      "name": "萨沙共和国",
+      "name_en": "Sansha's Nation",
+      "corporations": [
+        {"id": 1000382, "name": "Sansha's Nation"},
+        {"id": 1000439, "name": "True Power"}
+      ]
+    },
+    {
+      "faction_id": 500020,
+      "name": "蛇蜥联合体",
+      "name_en": "Serpentis",
+      "corporations": [
+        {"id": 1000383, "name": "Serpentis Corporation"},
+        {"id": 1000440, "name": "Shadow Serpentis"}
+      ]
+    },
+    {
+      "faction_id": 500007,
+      "name": "艾玛尼姐妹会",
+      "name_en": "Sisters of EVE",
+      "corporations": [
+        {"id": 1000299, "name": "Sisters of EVE"}
+      ]
+    },
+    {
+      "faction_id": 500008,
+      "name": "莫德团",
+      "name_en": "Mordu's Legion",
+      "corporations": [
+        {"id": 1000289, "name": "Mordu's Legion Command"}
+      ]
+    },
+    {
+      "faction_id": 500009,
+      "name": "逸仙会",
+      "name_en": "Thukker Tribe",
+      "corporations": [
+        {"id": 1000288, "name": "Thukker Mix"}
+      ]
+    },
+    {
+      "faction_id": 500021,
+      "name": "外星体研发",
+      "name_en": "ORE",
+      "corporations": [
+        {"id": 1000390, "name": "Outer Ring Excavations"}
+      ]
+    },
+    {
+      "faction_id": 500018,
+      "name": "可汗王国",
+      "name_en": "Khanid Kingdom",
+      "corporations": [
+        {"id": 1000088, "name": "Khanid Works"},
+        {"id": 1000089, "name": "Khanid Innovation"},
+        {"id": 1000090, "name": "Khanid Transport"},
+        {"id": 1000091, "name": "Royal Khanid Navy"}
+      ]
+    },
+    {
+      "faction_id": 500017,
+      "name": "星际快递",
+      "name_en": "Intaki Syndicate",
+      "corporations": [
+        {"id": 1000386, "name": "Intaki Syndicate"},
+        {"id": 1000387, "name": "Intaki Bank"},
+        {"id": 1000388, "name": "Intaki Commerce"},
+        {"id": 1000389, "name": "Intaki Space Police"}
+      ]
+    },
+    {
+      "faction_id": 500006,
+      "name": "统合部",
+      "name_en": "CONCORD Assembly",
+      "corporations": [
+        {"id": 1000125, "name": "CONCORD"},
+        {"id": 1000137, "name": "DED"}
+      ]
+    },
+    {
+      "faction_id": 500014,
+      "name": "黑渊同盟",
+      "name_en": "Ammatar Mandate",
+      "corporations": [
+        {"id": 1000391, "name": "Ammatar Consulate"},
+        {"id": 1000392, "name": "Ammatar Fleet"}
+      ]
+    }
+  ],
+  "meta": {
+    "description": "NPC Faction to Corporation mapping for LP Store",
+    "source": "EVE Online SDE data - corrected",
+    "updated": "2026-03-18"
+  }
+}

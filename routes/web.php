@@ -15,8 +15,7 @@ use App\Http\Controllers\Api\ServerStatusController;
 use App\Http\Controllers\Api\MarketDataController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\SkillController;
-use App\Http\Controllers\Api\KillmailController;
-use App\Http\Controllers\Api\SystemDistanceController;
+use App\Http\Controllers\LpStoreController;
 use App\Http\Controllers\CapitalNavController;
 use App\Http\Controllers\Api\CapitalNavApiController;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +36,9 @@ Route::get('/guest', [GuestDashboardController::class, 'index'])->name('guest.da
 
 // 市场（公开访问）
 Route::get('/market', [MarketController::class, 'index'])->name('market.index');
+
+// LP 商店（公开访问）
+Route::get('/lp-store', [LpStoreController::class, 'index'])->name('lp-store.index');
 
 // 公开 API（无需认证）
 Route::get('/api/public/server-status', [ServerStatusController::class, 'index'])
@@ -77,49 +79,9 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
     Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
-    
-    // 角色数据聚合 API（并行获取属性、植入体、克隆体、雇佣历史）
-    Route::get('/character/all-data', [CharacterController::class, 'allData'])->name('api.dashboard.character-all-data');
-    
-    // 角色详细信息 API
-    Route::get('/character/attributes', [CharacterController::class, 'attributes'])->name('api.dashboard.character-attributes');
-    Route::get('/character/implants', [CharacterController::class, 'implants'])->name('api.dashboard.character-implants');
-    Route::get('/character/clones', [CharacterController::class, 'clones'])->name('api.dashboard.character-clones');
-    Route::get('/character/corphistory', [CharacterController::class, 'corporationHistory'])->name('api.dashboard.character-corphistory');
 });
 
-// KM 查询（公开访问）
-Route::get('/killmails', [KillmailController::class, 'index'])->name('killmails.index');
-
-// 旗舰导航（公开访问）
-Route::get('/capital-nav', [CapitalNavController::class, 'index'])->name('capital-nav.index');
-
-// 旗舰导航 API
-Route::middleware('throttle:30,1')->prefix('api/capital-nav')->group(function () {
-    Route::get('/autocomplete', [CapitalNavApiController::class, 'systemAutocomplete'])->name('api.capital-nav.autocomplete');
-    Route::get('/distance', [CapitalNavApiController::class, 'distance'])->name('api.capital-nav.distance');
-    Route::get('/reachable', [CapitalNavApiController::class, 'reachableSystems'])->name('api.capital-nav.reachable');
-    Route::get('/route', [CapitalNavApiController::class, 'planRoute'])->name('api.capital-nav.route');
-});
-
-// KM 查询 API
-Route::middleware('throttle:30,1')->prefix('api/killmails')->group(function () {
-    Route::get('/search', [KillmailController::class, 'search'])->name('api.killmails.search');
-    Route::get('/autocomplete', [KillmailController::class, 'autocomplete'])->name('api.killmails.autocomplete');
-    Route::get('/advanced-search', [KillmailController::class, 'advancedSearch'])->name('api.killmails.advanced-search');
-    Route::get('/pilot/{pilotId}/kills', [KillmailController::class, 'pilotKills'])->name('api.killmails.pilot-kills');
-    Route::get('/kill/{killId}', [KillmailController::class, 'killDetail'])->name('api.killmails.detail');
-});
-
-// 星系距离查询 API
-Route::middleware('throttle:30,1')->prefix('api/system-distance')->group(function () {
-    Route::get('/path', [SystemDistanceController::class, 'pathDistance'])->name('api.system-distance.path');
-    Route::get('/euclidean', [SystemDistanceController::class, 'euclideanDistance'])->name('api.system-distance.euclidean');
-    Route::get('/name', [SystemDistanceController::class, 'systemName'])->name('api.system-distance.name');
-    Route::get('/batch', [SystemDistanceController::class, 'batchInfo'])->name('api.system-distance.batch');
-});
-
-// 市场认证 API（需登录，自动刷新 Token）
+// 市场认证 API（需登录）
 Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/market')->group(function () {
     Route::get('/character-orders', [MarketDataController::class, 'characterOrders'])->name('api.market.character-orders');
     Route::get('/my-order-ids', [MarketDataController::class, 'myOrderIds'])->name('api.market.my-order-ids');
@@ -147,4 +109,35 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     
     // 钱包
     Route::get('/wallet', [CharacterController::class, 'wallet'])->name('wallet.index');
+});
+
+// LP 商店公开 API
+Route::middleware(['throttle:30,1'])->prefix('api/public/lp-store')->group(function () {
+    Route::get('/factions', [LpStoreController::class, 'factions'])->name('api.public.lp-store.factions');
+    Route::get('/offers', [LpStoreController::class, 'offers'])->name('api.public.lp-store.offers');
+    Route::get('/history', [LpStoreController::class, 'history'])->name('api.public.lp-store.history');
+    Route::get('/orders', [LpStoreController::class, 'orders'])->name('api.public.lp-store.orders');
+});
+
+// KM 查询（公开访问）
+Route::get('/killmails', [\App\Http\Controllers\Api\KillmailController::class, 'index'])->name('killmails.index');
+
+// KM API（公开）
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/api/killmails/autocomplete', [\App\Http\Controllers\Api\KillmailController::class, 'autocomplete']);
+    Route::get('/api/killmails/advanced-search', [\App\Http\Controllers\Api\KillmailController::class, 'advancedSearch']);
+    Route::get('/api/killmails/search', [\App\Http\Controllers\Api\KillmailController::class, 'search']);
+    Route::get('/api/killmails/pilot/{pilotId}/kills', [\App\Http\Controllers\Api\KillmailController::class, 'pilotKills']);
+    Route::get('/api/killmails/kill/{killId}', [\App\Http\Controllers\Api\KillmailController::class, 'killDetail']);
+});
+
+// 旗舰导航（公开访问）
+Route::get('/capital-nav', [CapitalNavController::class, 'index'])->name('capital-nav.index');
+
+// 旗舰导航 API（公开）
+Route::middleware('throttle:30,1')->prefix('api/capital-nav')->group(function () {
+    Route::get('/autocomplete', [CapitalNavApiController::class, 'systemAutocomplete']);
+    Route::get('/distance', [CapitalNavApiController::class, 'distance']);
+    Route::get('/reachable', [CapitalNavApiController::class, 'reachableSystems']);
+    Route::get('/route', [CapitalNavApiController::class, 'planRoute']);
 });
