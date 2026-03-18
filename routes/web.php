@@ -18,6 +18,7 @@ use App\Http\Controllers\SkillController;
 use App\Http\Controllers\LpStoreController;
 use App\Http\Controllers\CapitalNavController;
 use App\Http\Controllers\Api\CapitalNavApiController;
+use App\Http\Controllers\Admin\AdminController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -140,4 +141,19 @@ Route::middleware('throttle:30,1')->prefix('api/capital-nav')->group(function ()
     Route::get('/distance', [CapitalNavApiController::class, 'distance']);
     Route::get('/reachable', [CapitalNavApiController::class, 'reachableSystems']);
     Route::get('/route', [CapitalNavApiController::class, 'planRoute']);
+});
+
+// 站点管理后台（仅管理员可访问）
+Route::middleware(['auth', 'eve.refresh', 'site.admin'])->prefix('admin')->group(function () {
+    Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
+    Route::get('/logs', [AdminController::class, 'logs'])->name('admin.logs');
+    Route::get('/api-stats', [AdminController::class, 'apiStats'])->name('admin.api-stats');
+});
+
+// 管理后台 API
+Route::middleware(['auth', 'eve.refresh', 'site.admin', 'throttle:30,1'])->prefix('api/admin')->group(function () {
+    Route::get('/dashboard-data', [AdminController::class, 'dashboardData'])->name('api.admin.dashboard-data');
+    Route::get('/api-stats', [AdminController::class, 'apiStatsData'])->name('api.admin.api-stats');
+    Route::post('/users/{userId}/refresh-token', [AdminController::class, 'refreshToken'])->name('api.admin.refresh-token');
 });

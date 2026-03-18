@@ -76,10 +76,26 @@ class AutoRefreshEveToken
                     'body' => $response->body(),
                 ]);
                 
-                // 如果刷新失败（可能是 Refresh Token 过期），需要重新授权
+                // 如果刷新失败（可能是 Refresh Token 过期），强制登出用户
                 if ($response->status() === 400 || $response->status() === 401) {
-                    Log::warning('[AutoRefreshToken] Refresh Token 可能已过期，需要重新授权');
-                    session()->flash('error', '授权已过期，请重新授权。');
+                    Log::warning('[AutoRefreshToken] Refresh Token 已过期，强制登出用户', [
+                        'user_id' => $user->id,
+                        'character' => $user->name,
+                    ]);
+                    
+                    // 清除用户的 token 信息
+                    $user->update([
+                        'access_token' => null,
+                        'refresh_token' => null,
+                        'token_expires_at' => null,
+                    ]);
+                    
+                    // 强制登出
+                    \Illuminate\Support\Facades\Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    
+                    session()->flash('error', 'EVE 授权已过期，请重新授权。');
                 }
             }
         } catch (\Exception $e) {

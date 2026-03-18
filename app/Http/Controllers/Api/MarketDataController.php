@@ -24,11 +24,17 @@ class MarketDataController extends Controller
     {
         $tree = $this->marketService->getMarketGroupsTree();
 
-        return response()->json([
+        $response = response()->json([
             'success' => true,
             'data' => $tree,
             'cached' => !empty($tree),
         ]);
+
+        // 添加 HTTP 缓存头，浏览器缓存 1 小时
+        $response->header('Cache-Control', 'public, max-age=3600');
+        $response->header('Vary', 'Accept-Encoding');
+
+        return $response;
     }
 
     /**

@@ -39,7 +39,16 @@
                 <!-- 品牌名称和用户信息 -->
                 @if($isLogged)
                     <a href="{{ route('dashboard') }}" class="text-xl font-bold">Tus Esi System</a>
-                    <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name ?? '' }}</span>
+                    @php
+                        $isSiteAdmin = \App\Http\Middleware\EnsureSiteAdmin::isSiteAdmin($user ?? null);
+                    @endphp
+                    @if($isSiteAdmin)
+                        <a href="{{ route('admin.dashboard') }}" class="text-sm text-blue-200 ml-3 hover:text-white transition-colors" title="点击进入管理后台">
+                            欢迎，{{ $user->name ?? '' }} <span class="ml-1">⚙️</span>
+                        </a>
+                    @else
+                        <span class="text-sm text-blue-200 ml-3">欢迎，{{ $user->name ?? '' }}</span>
+                    @endif
                 @else
                     <a href="{{ route('guest.dashboard') }}" class="text-xl font-bold">Tus Esi System</a>
                 @endif

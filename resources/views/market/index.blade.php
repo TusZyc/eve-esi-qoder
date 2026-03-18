@@ -1,5 +1,3 @@
-@extends('layouts.app')
-
 @section('title', '市场中心 - ' . config('app.name'))
 
 @push('head-scripts')

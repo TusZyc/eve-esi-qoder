@@ -49,5 +49,6 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'eve.refresh' => \App\Http\Middleware\AutoRefreshEveToken::class,
         'eve.auth' => \App\Http\Middleware\CheckEveAuthorization::class,
+        'site.admin' => \App\Http\Middleware\EnsureSiteAdmin::class,
     ];
 }

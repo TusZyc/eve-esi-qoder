@@ -146,6 +146,9 @@ class AuthController extends Controller
                 ]);
             
             Log::info('Token 响应状态：' . $response->status());
+            Log::debug('Token 响应内容：' . json_encode(array_map(function($v, $k) {
+                return in_array($k, ['access_token', 'refresh_token']) ? substr($v, 0, 50) . '...(len:' . strlen($v) . ')' : $v;
+            }, $response->json(), array_keys($response->json() ?: []))));
             
             if ($response->failed()) {
                 Log::error('Token 换取失败：' . $response->body());

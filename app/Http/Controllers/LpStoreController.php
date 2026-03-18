@@ -29,17 +29,14 @@ class LpStoreController extends Controller
         $user = Auth::user();
         $isLoggedIn = $user !== null;
 
-        // 获取星域列表：优先从 ESI 动态获取全量星域（约69个）
-        // 仅当动态获取返回空时，才 fallback 到配置
-        $dynamicRegions = $this->marketService->getAllRegions();
+        // 从缓存获取所有 K-space 星域（有市场功能的星域）
+        $cachedRegions = $this->marketService->getAllRegions();
+        $marketRegions = [];
         
-        if (!empty($dynamicRegions)) {
-            $marketRegions = [];
-            foreach ($dynamicRegions as $region) {
+        if (!empty($cachedRegions)) {
+            foreach ($cachedRegions as $region) {
                 $id = $region['id'] ?? $region['region_id'] ?? null;
                 $name = $region['name'] ?? '';
-                // 去掉英文括号部分（如 "伏尔戈 (The Forge)" -> "伏尔戈"）
-                $name = preg_replace('/\s*\(.*\)\s*$/', '', $name);
                 if ($id && $name) {
                     $marketRegions[$id] = $name;
                 }

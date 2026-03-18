@@ -207,6 +207,9 @@
         <!-- 页脚 -->
         <footer class="mt-auto pt-16 text-center text-blue-300/50 text-xs anim-4">
             <p>Tus Esi System &middot; 数据来源于 EVE ESI API &middot; 非官方项目</p>
+            <p class="mt-2">
+                <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-blue-300/80 transition-colors">苏ICP备17024259号-9</a>
+            </p>
         </footer>
     </div>
 
