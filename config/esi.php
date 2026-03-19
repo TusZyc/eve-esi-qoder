@@ -68,6 +68,21 @@ return [
         // 克隆体和植入体
         'esi-clones.read_clones.v1',
         'esi-clones.read_implants.v1',
+
+        // 书签
+        'esi-bookmarks.read_character_bookmarks.v1',
+
+        // 合同
+        'esi-contracts.read_character_contracts.v1',
+
+        // 装配
+        'esi-fittings.read_fittings.v1',
+
+        // 击毁报告
+        'esi-killmails.read_killmails.v1',
+
+        // LP点数
+        'esi-characters.read_loyalty.v1',
     ],
     
     /*

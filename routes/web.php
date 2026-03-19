@@ -18,6 +18,22 @@ use App\Http\Controllers\SkillController;
 use App\Http\Controllers\LpStoreController;
 use App\Http\Controllers\CapitalNavController;
 use App\Http\Controllers\Api\CapitalNavApiController;
+use App\Http\Controllers\StandingController;
+use App\Http\Controllers\ContactController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\WalletController;
+use App\Http\Controllers\BookmarkController;
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\FittingController;
+use App\Http\Controllers\CharacterKillmailController;
+use App\Http\Controllers\Api\StandingDataController;
+use App\Http\Controllers\Api\ContactDataController;
+use App\Http\Controllers\Api\NotificationDataController;
+use App\Http\Controllers\Api\WalletDataController;
+use App\Http\Controllers\Api\BookmarkDataController;
+use App\Http\Controllers\Api\ContractDataController;
+use App\Http\Controllers\Api\FittingDataController;
+use App\Http\Controllers\Api\CharacterKillmailDataController;
 use App\Http\Controllers\Admin\AdminController;
 use Illuminate\Support\Facades\Auth;
 
@@ -80,6 +96,35 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/skills/overview', [SkillDataController::class, 'overview'])->name('api.dashboard.skills-overview');
     Route::get('/skills/queue', [SkillDataController::class, 'queue'])->name('api.dashboard.skills-queue');
     Route::get('/skills/groups', [SkillDataController::class, 'groups'])->name('api.dashboard.skills-groups');
+
+    // 声望 API
+    Route::get('/standings', [StandingDataController::class, 'index'])->name('api.dashboard.standings');
+
+    // 联系人 API
+    Route::get('/contacts', [ContactDataController::class, 'index'])->name('api.dashboard.contacts');
+
+    // 提醒 API
+    Route::get('/notifications', [NotificationDataController::class, 'index'])->name('api.dashboard.notifications');
+
+    // 钱包 API
+    Route::get('/wallet/balance', [WalletDataController::class, 'balance'])->name('api.dashboard.wallet.balance');
+    Route::get('/wallet/journal', [WalletDataController::class, 'journal'])->name('api.dashboard.wallet.journal');
+    Route::get('/wallet/transactions', [WalletDataController::class, 'transactions'])->name('api.dashboard.wallet.transactions');
+    Route::get('/wallet/loyalty', [WalletDataController::class, 'loyalty'])->name('api.dashboard.wallet.loyalty');
+
+    // 书签 API
+    Route::get('/bookmarks', [BookmarkDataController::class, 'index'])->name('api.dashboard.bookmarks');
+    Route::get('/bookmarks/folders', [BookmarkDataController::class, 'folders'])->name('api.dashboard.bookmarks.folders');
+
+    // 合同 API
+    Route::get('/contracts', [ContractDataController::class, 'index'])->name('api.dashboard.contracts');
+    Route::get('/contracts/{id}/items', [ContractDataController::class, 'items'])->name('api.dashboard.contracts.items');
+
+    // 装配 API
+    Route::get('/fittings', [FittingDataController::class, 'index'])->name('api.dashboard.fittings');
+
+    // 击毁报告 API
+    Route::get('/killmails', [CharacterKillmailDataController::class, 'index'])->name('api.dashboard.killmails');
 });
 
 // 市场认证 API（需登录）
@@ -109,7 +154,28 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
     
     // 钱包
-    Route::get('/wallet', [CharacterController::class, 'wallet'])->name('wallet.index');
+    Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
+
+    // 声望
+    Route::get('/standings', [StandingController::class, 'index'])->name('standings.index');
+
+    // 联系人
+    Route::get('/contacts', [ContactController::class, 'index'])->name('contacts.index');
+
+    // 提醒
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+
+    // 书签
+    Route::get('/bookmarks', [BookmarkController::class, 'index'])->name('bookmarks.index');
+
+    // 合同
+    Route::get('/contracts', [ContractController::class, 'index'])->name('contracts.index');
+
+    // 装配
+    Route::get('/fittings', [FittingController::class, 'index'])->name('fittings.index');
+
+    // 击毁报告
+    Route::get('/my-killmails', [CharacterKillmailController::class, 'index'])->name('character-killmails.index');
 });
 
 // LP 商店公开 API
@@ -143,17 +209,13 @@ Route::middleware('throttle:30,1')->prefix('api/capital-nav')->group(function ()
     Route::get('/route', [CapitalNavApiController::class, 'planRoute']);
 });
 
-// 站点管理后台（仅管理员可访问）
+// 站点管理后台
 Route::middleware(['auth', 'eve.refresh', 'site.admin'])->prefix('admin')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
     Route::get('/logs', [AdminController::class, 'logs'])->name('admin.logs');
     Route::get('/api-stats', [AdminController::class, 'apiStats'])->name('admin.api-stats');
-});
-
-// 管理后台 API
-Route::middleware(['auth', 'eve.refresh', 'site.admin', 'throttle:30,1'])->prefix('api/admin')->group(function () {
-    Route::get('/dashboard-data', [AdminController::class, 'dashboardData'])->name('api.admin.dashboard-data');
-    Route::get('/api-stats', [AdminController::class, 'apiStatsData'])->name('api.admin.api-stats');
-    Route::post('/users/{userId}/refresh-token', [AdminController::class, 'refreshToken'])->name('api.admin.refresh-token');
+    Route::get('/api/dashboard-data', [AdminController::class, 'dashboardData'])->name('admin.api.dashboard-data');
+    Route::get('/api/api-stats-data', [AdminController::class, 'apiStatsData'])->name('admin.api.api-stats-data');
+    Route::post('/users/{userId}/refresh-token', [AdminController::class, 'refreshToken'])->name('admin.users.refresh-token');
 });
