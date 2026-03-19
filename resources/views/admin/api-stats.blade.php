@@ -7,45 +7,54 @@
 <div class="space-y-6">
     <!-- 概览统计 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">总调用次数</p>
-                    <p class="text-3xl font-bold mt-1" id="total-calls">
+                    <p class="text-slate-400 text-sm font-medium">总调用次数</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="total-calls">
                         <span class="skeleton inline-block w-16 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">📊</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">📊</span>
+                </div>
             </div>
         </div>
         
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">端点数量</p>
-                    <p class="text-3xl font-bold mt-1" id="endpoint-count">
+                    <p class="text-slate-400 text-sm font-medium">端点数量</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent" id="endpoint-count">
                         <span class="skeleton inline-block w-12 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">🔗</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">🔗</span>
+                </div>
             </div>
         </div>
         
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">状态</p>
-                    <p class="text-3xl font-bold mt-1 text-green-400">正常</p>
+                    <p class="text-slate-400 text-sm font-medium">系统状态</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">正常</p>
                 </div>
-                <div class="text-4xl opacity-50">✅</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">✅</span>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- 端点详情 -->
-    <div class="stat-card rounded-xl p-6">
+    <div class="stat-card rounded-2xl p-6">
         <h3 class="text-lg font-semibold mb-4 flex items-center">
-            <span class="mr-2">📈</span> API 端点调用详情
+            <span class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center mr-3">
+                <span class="text-lg">📈</span>
+            </span>
+            <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">API 端点调用详情</span>
         </h3>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -72,14 +81,26 @@
     </div>
 
     <!-- 说明 -->
-    <div class="stat-card rounded-xl p-6">
+    <div class="stat-card rounded-2xl p-6">
         <h3 class="text-lg font-semibold mb-4 flex items-center">
-            <span class="mr-2">ℹ️</span> 说明
+            <span class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mr-3">
+                <span class="text-lg">ℹ️</span>
+            </span>
+            <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">说明</span>
         </h3>
-        <div class="text-slate-400 text-sm space-y-2">
-            <p>• API 统计数据基于应用日志分析，每小时更新一次缓存</p>
-            <p>• 调用次数统计的是日志中出现的 API 路径次数</p>
-            <p>• 如需更精确的性能监控，建议接入专业的 APM 工具</p>
+        <div class="text-slate-400 text-sm space-y-3">
+            <div class="flex items-start space-x-3 p-3 bg-slate-800/30 rounded-xl">
+                <span class="text-amber-400">•</span>
+                <p>API 统计数据基于应用日志分析，每小时更新一次缓存</p>
+            </div>
+            <div class="flex items-start space-x-3 p-3 bg-slate-800/30 rounded-xl">
+                <span class="text-amber-400">•</span>
+                <p>调用次数统计的是日志中出现的 API 路径次数</p>
+            </div>
+            <div class="flex items-start space-x-3 p-3 bg-slate-800/30 rounded-xl">
+                <span class="text-amber-400">•</span>
+                <p>如需更精确的性能监控，建议接入专业的 APM 工具</p>
+            </div>
         </div>
     </div>
 </div>
@@ -125,16 +146,16 @@ function renderStats(stats) {
     tbody.innerHTML = endpoints.map(endpoint => {
         const percent = totalCalls > 0 ? ((endpoint.calls / totalCalls) * 100).toFixed(1) : 0;
         return `
-            <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-                <td class="py-3 font-mono text-sm text-blue-300">${endpoint.path}</td>
-                <td class="py-3 text-slate-300">${endpoint.name}</td>
-                <td class="py-3 text-right font-medium">${endpoint.calls.toLocaleString()}</td>
-                <td class="py-3 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                        <div class="w-20 h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-blue-500 rounded-full" style="width: ${percent}%"></div>
+            <tr class="border-b border-slate-700/30 hover:bg-blue-500/5 transition-colors">
+                <td class="py-4 font-mono text-sm text-blue-400">${endpoint.path}</td>
+                <td class="py-4 text-slate-300">${endpoint.name}</td>
+                <td class="py-4 text-right font-semibold text-white">${endpoint.calls.toLocaleString()}</td>
+                <td class="py-4 text-right">
+                    <div class="flex items-center justify-end gap-3">
+                        <div class="w-24 h-2.5 bg-slate-700/50 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
                         </div>
-                        <span class="text-sm text-slate-400">${percent}%</span>
+                        <span class="text-sm text-slate-400 w-12 text-right">${percent}%</span>
                     </div>
                 </td>
             </tr>

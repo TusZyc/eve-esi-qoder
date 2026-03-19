@@ -36,65 +36,76 @@
 <div class="space-y-6">
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">已授权用户</p>
-                    <p class="text-3xl font-bold mt-1" id="stat-users">
+                    <p class="text-slate-400 text-sm font-medium">已授权用户</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="stat-users">
                         <span class="skeleton inline-block w-12 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">👥</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">👥</span>
+                </div>
             </div>
         </div>
         
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">今日错误</p>
-                    <p class="text-3xl font-bold mt-1 text-red-400" id="stat-errors">
+                    <p class="text-slate-400 text-sm font-medium">今日错误</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-red-400 to-rose-400 bg-clip-text text-transparent" id="stat-errors">
                         <span class="skeleton inline-block w-12 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">⚠️</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500/20 to-rose-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">⚠️</span>
+                </div>
             </div>
         </div>
         
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">今日警告</p>
-                    <p class="text-3xl font-bold mt-1 text-yellow-400" id="stat-warnings">
+                    <p class="text-slate-400 text-sm font-medium">今日警告</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent" id="stat-warnings">
                         <span class="skeleton inline-block w-12 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">⚡</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">⚡</span>
+                </div>
             </div>
         </div>
         
-        <div class="stat-card rounded-xl p-4">
+        <div class="stat-card rounded-2xl p-5 group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-slate-400 text-sm">日志大小</p>
-                    <p class="text-3xl font-bold mt-1" id="stat-log-size">
+                    <p class="text-slate-400 text-sm font-medium">日志大小</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent" id="stat-log-size">
                         <span class="skeleton inline-block w-16 h-8"></span>
                     </p>
                 </div>
-                <div class="text-4xl opacity-50">📁</div>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-3xl">📁</span>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- 已授权用户列表 -->
-        <div class="stat-card rounded-xl p-6">
+        <div class="stat-card rounded-2xl p-6">
             <h3 class="text-lg font-semibold mb-4 flex items-center">
-                <span class="mr-2">👥</span> 已授权用户
+                <span class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mr-3">
+                    <span class="text-lg">👥</span>
+                </span>
+                <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">已授权用户</span>
             </h3>
             <div class="scroll-container space-y-3" id="users-list">
                 <!-- 骨架屏 -->
                 @for ($i = 0; $i < 5; $i++)
-                <div class="flex items-center space-x-3 p-3 bg-slate-800/50 rounded-lg">
+                <div class="flex items-center space-x-3 p-3 bg-slate-800/50 rounded-xl">
                     <div class="skeleton w-10 h-10 rounded-full"></div>
                     <div class="flex-1">
                         <div class="skeleton w-32 h-4 mb-2"></div>
@@ -106,14 +117,17 @@
         </div>
 
         <!-- 最近错误 -->
-        <div class="stat-card rounded-xl p-6">
+        <div class="stat-card rounded-2xl p-6">
             <h3 class="text-lg font-semibold mb-4 flex items-center">
-                <span class="mr-2">🔴</span> 最近错误
+                <span class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center mr-3">
+                    <span class="text-lg">🔴</span>
+                </span>
+                <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">最近错误</span>
             </h3>
             <div class="scroll-container space-y-3" id="errors-list">
                 <!-- 骨架屏 -->
                 @for ($i = 0; $i < 5; $i++)
-                <div class="p-3 bg-slate-800/50 rounded-lg">
+                <div class="p-3 bg-slate-800/50 rounded-xl">
                     <div class="skeleton w-32 h-3 mb-2"></div>
                     <div class="skeleton w-full h-4"></div>
                 </div>
@@ -123,9 +137,12 @@
     </div>
 
     <!-- API 调用统计 -->
-    <div class="stat-card rounded-xl p-6">
+    <div class="stat-card rounded-2xl p-6">
         <h3 class="text-lg font-semibold mb-4 flex items-center">
-            <span class="mr-2">📈</span> API 调用统计
+            <span class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center mr-3">
+                <span class="text-lg">📈</span>
+            </span>
+            <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">API 调用统计</span>
         </h3>
         <div class="overflow-x-auto">
             <table class="w-full" id="api-stats-table">
@@ -204,27 +221,29 @@ function renderUsersList(users) {
     const container = document.getElementById('users-list');
     
     if (!users || users.length === 0) {
-        container.innerHTML = '<p class="text-slate-400 text-center py-4">暂无已授权用户</p>';
+        container.innerHTML = '<p class="text-slate-400 text-center py-8">暂无已授权用户</p>';
         return;
     }
     
     container.innerHTML = users.map(user => `
-        <div class="user-card flex items-center space-x-3 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50">
-            <img src="https://image.evepc.163.com/Character/${user.eve_character_id}_64.jpg" 
-                 alt="${user.name}" class="w-10 h-10 rounded-full">
+        <div class="user-card flex items-center space-x-3 p-4 bg-slate-800/30 rounded-xl hover:bg-slate-700/40 border border-slate-700/30 hover:border-blue-500/30 transition-all">
+            <div class="relative">
+                <img src="https://image.evepc.163.com/Character/${user.eve_character_id}_64.jpg" 
+                     alt="${user.name}" class="w-11 h-11 rounded-full ring-2 ring-slate-600">
+            </div>
             <div class="flex-1 min-w-0">
                 <p class="font-medium truncate">${user.name}</p>
-                <p class="text-xs text-slate-400">
-                    ID: ${user.eve_character_id}
-                    <span class="mx-1">|</span>
-                    授权: <span class="${getAuthStatusClass(user.auth_status)}">${user.auth_status_text}</span>
-                    <span class="mx-1">|</span>
-                    Token: <span class="${getTokenStatusClass(user.current_status)}">${user.current_status_text}</span>
+                <p class="text-xs text-slate-400 mt-1">
+                    <span class="text-slate-500">ID:</span> ${user.eve_character_id}
+                    <span class="mx-2 text-slate-600">•</span>
+                    <span class="${getAuthStatusClass(user.auth_status)}">${user.auth_status_text}</span>
+                    <span class="mx-2 text-slate-600">•</span>
+                    <span class="${getTokenStatusClass(user.current_status)}">${user.current_status_text}</span>
                 </p>
             </div>
-            <div class="text-right text-xs text-slate-400">
-                <p>最后活跃</p>
-                <p>${formatTime(user.last_active)}</p>
+            <div class="text-right text-xs text-slate-500">
+                <p class="text-slate-600">最后活跃</p>
+                <p class="mt-0.5">${formatTime(user.last_active)}</p>
             </div>
         </div>
     `).join('');
@@ -234,18 +253,26 @@ function renderErrorsList(errors) {
     const container = document.getElementById('errors-list');
     
     if (!errors || errors.length === 0) {
-        container.innerHTML = '<p class="text-green-400 text-center py-4">✅ 暂无错误记录</p>';
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-green-500/10 flex items-center justify-center">
+                    <span class="text-3xl">✅</span>
+                </div>
+                <p class="text-green-400 font-medium">系统运行正常</p>
+                <p class="text-slate-500 text-sm mt-1">暂无错误记录</p>
+            </div>
+        `;
         return;
     }
     
     container.innerHTML = errors.map(error => `
-        <div class="p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 cursor-pointer" 
+        <div class="p-4 bg-slate-800/30 rounded-xl hover:bg-slate-700/40 border border-slate-700/30 hover:border-red-500/30 cursor-pointer transition-all" 
              title="${escapeHtml(error.full_message || error.message)}">
-            <div class="flex items-center justify-between mb-1">
-                <span class="text-xs text-slate-400">${error.time}</span>
-                <span class="text-xs px-2 py-0.5 rounded ${getLevelClass(error.level)}">${error.level}</span>
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs text-slate-500">${error.time}</span>
+                <span class="text-xs px-2.5 py-1 rounded-full font-medium ${getLevelClass(error.level)}">${error.level}</span>
             </div>
-            <p class="text-sm text-red-300 line-clamp-2">${escapeHtml(error.message)}</p>
+            <p class="text-sm text-red-300/90 line-clamp-2">${escapeHtml(error.message)}</p>
         </div>
     `).join('');
 }
@@ -256,19 +283,19 @@ function renderApiStats(stats) {
     if (!stats.endpoints || stats.endpoints.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="py-4 text-center text-slate-400">暂无 API 调用记录</td>
+                <td colspan="4" class="py-8 text-center text-slate-400">暂无 API 调用记录</td>
             </tr>
         `;
         return;
     }
     
     tbody.innerHTML = stats.endpoints.map(endpoint => `
-        <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-            <td class="py-3 font-mono text-sm text-blue-300">${endpoint.path}</td>
-            <td class="py-3 text-slate-300">${endpoint.name}</td>
-            <td class="py-3 text-right font-medium">${endpoint.calls.toLocaleString()}</td>
-            <td class="py-3 text-right">
-                <span class="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">正常</span>
+        <tr class="border-b border-slate-700/30 hover:bg-blue-500/5 transition-colors">
+            <td class="py-4 font-mono text-sm text-blue-400">${endpoint.path}</td>
+            <td class="py-4 text-slate-300">${endpoint.name}</td>
+            <td class="py-4 text-right font-semibold text-white">${endpoint.calls.toLocaleString()}</td>
+            <td class="py-4 text-right">
+                <span class="text-xs px-3 py-1.5 rounded-full bg-green-500/15 text-green-400 font-medium">正常</span>
             </td>
         </tr>
     `).join('');
