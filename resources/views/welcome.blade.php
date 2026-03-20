@@ -204,6 +204,13 @@
             </div>
         </div>
 
+        <!-- 使用指南入口 -->
+        <div class="mt-6 text-center anim-3">
+            <a href="{{ route('guide') }}" class="text-blue-300/70 hover:text-blue-200 text-sm transition-colors inline-flex items-center gap-1">
+                📖 查看使用指南
+            </a>
+        </div>
+
         <!-- 页脚 -->
         <footer class="mt-auto pt-16 text-center text-blue-300/50 text-xs anim-4">
             <p>Tus Esi System &middot; 数据来源于 EVE ESI API &middot; 非官方项目</p>

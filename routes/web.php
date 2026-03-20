@@ -49,6 +49,11 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// 使用指南（公开访问）
+Route::get('/guide', function () {
+    return view('guide');
+})->name('guide');
+
 // 游客仪表盘（无需授权）
 Route::get('/guest', [GuestDashboardController::class, 'index'])->name('guest.dashboard');
 
