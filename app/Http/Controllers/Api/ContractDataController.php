@@ -49,7 +49,7 @@ class ContractDataController extends Controller
 
         try {
             // 获取合同列表（支持分页）
-            $contracts = Cache::remember("contracts_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $contracts = Cache::remember("contracts_all_{$characterId}", 3600, function () use ($baseUrl, $characterId, $token) {
                 $allContracts = [];
                 $page = 1;
                 

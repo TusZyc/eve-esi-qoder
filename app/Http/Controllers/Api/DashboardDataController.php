@@ -236,7 +236,7 @@ class DashboardDataController extends Controller
         
         // 玩家数为 0 但服务器在线，说明处于调试状态
         if ($players === 0) {
-            return '调试中（服务器已启动， currently empty）';
+            return '调试中（服务器已启动，当前无玩家在线）';
         }
         
         return '已开服';

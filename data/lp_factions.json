@@ -1,0 +1,714 @@
+[
+  {
+    "faction_id": 500026,
+    "faction_name": "三神裔",
+    "corporations": [
+      {
+        "corporation_id": 1000293,
+        "name": "Perun Clade"
+      },
+      {
+        "corporation_id": 1000294,
+        "name": "Svarog Clade"
+      },
+      {
+        "corporation_id": 1000292,
+        "name": "Veles Clade"
+      }
+    ]
+  },
+  {
+    "faction_id": 500001,
+    "faction_name": "加达里合众国",
+    "corporations": [
+      {
+        "corporation_id": 1000002,
+        "name": "CBD Corporation"
+      },
+      {
+        "corporation_id": 1000024,
+        "name": "CBD Sell Division"
+      },
+      {
+        "corporation_id": 1000033,
+        "name": "Caldari Business Tribunal"
+      },
+      {
+        "corporation_id": 1000026,
+        "name": "Caldari Constructions"
+      },
+      {
+        "corporation_id": 1000028,
+        "name": "Caldari Funds Unlimited"
+      },
+      {
+        "corporation_id": 1000035,
+        "name": "Caldari Navy"
+      },
+      {
+        "corporation_id": 1000009,
+        "name": "Caldari Provisions"
+      },
+      {
+        "corporation_id": 1000015,
+        "name": "Caldari Steel"
+      },
+      {
+        "corporation_id": 1000006,
+        "name": "Deep Core Mining Inc."
+      },
+      {
+        "corporation_id": 1000018,
+        "name": "Echelon Entertainment"
+      },
+      {
+        "corporation_id": 1000027,
+        "name": "Expert Housing"
+      },
+      {
+        "corporation_id": 1000039,
+        "name": "Home Guard"
+      },
+      {
+        "corporation_id": 1000005,
+        "name": "Hyasyoda Corporation"
+      },
+      {
+        "corporation_id": 1000036,
+        "name": "Internal Security"
+      },
+      {
+        "corporation_id": 1000019,
+        "name": "Ishukone Corporation"
+      },
+      {
+        "corporation_id": 1000038,
+        "name": "Ishukone Watch"
+      },
+      {
+        "corporation_id": 1000010,
+        "name": "Kaalakiota Corporation"
+      },
+      {
+        "corporation_id": 1000020,
+        "name": "Lai Dai Corporation"
+      },
+      {
+        "corporation_id": 1000037,
+        "name": "Lai Dai Protection Service"
+      },
+      {
+        "corporation_id": 1000030,
+        "name": "Modern Finances"
+      },
+      {
+        "corporation_id": 1000017,
+        "name": "Nugoeihuvi Corporation"
+      },
+      {
+        "corporation_id": 1000040,
+        "name": "Peace and Order Unit"
+      },
+      {
+        "corporation_id": 1000014,
+        "name": "Perkone"
+      },
+      {
+        "corporation_id": 1000007,
+        "name": "Poksu Mineral Group"
+      },
+      {
+        "corporation_id": 1000022,
+        "name": "Propel Dynamics"
+      },
+      {
+        "corporation_id": 1000044,
+        "name": "School of Applied Knowledge"
+      },
+      {
+        "corporation_id": 1000045,
+        "name": "Science and Trade Institute"
+      },
+      {
+        "corporation_id": 1000041,
+        "name": "Spacelane Patrol"
+      },
+      {
+        "corporation_id": 1000284,
+        "name": "State Military Stockpile"
+      },
+      {
+        "corporation_id": 1000180,
+        "name": "State Protectorate"
+      },
+      {
+        "corporation_id": 1000167,
+        "name": "State War Academy"
+      },
+      {
+        "corporation_id": 1000029,
+        "name": "State and Region Bank"
+      },
+      {
+        "corporation_id": 1000025,
+        "name": "Sukuuvestaa Corporation"
+      },
+      {
+        "corporation_id": 1000011,
+        "name": "Wiyrkomi Corporation"
+      },
+      {
+        "corporation_id": 1000042,
+        "name": "Wiyrkomi Peace Corps"
+      },
+      {
+        "corporation_id": 1000004,
+        "name": "Ytiri"
+      },
+      {
+        "corporation_id": 1000021,
+        "name": "Zero-G Research Firm"
+      }
+    ]
+  },
+  {
+    "faction_id": 500008,
+    "faction_name": "卡尼迪王国",
+    "corporations": [
+      {
+        "corporation_id": 1000128,
+        "name": "Mordu's Legion"
+      }
+    ]
+  },
+  {
+    "faction_id": 500010,
+    "faction_name": "古斯塔斯游寇",
+    "corporations": [
+      {
+        "corporation_id": 1000437,
+        "name": "Commando Guri"
+      },
+      {
+        "corporation_id": 1000141,
+        "name": "Guristas Production"
+      }
+    ]
+  },
+  {
+    "faction_id": 500011,
+    "faction_name": "天使企业联合体",
+    "corporations": [
+      {
+        "corporation_id": 1000124,
+        "name": "Archangels"
+      },
+      {
+        "corporation_id": 1000138,
+        "name": "Dominations"
+      },
+      {
+        "corporation_id": 1000136,
+        "name": "Guardian Angels"
+      },
+      {
+        "corporation_id": 1000436,
+        "name": "Malakim Zealots"
+      },
+      {
+        "corporation_id": 1000133,
+        "name": "Salvation Angels"
+      }
+    ]
+  },
+  {
+    "faction_id": 500020,
+    "faction_name": "天蛇集团",
+    "corporations": [
+      {
+        "corporation_id": 1000135,
+        "name": "Serpentis Corporation"
+      },
+      {
+        "corporation_id": 1000157,
+        "name": "Serpentis Inquest"
+      }
+    ]
+  },
+  {
+    "faction_id": 500021,
+    "faction_name": "未知",
+    "corporations": [
+      {
+        "corporation_id": 1000276,
+        "name": "ORE Technologies"
+      },
+      {
+        "corporation_id": 1000270,
+        "name": "Outer Ring Development"
+      },
+      {
+        "corporation_id": 1000129,
+        "name": "Outer Ring Excavations"
+      },
+      {
+        "corporation_id": 1000271,
+        "name": "Outer Ring Prospecting"
+      }
+    ]
+  },
+  {
+    "faction_id": 500004,
+    "faction_name": "盖伦特联邦",
+    "corporations": [
+      {
+        "corporation_id": 1000111,
+        "name": "Aliastra"
+      },
+      {
+        "corporation_id": 1000098,
+        "name": "Astral Mining Inc."
+      },
+      {
+        "corporation_id": 1000112,
+        "name": "Bank of Luminaire"
+      },
+      {
+        "corporation_id": 1000108,
+        "name": "Chemal Tech"
+      },
+      {
+        "corporation_id": 1000109,
+        "name": "Duvolle Laboratories"
+      },
+      {
+        "corporation_id": 1000106,
+        "name": "Egonics Inc."
+      },
+      {
+        "corporation_id": 1000110,
+        "name": "FedMart"
+      },
+      {
+        "corporation_id": 1000119,
+        "name": "Federal Administration"
+      },
+      {
+        "corporation_id": 1000181,
+        "name": "Federal Defense Union"
+      },
+      {
+        "corporation_id": 1000095,
+        "name": "Federal Freight"
+      },
+      {
+        "corporation_id": 1000121,
+        "name": "Federal Intelligence Office"
+      },
+      {
+        "corporation_id": 1000168,
+        "name": "Federal Navy Academy"
+      },
+      {
+        "corporation_id": 1000285,
+        "name": "Federal Strategic Materiel"
+      },
+      {
+        "corporation_id": 1000122,
+        "name": "Federation Customs"
+      },
+      {
+        "corporation_id": 1000120,
+        "name": "Federation Navy"
+      },
+      {
+        "corporation_id": 1000114,
+        "name": "Garoun Investment Bank"
+      },
+      {
+        "corporation_id": 1000105,
+        "name": "Impetus"
+      },
+      {
+        "corporation_id": 1000097,
+        "name": "Material Acquisition"
+      },
+      {
+        "corporation_id": 1000113,
+        "name": "Pend Insurance"
+      },
+      {
+        "corporation_id": 1000104,
+        "name": "Poteque Pharmaceuticals"
+      },
+      {
+        "corporation_id": 1000116,
+        "name": "President"
+      },
+      {
+        "corporation_id": 1000100,
+        "name": "Quafe Company"
+      },
+      {
+        "corporation_id": 1000102,
+        "name": "Roden Shipyards"
+      },
+      {
+        "corporation_id": 1000117,
+        "name": "Senate"
+      },
+      {
+        "corporation_id": 1000107,
+        "name": "The Scope"
+      },
+      {
+        "corporation_id": 1000094,
+        "name": "TransStellar Shipping"
+      },
+      {
+        "corporation_id": 1000115,
+        "name": "University of Caille"
+      }
+    ]
+  },
+  {
+    "faction_id": 500017,
+    "faction_name": "真理会",
+    "corporations": [
+      {
+        "corporation_id": 1000144,
+        "name": "Intaki Bank"
+      },
+      {
+        "corporation_id": 1000145,
+        "name": "Intaki Commerce"
+      },
+      {
+        "corporation_id": 1000146,
+        "name": "Intaki Space Police"
+      },
+      {
+        "corporation_id": 1000147,
+        "name": "Intaki Syndicate"
+      }
+    ]
+  },
+  {
+    "faction_id": 500002,
+    "faction_name": "米玛塔尔共和国",
+    "corporations": [
+      {
+        "corporation_id": 1000057,
+        "name": "Boundless Creation"
+      },
+      {
+        "corporation_id": 1000049,
+        "name": "Brutor Tribe"
+      },
+      {
+        "corporation_id": 1000056,
+        "name": "Core Complexion Inc."
+      },
+      {
+        "corporation_id": 1000058,
+        "name": "Eifyr and Co."
+      },
+      {
+        "corporation_id": 1000061,
+        "name": "Freedom Extension"
+      },
+      {
+        "corporation_id": 1000047,
+        "name": "Krusual Tribe"
+      },
+      {
+        "corporation_id": 1000055,
+        "name": "Minmatar Mining Corporation"
+      },
+      {
+        "corporation_id": 1000060,
+        "name": "Native Freshfood"
+      },
+      {
+        "corporation_id": 1000172,
+        "name": "Pator Tech School"
+      },
+      {
+        "corporation_id": 1000051,
+        "name": "Republic Fleet"
+      },
+      {
+        "corporation_id": 1000286,
+        "name": "Republic Fleet Ordnance"
+      },
+      {
+        "corporation_id": 1000052,
+        "name": "Republic Justice Department"
+      },
+      {
+        "corporation_id": 1000170,
+        "name": "Republic Military School"
+      },
+      {
+        "corporation_id": 1000050,
+        "name": "Republic Parliament"
+      },
+      {
+        "corporation_id": 1000054,
+        "name": "Republic Security Services"
+      },
+      {
+        "corporation_id": 1000171,
+        "name": "Republic University"
+      },
+      {
+        "corporation_id": 1000046,
+        "name": "Sebiestor Tribe"
+      },
+      {
+        "corporation_id": 1000059,
+        "name": "Six Kin Development"
+      },
+      {
+        "corporation_id": 1000182,
+        "name": "Tribal Liberation Force"
+      },
+      {
+        "corporation_id": 1000163,
+        "name": "Trust Partners"
+      },
+      {
+        "corporation_id": 1000053,
+        "name": "Urban Management"
+      },
+      {
+        "corporation_id": 1000048,
+        "name": "Vherokior Tribe"
+      }
+    ]
+  },
+  {
+    "faction_id": 500006,
+    "faction_name": "统一合作关系部 (统合部)",
+    "corporations": [
+      {
+        "corporation_id": 1000125,
+        "name": "CONCORD"
+      },
+      {
+        "corporation_id": 1000137,
+        "name": "DED"
+      }
+    ]
+  },
+  {
+    "faction_id": 500014,
+    "faction_name": "联合矿业",
+    "corporations": [
+      {
+        "corporation_id": 1000126,
+        "name": "Ammatar Consulate"
+      },
+      {
+        "corporation_id": 1000123,
+        "name": "Ammatar Fleet"
+      }
+    ]
+  },
+  {
+    "faction_id": 500003,
+    "faction_name": "艾玛帝国",
+    "corporations": [
+      {
+        "corporation_id": 1000179,
+        "name": "24th Imperial Crusade"
+      },
+      {
+        "corporation_id": 1000073,
+        "name": "Amarr Certified News"
+      },
+      {
+        "corporation_id": 1000079,
+        "name": "Amarr Civil Service"
+      },
+      {
+        "corporation_id": 1000063,
+        "name": "Amarr Constructions"
+      },
+      {
+        "corporation_id": 1000084,
+        "name": "Amarr Navy"
+      },
+      {
+        "corporation_id": 1000083,
+        "name": "Amarr Trade Registry"
+      },
+      {
+        "corporation_id": 1000090,
+        "name": "Ardishapur Family"
+      },
+      {
+        "corporation_id": 1000064,
+        "name": "Carthum Conglomerate"
+      },
+      {
+        "corporation_id": 1000069,
+        "name": "Ducia Foundry"
+      },
+      {
+        "corporation_id": 1000086,
+        "name": "Emperor Family"
+      },
+      {
+        "corporation_id": 1000070,
+        "name": "HZO Refinery"
+      },
+      {
+        "corporation_id": 1000165,
+        "name": "Hedion University"
+      },
+      {
+        "corporation_id": 1000166,
+        "name": "Imperial Academy"
+      },
+      {
+        "corporation_id": 1000065,
+        "name": "Imperial Armaments"
+      },
+      {
+        "corporation_id": 1000078,
+        "name": "Imperial Chancellor"
+      },
+      {
+        "corporation_id": 1000072,
+        "name": "Imperial Shipment"
+      },
+      {
+        "corporation_id": 1000283,
+        "name": "Imperial War Reserves"
+      },
+      {
+        "corporation_id": 1000071,
+        "name": "Inherent Implants"
+      },
+      {
+        "corporation_id": 1000074,
+        "name": "Joint Harvesting"
+      },
+      {
+        "corporation_id": 1000087,
+        "name": "Kador Family"
+      },
+      {
+        "corporation_id": 1000089,
+        "name": "Kor-Azor Family"
+      },
+      {
+        "corporation_id": 1000081,
+        "name": "Ministry of Assessment"
+      },
+      {
+        "corporation_id": 1000082,
+        "name": "Ministry of Internal Order"
+      },
+      {
+        "corporation_id": 1000080,
+        "name": "Ministry of War"
+      },
+      {
+        "corporation_id": 1000075,
+        "name": "Nurtura"
+      },
+      {
+        "corporation_id": 1000077,
+        "name": "Royal Amarr Institute"
+      },
+      {
+        "corporation_id": 1000088,
+        "name": "Sarum Family"
+      },
+      {
+        "corporation_id": 1000091,
+        "name": "Tash-Murkon Family"
+      },
+      {
+        "corporation_id": 1000093,
+        "name": "Theology Council"
+      },
+      {
+        "corporation_id": 1000066,
+        "name": "Viziam"
+      },
+      {
+        "corporation_id": 1000067,
+        "name": "Zoar and Sons"
+      }
+    ]
+  },
+  {
+    "faction_id": 500007,
+    "faction_name": "艾玛达共和国",
+    "corporations": [
+      {
+        "corporation_id": 1000130,
+        "name": "Sisters of EVE"
+      },
+      {
+        "corporation_id": 1000159,
+        "name": "The Sanctuary"
+      }
+    ]
+  },
+  {
+    "faction_id": 500018,
+    "faction_name": "莫德团",
+    "corporations": [
+      {
+        "corporation_id": 1000151,
+        "name": "Khanid Innovation"
+      },
+      {
+        "corporation_id": 1000152,
+        "name": "Khanid Transport"
+      },
+      {
+        "corporation_id": 1000153,
+        "name": "Khanid Works"
+      },
+      {
+        "corporation_id": 1000156,
+        "name": "Royal Khanid Navy"
+      }
+    ]
+  },
+  {
+    "faction_id": 500019,
+    "faction_name": "萨沙共和国",
+    "corporations": [
+      {
+        "corporation_id": 1000162,
+        "name": "True Power"
+      }
+    ]
+  },
+  {
+    "faction_id": 500012,
+    "faction_name": "血袭者同盟",
+    "corporations": [
+      {
+        "corporation_id": 1000134,
+        "name": "Blood Raiders"
+      }
+    ]
+  },
+  {
+    "faction_id": 500009,
+    "faction_name": "辛迪加财团",
+    "corporations": [
+      {
+        "corporation_id": 1000160,
+        "name": "Thukker Mix"
+      }
+    ]
+  }
+]

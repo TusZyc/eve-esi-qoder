@@ -31,7 +31,8 @@ class MarketService
     }
 
     /**
-     * 获取所有星域列表（cache-through 模式：缓存不存在时自动从 ESI 获取）
+     * 获取所有 K-space 星域列表（cache-through 模式：缓存不存在时自动从 ESI 获取）
+     * 只返回有市场功能的星域（ID 范围 10000001-10000070，约 69 个）
      */
     public function getAllRegions(): array
     {
@@ -143,7 +144,9 @@ class MarketService
     }
 
     /**
-     * 从 ESI API 获取所有星域列表
+     * 从 ESI API 获取所有 K-space 星域列表（有市场功能的星域）
+     * K-space 星域 ID 范围：10000001-10000070（约 69 个）
+     * 排除虫洞、深渊等特殊区域
      */
     private function fetchAllRegionsFromApi(): array
     {
@@ -161,6 +164,19 @@ class MarketService
             if (empty($regionIds)) {
                 return [];
             }
+
+            // 只保留 K-space 星域（ID 范围 10000001-10000070，有市场功能）
+            // 排除虫洞（11000001+）、深渊（12000001+）等特殊区域
+            $regionIds = array_filter($regionIds, function ($id) {
+                return $id >= 10000001 && $id <= 10000070;
+            });
+
+            if (empty($regionIds)) {
+                Log::warning('No K-space regions found in ESI response');
+                return [];
+            }
+
+            Log::info('Filtered to ' . count($regionIds) . ' K-space regions');
 
             $regions = [];
             $regionBatches = array_chunk($regionIds, 30);
@@ -192,7 +208,7 @@ class MarketService
             }
 
             usort($regions, fn($a, $b) => $a['name'] <=> $b['name']);
-            Log::info('Market regions list rebuilt successfully: ' . count($regions) . ' regions');
+            Log::info('Market regions list rebuilt successfully: ' . count($regions) . ' K-space regions');
             return $regions;
 
         } catch (\Exception $e) {

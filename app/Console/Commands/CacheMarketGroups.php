@@ -9,11 +9,21 @@ use App\Services\EveDataService;
 
 class CacheMarketGroups extends Command
 {
-    protected $signature = 'market:cache-groups';
+    protected $signature = 'market:cache-groups {--force : 强制重建缓存，即使缓存已存在}';
     protected $description = 'Fetch and cache all market group details (with item names) and region list';
 
     public function handle()
     {
+        // 允许最长 5 分钟的执行时间
+        set_time_limit(300);
+
+        // 检查是否需要强制重建
+        $force = $this->option('force');
+        if (!$force && Cache::has('market_groups_tree')) {
+            $this->info('Market groups tree cache already exists. Use --force to rebuild.');
+            return 0;
+        }
+
         $baseUrl = config('esi.base_url');
         $datasource = config('esi.datasource', 'serenity');
 

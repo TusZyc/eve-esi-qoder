@@ -22,6 +22,10 @@ class MarketDataController extends Controller
      */
     public function groups(Request $request)
     {
+        // 市场分组树构建需要从 ESI 获取 3000+ 分组和数万物品名称
+        // 首次构建时可能需要较长时间，允许最多 120 秒
+        set_time_limit(120);
+
         $tree = $this->marketService->getMarketGroupsTree();
 
         $response = response()->json([

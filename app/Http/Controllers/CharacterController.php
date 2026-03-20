@@ -10,10 +10,17 @@ use App\Helpers\EveHelper;
 use App\Services\CharacterDataService;
 use App\Services\CacheKeyService;
 use App\Services\ApiErrorHandler;
+use App\Services\StationNameService;
 use App\Exceptions\EveApiException;
 
 class CharacterController extends Controller
 {
+    private StationNameService $stationNameService;
+    
+    public function __construct(StationNameService $stationNameService)
+    {
+        $this->stationNameService = $stationNameService;
+    }
     /**
      * 角色管理页 — 直接显示角色全部信息
      */
@@ -504,144 +511,17 @@ class CharacterController extends Controller
     }
 
     /**
-     * 解析位置名称（空间站或建筑），NPC 空间站逐段翻译为中文
+     * 解析位置名称（空间站或建筑）
      */
     private function resolveLocationName(int $locationId, string $locationType, $user): string
     {
-        $cached = Cache::get("eve_location_name_zh_{$locationId}");
-        if ($cached !== null) {
-            return $cached;
+        if ($locationType === 'structure' && $user) {
+            // 玩家建筑需要token
+            return $this->stationNameService->getStructureName($locationId, $user->access_token);
+        } else {
+            // NPC空间站
+            return $this->stationNameService->getStationNameZh($locationId);
         }
-
-        $baseUrl = config('esi.base_url');
-        $name = "Unknown #{$locationId}";
-
-        try {
-            if ($locationType === 'structure' && $user) {
-                // 玩家建筑需要token
-                $response = Http::withToken($user->access_token)->timeout(10)
-                    ->get($baseUrl . "universe/structures/{$locationId}/", ['datasource' => 'serenity', 'language' => 'zh']);
-                if ($response->ok()) {
-                    $name = $response->json()['name'] ?? $name;
-                }
-            } else {
-                // NPC空间站 — ESI stations 端点不支持中文，需逐段翻译
-                $response = Http::timeout(10)
-                    ->get($baseUrl . "universe/stations/{$locationId}/", ['datasource' => 'serenity']);
-                if ($response->ok()) {
-                    $data = $response->json();
-                    $name = $data['name'] ?? $name;
-                    $systemId = $data['system_id'] ?? 0;
-                    $ownerId = $data['owner'] ?? 0;
-                    $name = $this->translateStationName($name, $systemId, $ownerId);
-                }
-            }
-        } catch (\Exception $e) {
-            // fallback
-        }
-
-        Cache::put("eve_location_name_zh_{$locationId}", $name, 86400);
-        return $name;
-    }
-
-    /**
-     * 逐段翻译 NPC 空间站英文名为中文（星系名 + 军团名 + 设施类型）
-     */
-    private function translateStationName(string $name, int $systemId, int $ownerId): string
-    {
-        $baseUrl = config('esi.base_url');
-
-        // 1) 替换星系名
-        if ($systemId > 0) {
-            $zhSys = Cache::get("eve_sysname_{$systemId}");
-            $enSys = Cache::get("eve_sysname_en_{$systemId}");
-
-            if ($zhSys === null || $enSys === null) {
-                try {
-                    $responses = Http::pool(function ($pool) use ($baseUrl, $systemId) {
-                        $pool->as('zh')->timeout(5)
-                            ->get($baseUrl . "universe/systems/{$systemId}/", ['datasource' => 'serenity', 'language' => 'zh']);
-                        $pool->as('en')->timeout(5)
-                            ->get($baseUrl . "universe/systems/{$systemId}/", ['datasource' => 'serenity', 'language' => 'en']);
-                    });
-                    if (isset($responses['zh']) && $responses['zh'] instanceof \Illuminate\Http\Client\Response && $responses['zh']->ok()) {
-                        $zhSys = $responses['zh']->json()['name'] ?? '';
-                        Cache::put("eve_sysname_{$systemId}", $zhSys, 86400);
-                    }
-                    if (isset($responses['en']) && $responses['en'] instanceof \Illuminate\Http\Client\Response && $responses['en']->ok()) {
-                        $enSys = $responses['en']->json()['name'] ?? '';
-                        Cache::put("eve_sysname_en_{$systemId}", $enSys, 86400);
-                    }
-                } catch (\Exception $e) {}
-            }
-
-            if ($enSys && $zhSys && str_starts_with($name, $enSys)) {
-                $name = $zhSys . substr($name, strlen($enSys));
-            }
-        }
-
-        // 2) Moon -> 卫星
-        $name = preg_replace('/\bMoon\b/', '卫星', $name);
-
-        // 3) 替换军团名
-        if ($ownerId > 0) {
-            $enCorp = Cache::get("eve_corpname_en_{$ownerId}");
-            $zhCorp = Cache::get("eve_name_{$ownerId}");
-
-            if ($enCorp === null) {
-                try {
-                    $resp = Http::timeout(5)->get($baseUrl . "corporations/{$ownerId}/", ['datasource' => 'serenity']);
-                    if ($resp->ok()) {
-                        $enCorp = $resp->json()['name'] ?? '';
-                        Cache::put("eve_corpname_en_{$ownerId}", $enCorp, 86400);
-                    }
-                } catch (\Exception $e) {}
-            }
-            if ($zhCorp === null) {
-                try {
-                    $resp = Http::timeout(5)->post($baseUrl . 'universe/names/', [$ownerId]);
-                    if ($resp->ok()) {
-                        $items = $resp->json();
-                        if (!empty($items)) {
-                            $zhCorp = $items[0]['name'] ?? '';
-                            Cache::put("eve_name_{$ownerId}", $zhCorp, 86400);
-                        }
-                    }
-                } catch (\Exception $e) {}
-            }
-
-            if ($enCorp && $zhCorp && $enCorp !== $zhCorp) {
-                $name = str_replace($enCorp, $zhCorp, $name);
-            }
-        }
-
-        // 4) 设施类型中英文映射
-        $facilityMap = [
-            'Assembly Plant' => '组装工厂', 'Refinery' => '精炼厂',
-            'Warehouse' => '仓库', 'Storage' => '储藏设施',
-            'Factory' => '工厂', 'Trading Post' => '贸易站',
-            'Hub' => '集散中心', 'Academy' => '学院',
-            'Logistic Support' => '后勤支援', 'Testing Facilities' => '测试设施',
-            'Cloning Facility' => '克隆设施', 'Foundry' => '铸造厂',
-            'Biotech Research Center' => '生物科技研究中心',
-            'Research Center' => '研究中心', 'School' => '学校',
-            'Treasury' => '金库', 'Bureau' => '事务局',
-            'Tribunal' => '法庭', 'Mining Station' => '采矿站',
-            'Accounting' => '会计处', 'Mint' => '铸币厂',
-            'Shipyard' => '船坞', 'Military School' => '军事学校',
-            'Station' => '空间站', 'Headquarters' => '总部',
-            'Law School' => '法学院', 'Plantation' => '种植园',
-            'Surveillance' => '监控站', 'Commerce' => '商务站',
-            'Food Packaging' => '食品包装厂',
-        ];
-        foreach ($facilityMap as $en => $zh) {
-            if (str_contains($name, $en)) {
-                $name = str_replace($en, $zh, $name);
-                break;
-            }
-        }
-
-        return $name;
     }
 
     /**

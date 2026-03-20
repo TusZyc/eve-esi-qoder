@@ -142,7 +142,7 @@ class WalletDataController extends Controller
     ];
 
     /**
-     * 获取钱包余额
+     * 获取钱包余额（包含30天收支统计）
      */
     public function balance(Request $request)
     {
@@ -152,6 +152,7 @@ class WalletDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
+            // 获取余额
             $balance = Cache::remember("wallet_balance_{$characterId}", 60, function () use ($baseUrl, $characterId, $token) {
                 $response = Http::withToken($token)
                     ->timeout(15)
@@ -165,7 +166,60 @@ class WalletDataController extends Controller
                 return 0;
             });
 
-            return response()->json(['balance' => $balance]);
+            // 获取30天收支统计
+            $summary = Cache::remember("wallet_summary_30d_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+                $income = 0;
+                $expense = 0;
+                $thirtyDaysAgo = now()->subDays(30)->toIso8601String();
+                
+                // 获取最近的流水（ESI 默认按时间倒序，获取前几页）
+                for ($page = 1; $page <= 3; $page++) {
+                    $response = Http::withToken($token)
+                        ->timeout(15)
+                        ->get("{$baseUrl}characters/{$characterId}/wallet/journal/", [
+                            'datasource' => 'serenity',
+                            'page' => $page
+                        ]);
+                    
+                    if (!$response->ok()) break;
+                    
+                    $entries = $response->json();
+                    if (empty($entries)) break;
+                    
+                    $shouldBreak = false;
+                    foreach ($entries as $entry) {
+                        $entryDate = $entry['date'] ?? '';
+                        if ($entryDate < $thirtyDaysAgo) {
+                            $shouldBreak = true;
+                            break;
+                        }
+                        
+                        $amount = $entry['amount'] ?? 0;
+                        if ($amount > 0) {
+                            $income += $amount;
+                        } else {
+                            $expense += abs($amount);
+                        }
+                    }
+                    
+                    if ($shouldBreak) break;
+                    
+                    // 检查是否还有更多页
+                    $totalPages = (int) $response->header('X-Pages', 1);
+                    if ($page >= $totalPages) break;
+                }
+                
+                return [
+                    'income' => $income,
+                    'expense' => $expense,
+                    'net' => $income - $expense
+                ];
+            });
+
+            return response()->json([
+                'balance' => $balance,
+                'summary_30d' => $summary
+            ]);
 
         } catch (\Exception $e) {
             return response()->json(['error' => '获取钱包余额失败: ' . $e->getMessage()], 500);
@@ -349,5 +403,288 @@ class WalletDataController extends Controller
         }
 
         return $names;
+    }
+
+    /**
+     * 获取军团钱包（需要 Director/Accountant 角色）
+     */
+    public function corporationWallet(Request $request)
+    {
+        $user = $request->user();
+        $characterId = $user->eve_character_id;
+        $token = $user->access_token;
+        $baseUrl = config('esi.base_url');
+
+        try {
+            // 1. 获取角色的 corporation_id
+            $characterInfo = Cache::remember("character_info_{$characterId}", 3600, function () use ($baseUrl, $characterId) {
+                $response = Http::timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : null;
+            });
+
+            if (!$characterInfo || !isset($characterInfo['corporation_id'])) {
+                return response()->json(['error' => '无法获取角色信息'], 400);
+            }
+
+            $corpId = $characterInfo['corporation_id'];
+
+            // 2. 检查角色权限（roles）
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/roles/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            $hasAccess = false;
+            $roleNames = $roles['roles'] ?? [];
+            $requiredRoles = ['Director', 'Accountant', 'Junior_Accountant'];
+            foreach ($requiredRoles as $role) {
+                if (in_array($role, $roleNames)) {
+                    $hasAccess = true;
+                    break;
+                }
+            }
+
+            if (!$hasAccess) {
+                return response()->json([
+                    'error' => '无军团钱包权限',
+                    'has_permission' => false
+                ], 403);
+            }
+
+            // 3. 获取军团各部门余额
+            $wallets = Cache::remember("corp_wallets_{$corpId}", 300, function () use ($baseUrl, $corpId, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}corporations/{$corpId}/wallets/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            // 4. 获取军团名称
+            $corpNames = $this->getCorpNames([$corpId]);
+            $corpName = $corpNames[$corpId] ?? "军团 #{$corpId}";
+
+            // 部门名称映射
+            $divisionNames = [
+                1 => '主账户',
+                2 => '部门 2',
+                3 => '部门 3',
+                4 => '部门 4',
+                5 => '部门 5',
+                6 => '部门 6',
+                7 => '部门 7'
+            ];
+
+            // 格式化钱包数据
+            $formattedWallets = [];
+            foreach ($wallets as $wallet) {
+                $division = $wallet['division'] ?? 1;
+                $formattedWallets[] = [
+                    'division' => $division,
+                    'division_name' => $divisionNames[$division] ?? "部门 {$division}",
+                    'balance' => $wallet['balance'] ?? 0
+                ];
+            }
+
+            return response()->json([
+                'has_permission' => true,
+                'corporation_id' => $corpId,
+                'corporation_name' => $corpName,
+                'wallets' => $formattedWallets
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => '获取军团钱包失败: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 获取军团钱包流水
+     */
+    public function corporationJournal(Request $request)
+    {
+        $user = $request->user();
+        $characterId = $user->eve_character_id;
+        $token = $user->access_token;
+        $baseUrl = config('esi.base_url');
+        $division = $request->input('division', 1);
+
+        try {
+            // 获取角色的 corporation_id（使用 Cache::remember 确保缓存预热）
+            $characterInfo = Cache::remember("character_info_{$characterId}", 3600, function () use ($baseUrl, $characterId) {
+                $response = Http::timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : null;
+            });
+
+            if (!$characterInfo || !isset($characterInfo['corporation_id'])) {
+                return response()->json(['error' => '无法获取角色信息'], 400);
+            }
+
+            $corpId = $characterInfo['corporation_id'];
+
+            // 获取军团部门流水
+            $journal = Cache::remember("corp_journal_{$corpId}_{$division}", 300, function () use ($baseUrl, $corpId, $division, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}corporations/{$corpId}/wallets/{$division}/journal/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            // 添加中文类型名称
+            foreach ($journal as &$entry) {
+                $refType = $entry['ref_type'] ?? '';
+                $entry['ref_type_name'] = self::JOURNAL_REF_TYPES[$refType] ?? $refType;
+            }
+
+            return response()->json([
+                'division' => $division,
+                'data' => $journal
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => '获取军团流水失败: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 获取军团钱包交易记录
+     */
+    public function corporationTransactions(Request $request)
+    {
+        $user = $request->user();
+        $characterId = $user->eve_character_id;
+        $token = $user->access_token;
+        $baseUrl = config('esi.base_url');
+        $division = $request->input('division', 1);
+
+        try {
+            // 获取角色的 corporation_id（使用 Cache::remember 确保缓存预热）
+            $characterInfo = Cache::remember("character_info_{$characterId}", 3600, function () use ($baseUrl, $characterId) {
+                $response = Http::timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : null;
+            });
+
+            if (!$characterInfo || !isset($characterInfo['corporation_id'])) {
+                return response()->json(['error' => '无法获取角色信息'], 400);
+            }
+
+            $corpId = $characterInfo['corporation_id'];
+
+            // 检查角色权限（使用 Cache::remember 确保缓存预热）
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/roles/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            $hasAccess = false;
+            $roleNames = $roles['roles'] ?? [];
+            $requiredRoles = ['Director', 'Accountant', 'Junior_Accountant'];
+            foreach ($requiredRoles as $role) {
+                if (in_array($role, $roleNames)) {
+                    $hasAccess = true;
+                    break;
+                }
+            }
+
+            if (!$hasAccess) {
+                return response()->json([
+                    'error' => '无军团钱包权限',
+                    'has_permission' => false
+                ], 403);
+            }
+
+            // 获取军团部门交易记录
+            $transactions = Cache::remember("corp_transactions_{$corpId}_{$division}", 300, function () use ($baseUrl, $corpId, $division, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}corporations/{$corpId}/wallets/{$division}/transactions/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            if (empty($transactions)) {
+                return response()->json([
+                    'division' => $division,
+                    'data' => []
+                ]);
+            }
+
+            // 获取物品名称
+            $typeIds = array_unique(array_column($transactions, 'type_id'));
+            $typeNames = EveHelper::getNamesByIds($typeIds, 'item');
+
+            // 添加物品名称
+            foreach ($transactions as &$tx) {
+                $typeId = $tx['type_id'] ?? 0;
+                $tx['type_name'] = $typeNames[$typeId] ?? "物品 #{$typeId}";
+            }
+
+            return response()->json([
+                'division' => $division,
+                'data' => $transactions
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => '获取军团交易记录失败: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 检查是否有军团钱包权限
+     */
+    public function checkCorpPermission(Request $request)
+    {
+        $user = $request->user();
+        $characterId = $user->eve_character_id;
+        $token = $user->access_token;
+        $baseUrl = config('esi.base_url');
+
+        try {
+            // 检查角色权限
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}characters/{$characterId}/roles/", [
+                        'datasource' => 'serenity'
+                    ]);
+                return $response->ok() ? $response->json() : [];
+            });
+
+            $hasAccess = false;
+            $roleNames = $roles['roles'] ?? [];
+            $requiredRoles = ['Director', 'Accountant', 'Junior_Accountant'];
+            foreach ($requiredRoles as $role) {
+                if (in_array($role, $roleNames)) {
+                    $hasAccess = true;
+                    break;
+                }
+            }
+
+            return response()->json(['has_permission' => $hasAccess]);
+
+        } catch (\Exception $e) {
+            return response()->json(['has_permission' => false]);
+        }
     }
 }

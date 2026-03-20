@@ -16,3 +16,20 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# 运行时生成文件
+bootstrap/cache/
+storage/framework/
+storage/logs/
+database/database.sqlite
+
+# 临时/调试文件
+debug_*.php
+test_*.php
+nul
+
+# 上传的图片
+public/images/
+
+# 验证文件
+public/56d2c59d1863bde8dd84734b6020fd0e.txt

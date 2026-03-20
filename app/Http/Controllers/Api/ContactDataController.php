@@ -10,6 +10,10 @@ use App\Helpers\EveHelper;
 
 class ContactDataController extends Controller
 {
+    // NPC agent character ID 范围（EVE Online 标准约定）
+    private const NPC_CHARACTER_ID_MIN = 3000000;
+    private const NPC_CHARACTER_ID_MAX = 3999999;
+
     /**
      * 获取角色联系人数据
      */
@@ -64,11 +68,24 @@ class ContactDataController extends Controller
             // 构建返回数据
             $result = [];
             foreach ($contacts as $contact) {
+                $contactType = $contact['contact_type'] ?? 'character';
+                
+                // 过滤NPC阵营（faction类型）
+                if ($contactType === 'faction') {
+                    continue;
+                }
+                
                 $contactId = $contact['contact_id'] ?? 0;
+                
+                // 过滤NPC agent（character_id 在 3000000-3999999 范围内）
+                if ($contactType === 'character' && $this->isNpcCharacter($contactId)) {
+                    continue;
+                }
+                
                 $result[] = [
                     'contact_id' => $contactId,
                     'name' => $names[$contactId] ?? "联系人 #{$contactId}",
-                    'contact_type' => $contact['contact_type'] ?? 'character',
+                    'contact_type' => $contactType,
                     'standing' => $contact['standing'] ?? 0,
                     'is_blocked' => $contact['is_blocked'] ?? false,
                     'is_watched' => $contact['is_watched'] ?? false,
@@ -84,6 +101,14 @@ class ContactDataController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => '获取联系人数据失败: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * 判断是否为NPC角色
+     */
+    private function isNpcCharacter(int $characterId): bool
+    {
+        return $characterId >= self::NPC_CHARACTER_ID_MIN && $characterId <= self::NPC_CHARACTER_ID_MAX;
     }
 
     /**

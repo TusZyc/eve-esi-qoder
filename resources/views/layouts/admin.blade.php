@@ -186,11 +186,11 @@
         <div class="p-5 border-b border-slate-700/50">
             <div class="flex items-center space-x-3">
                 <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <span class="text-xl">⚙️</span>
+                    <img src="/images/eve-logo.png" alt="Logo" class="w-8 h-8 object-contain">
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">站点管理</h1>
-                    <p class="text-xs text-slate-500">Site Admin Panel</p>
+                    <h1 class="font-bold text-lg bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Tus Esi System</h1>
+                    <p class="text-xs text-slate-500">EVE Online 数据工具平台</p>
                 </div>
             </div>
         </div>

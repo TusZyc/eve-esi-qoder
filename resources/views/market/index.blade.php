@@ -1,3 +1,5 @@
+@extends('layouts.app')
+
 @section('title', '市场中心 - ' . config('app.name'))
 
 @push('head-scripts')
@@ -411,6 +413,9 @@
     }
 
     // ==================== 市场分组树 ====================
+    let marketGroupsRetryCount = 0;
+    const MAX_RETRY = 3;
+
     async function loadMarketGroups() {
         try {
             const resp = await fetch(API.groups);
@@ -419,14 +424,49 @@
                 marketGroups = result.data;
                 buildGroupNameMap(marketGroups, '');
                 renderMarketTree();
+                marketGroupsRetryCount = 0; // 成功后重置重试计数
             } else {
-                document.getElementById('market-tree').innerHTML =
-                    '<div class="text-xs text-blue-300/50 text-center py-4">分组数据准备中...<br>请稍后刷新</div>';
+                // 数据为空，可能正在构建中
+                marketGroupsRetryCount++;
+                if (marketGroupsRetryCount < MAX_RETRY) {
+                    document.getElementById('market-tree').innerHTML =
+                        '<div class="text-xs text-blue-300/50 text-center py-4">' +
+                        '<div class="animate-pulse mb-2">⏳</div>' +
+                        '分类数据加载中...<br>' +
+                        '<span class="text-[10px] text-blue-300/30">' + marketGroupsRetryCount + '/' + MAX_RETRY + ' 重试中，请稍候</span>' +
+                        '</div>';
+                    // 10 秒后重试
+                    setTimeout(loadMarketGroups, 10000);
+                } else {
+                    document.getElementById('market-tree').innerHTML =
+                        '<div class="text-xs text-yellow-400/70 text-center py-4">' +
+                        '<div class="mb-2">⚠️</div>' +
+                        '分类数据暂时不可用<br>' +
+                        '<span class="text-[10px] text-blue-300/40">可能正在构建缓存，请稍后刷新页面</span>' +
+                        '<button onclick="marketGroupsRetryCount=0;loadMarketGroups()" class="mt-2 block mx-auto text-[10px] px-2 py-1 bg-white/10 rounded hover:bg-white/20 transition">点击重试</button>' +
+                        '</div>';
+                }
             }
         } catch (e) {
             console.error('加载市场分组失败:', e);
-            document.getElementById('market-tree').innerHTML =
-                '<div class="text-xs text-red-400 text-center py-4">加载失败</div>';
+            marketGroupsRetryCount++;
+            if (marketGroupsRetryCount < MAX_RETRY) {
+                document.getElementById('market-tree').innerHTML =
+                    '<div class="text-xs text-blue-300/50 text-center py-4">' +
+                    '<div class="animate-pulse mb-2">⏳</div>' +
+                    '网络错误，重试中...<br>' +
+                    '<span class="text-[10px] text-blue-300/30">' + marketGroupsRetryCount + '/' + MAX_RETRY + '</span>' +
+                    '</div>';
+                setTimeout(loadMarketGroups, 5000);
+            } else {
+                document.getElementById('market-tree').innerHTML =
+                    '<div class="text-xs text-red-400 text-center py-4">' +
+                    '<div class="mb-2">❌</div>' +
+                    '加载失败<br>' +
+                    '<span class="text-[10px] text-blue-300/40">' + e.message + '</span>' +
+                    '<button onclick="marketGroupsRetryCount=0;loadMarketGroups()" class="mt-2 block mx-auto text-[10px] px-2 py-1 bg-white/10 rounded hover:bg-white/20 transition">点击重试</button>' +
+                    '</div>';
+            }
         }
     }
 

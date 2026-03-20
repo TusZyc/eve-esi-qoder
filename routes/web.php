@@ -125,6 +125,12 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
 
     // 击毁报告 API
     Route::get('/killmails', [CharacterKillmailDataController::class, 'index'])->name('api.dashboard.killmails');
+
+    // 角色管理 API（克隆体、属性、植入体等）
+    Route::get('/character/clones', [CharacterController::class, 'clones'])->name('api.dashboard.character.clones');
+    Route::get('/character/attributes', [CharacterController::class, 'attributes'])->name('api.dashboard.character.attributes');
+    Route::get('/character/implants', [CharacterController::class, 'implants'])->name('api.dashboard.character.implants');
+    Route::get('/character/corphistory', [CharacterController::class, 'corporationHistory'])->name('api.dashboard.character.corphistory');
 });
 
 // 市场认证 API（需登录）

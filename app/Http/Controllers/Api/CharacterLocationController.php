@@ -7,12 +7,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
+use App\Services\StationNameService;
 
 /**
  * 角色位置 API 控制器
  */
 class CharacterLocationController extends Controller
 {
+    private StationNameService $stationNameService;
+    
+    public function __construct(StationNameService $stationNameService)
+    {
+        $this->stationNameService = $stationNameService;
+    }
     /**
      * 获取角色当前位置
      */
@@ -71,53 +78,34 @@ class CharacterLocationController extends Controller
                 'structure_id' => $structureId,
             ]);
             
-            // 查询名称
-            $names = [];
-            $idsToQuery = [];
-            if ($solarSystemId) $idsToQuery[] = $solarSystemId;
-            if ($stationId) $idsToQuery[] = $stationId;
-            
-            if (!empty($idsToQuery)) {
-                $namesResponse = Http::timeout(10)
-                    ->withToken($user->access_token)
-                    ->post(config('esi.base_url') . 'universe/names/', $idsToQuery);
-                
-                if ($namesResponse->ok()) {
-                    $namesResult = $namesResponse->json();
-                    foreach ($namesResult as $item) {
-                        $names[$item['id']] = $item['name'];
+            // 查询星系名称（使用 language=zh 获取中文）
+            $solarSystemName = '未知星系';
+            if ($solarSystemId) {
+                try {
+                    $sysResponse = Http::timeout(10)
+                        ->get(config('esi.base_url') . "universe/systems/{$solarSystemId}/", [
+                            'datasource' => 'serenity',
+                            'language' => 'zh'
+                        ]);
+                    if ($sysResponse->ok()) {
+                        $solarSystemName = $sysResponse->json()['name'] ?? '未知星系';
                     }
+                } catch (\Exception $e) {
+                    Log::warning('📍 [API] 星系名称查询失败：' . $e->getMessage());
                 }
             }
             
             // 构建位置显示文本
-            $solarSystemName = $names[$solarSystemId] ?? '未知星系';
             $locationDisplay = '';
             
-            if ($stationId && isset($names[$stationId])) {
-                // 在 NPC 空间站
-                $stationName = $names[$stationId];
-                // 简化空间站名称（去掉冗长部分）
-                $shortStationName = $this->shortenStationName($stationName);
-                $locationDisplay = "{$solarSystemName} - {$shortStationName}";
+            if ($stationId) {
+                // 在 NPC 空间站 - 使用 StationNameService 获取中文名
+                $stationName = $this->stationNameService->getStationNameZh($stationId);
+                $locationDisplay = "{$solarSystemName} - {$stationName}";
             } elseif ($structureId) {
-                // 在玩家建筑 - 使用专门的结构信息接口
-                try {
-                    $structureResponse = Http::timeout(10)
-                        ->withToken($user->access_token)
-                        ->get(config('esi.base_url') . "universe/structures/{$structureId}/");
-                    
-                    if ($structureResponse->ok()) {
-                        $structureData = $structureResponse->json();
-                        $structureName = $structureData['name'] ?? '玩家建筑';
-                        $locationDisplay = "{$solarSystemName} - {$structureName}";
-                    } else {
-                        $locationDisplay = "{$solarSystemName} - 玩家建筑";
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('📍 [API] 建筑名称查询失败：' . $e->getMessage());
-                    $locationDisplay = "{$solarSystemName} - 玩家建筑";
-                }
+                // 在玩家建筑 - 使用 StationNameService 获取名称
+                $structureName = $this->stationNameService->getStructureName($structureId, $user->access_token);
+                $locationDisplay = "{$solarSystemName} - {$structureName}";
             } else {
                 // 在太空中（未停靠）
                 $locationDisplay = "{$solarSystemName} - 未停靠";
@@ -129,9 +117,9 @@ class CharacterLocationController extends Controller
                     'solar_system_id' => $solarSystemId,
                     'solar_system_name' => $solarSystemName,
                     'station_id' => $stationId,
-                    'station_name' => $names[$stationId] ?? null,
+                    'station_name' => $stationId ? $this->stationNameService->getStationNameZh($stationId) : null,
                     'structure_id' => $structureId,
-                    'structure_name' => $names[$structureId] ?? null,
+                    'structure_name' => $structureId ? $this->stationNameService->getStructureName($structureId, $user->access_token) : null,
                     'location_display' => $locationDisplay,
                     'is_docked' => $stationId !== null || $structureId !== null,
                 ],
@@ -152,28 +140,5 @@ class CharacterLocationController extends Controller
                 'message' => '未知错误',
             ], 500);
         }
-    }
-    
-    /**
-     * 简化空间站名称
-     */
-    private function shortenStationName(string $name): string
-    {
-        // 去掉常见的冗长部分
-        $patterns = [
-            ' - Moon \d+' => '',
-            ' - Planet \d+' => '',
-            ' - Asteroid Belt' => '',
-            ' Republic Parliament Bureau' => ' 共和国议会局',
-            ' Navy Assembly Plant' => ' 海军组装厂',
-            ' Trading Post' => ' 贸易站',
-        ];
-        
-        $shortName = $name;
-        foreach ($patterns as $pattern => $replacement) {
-            $shortName = preg_replace('/' . $pattern . '/', $replacement, $shortName);
-        }
-        
-        return $shortName;
     }
 }
