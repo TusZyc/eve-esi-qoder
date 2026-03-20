@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class NotificationDataController extends Controller
 {
@@ -40,27 +41,6 @@ class NotificationDataController extends Controller
         'CorpDividendMsg' => '军团分红',
         'CorpKicked' => '被踢出军团',
         'CorpNewCEOMsg' => '新CEO任命',
-        'CorpTaxChangeMsg' => '军团税率变更',
-        'CorpVoteCEORevokedMsg' => 'CEO投票撤销',
-        'CorpVoteMsg' => '军团投票',
-        'CorpWarDeclaredMsg' => '军团宣战',
-        'CorpWarFightingLegalMsg' => '战争合法',
-        'CorpWarInvalidatedMsg' => '战争无效',
-        'CorpWarRetractedMsg' => '撤回战争',
-        'CorpWarSurrenderMsg' => '军团投降',
-        'FWAllianceKickMsg' => '联盟踢出势力战争',
-        'FWAllianceWarningMsg' => '势力战争警告',
-        'FWCharKickMsg' => '角色踢出势力战争',
-        'FWCharWarningMsg' => '角色势力战争警告',
-        'FWCorpJoinMsg' => '军团加入势力战争',
-        'FWCorpKickMsg' => '军团踢出势力战争',
-        'FWCorpLeaveMsg' => '军团离开势力战争',
-        'FWCorpWarningMsg' => '军团势力战争警告',
-        'InsuranceExpirationMsg' => '保险到期',
-        'InsuranceFirstShipMsg' => '首艘舰船保险',
-        'InsuranceInvalidatedMsg' => '保险无效',
-        'InsuranceIssuedMsg' => '保险签发',
-        'InsurancePayoutMsg' => '保险赔付',
         'JumpCloneDeletedMsg1' => '跳跃克隆已删除',
         'JumpCloneDeletedMsg2' => '跳跃克隆已删除',
         'KillReportFinalBlow' => '最后一击报告',
@@ -143,26 +123,75 @@ class NotificationDataController extends Controller
         'WarRetractedByConcord' => '统合部撤回战争',
         'WarSurrenderDeclinedMsg' => '投降被拒绝',
         'WarSurrenderOfferMsg' => '投降提议',
+        'InsurancePayoutMsg' => '保险赔付',
+        'InsuranceFirstShipMsg' => '首舰保险',
+        'InsuranceInvalidatedMsg' => '保险失效',
+        'InsuranceExpirationMsg' => '保险到期',
+        'InsuranceIssuedMsg' => '保险生效',
     ];
+
+    /**
+     * 需要通过 ESI /universe/names/ 解析的字段（角色、军团、联盟）
+     */
+    private const NAME_ID_FIELDS = [
+        'charID', 'victimID', 'aggressorID', 'corpID', 'aggressorCorpID',
+        'defenderCorpID', 'allianceID', 'aggressorAllianceID', 'defenderAllianceID',
+        'againstID', 'declaredByID', 'entityID', 'senderCharID', 'finalBlowAttacker',
+        'podKillerID', 'attackerID', 'attackerCorpID', 'attackerAllianceID',
+        'ownerCorpID', 'oldOwnerCorpID', 'newOwnerCorpID',
+    ];
+
+    /**
+     * 星系 ID 字段
+     */
+    private const SYSTEM_ID_FIELDS = ['solarSystemID', 'systemID'];
+
+    /**
+     * 物品类型 ID 字段
+     */
+    private const TYPE_ID_FIELDS = ['typeID', 'shipTypeID', 'structureTypeID'];
+
+    /**
+     * 本地缓存的星系数据
+     */
+    private $systemsCache = null;
+
+    /**
+     * 本地缓存的物品数据
+     */
+    private $itemsCache = null;
 
     /**
      * 获取角色提醒数据
      */
     public function index(Request $request)
     {
+        Log::info('🔔 [Notifications] 开始获取通知数据');
+        
         $user = $request->user();
+        if (!$user) {
+            Log::error('🔔 [Notifications] 用户未登录');
+            return response()->json(['error' => '用户未登录'], 401);
+        }
+        
         $characterId = $user->eve_character_id;
         $token = $user->access_token;
-        $baseUrl = config('esi.base_url');
+        $baseUrl = rtrim(config('esi.base_url'), '/');
+        
+        Log::info('🔔 [Notifications] 用户信息', [
+            'user_id' => $user->id,
+            'character_id' => $characterId,
+            'token_length' => strlen($token)
+        ]);
 
         try {
             $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
                 $response = Http::withToken($token)
                     ->timeout(15)
-                    ->get("{$baseUrl}characters/{$characterId}/notifications/", [
+                    ->get("{$baseUrl}/characters/{$characterId}/notifications/", [
                         'datasource' => 'serenity'
                     ]);
-                
+
                 if ($response->ok()) {
                     return $response->json();
                 }
@@ -180,26 +209,279 @@ class NotificationDataController extends Controller
                 return $timeB - $timeA;
             });
 
+            // 收集所有需要解析的 ID
+            $nameIds = [];
+            $systemIds = [];
+            $typeIds = [];
+            $parsedTexts = [];
+
+            // sender_id 也需要解析
+            foreach ($notifications as $notification) {
+                $senderId = $notification['sender_id'] ?? 0;
+                if ($senderId > 0) {
+                    $nameIds[] = $senderId;
+                }
+            }
+
+            // 解析每个通知的 text 字段，收集 ID
+            foreach ($notifications as $idx => $notification) {
+                $text = $notification['text'] ?? '';
+                $parsed = $this->parseNotificationText($text);
+                $parsedTexts[$idx] = $parsed;
+
+                // 收集需要解析的 ID
+                foreach ($parsed as $key => $value) {
+                    if (!is_numeric($value) || $value <= 0) continue;
+                    
+                    $intValue = (int) $value;
+                    
+                    if (in_array($key, self::NAME_ID_FIELDS)) {
+                        $nameIds[] = $intValue;
+                    } elseif (in_array($key, self::SYSTEM_ID_FIELDS)) {
+                        $systemIds[] = $intValue;
+                    } elseif (in_array($key, self::TYPE_ID_FIELDS)) {
+                        $typeIds[] = $intValue;
+                    }
+                }
+            }
+
+            // 批量解析名称
+            $resolvedNames = $this->resolveNames(array_unique($nameIds), $token, $baseUrl);
+            $resolvedSystems = $this->resolveSystemNames(array_unique($systemIds));
+            $resolvedTypes = $this->resolveTypeNames(array_unique($typeIds), $token, $baseUrl);
+
+            // 合并所有解析结果
+            $allResolved = array_merge($resolvedNames, $resolvedSystems, $resolvedTypes);
+
             // 构建返回数据
             $result = [];
-            foreach ($notifications as $notification) {
+            foreach ($notifications as $idx => $notification) {
                 $type = $notification['type'] ?? '';
+                $senderId = $notification['sender_id'] ?? 0;
+                
                 $result[] = [
                     'notification_id' => $notification['notification_id'] ?? 0,
                     'type' => $type,
                     'type_name' => self::NOTIFICATION_TYPES[$type] ?? $type,
-                    'sender_id' => $notification['sender_id'] ?? 0,
+                    'sender_id' => $senderId,
                     'sender_type' => $notification['sender_type'] ?? '',
+                    'sender_name' => $resolvedNames[$senderId] ?? null,
                     'timestamp' => $notification['timestamp'] ?? '',
                     'is_read' => $notification['is_read'] ?? false,
-                    'text' => $notification['text'] ?? ''
+                    'text' => $notification['text'] ?? '',
+                    'parsed_text' => $parsedTexts[$idx] ?? [],
+                    'resolved_names' => $allResolved,
                 ];
             }
 
             return response()->json($result);
 
         } catch (\Exception $e) {
+            Log::error('🔔 [Notifications] 获取提醒数据失败', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => '获取提醒数据失败: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * 解析通知 text 字段（YAML 格式）
+     */
+    private function parseNotificationText(string $text): array
+    {
+        if (empty($text)) return [];
+
+        $result = [];
+        $anchors = [];
+        $lines = explode("\n", $text);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || strpos($line, '#') === 0) continue;
+            
+            $colonPos = strpos($line, ':');
+            if ($colonPos === false) continue;
+
+            $key = trim(substr($line, 0, $colonPos));
+            $value = trim(substr($line, $colonPos + 1));
+
+            // 处理 YAML anchor: &id001 12345
+            if (preg_match('/^&(\S+)\s+(.+)$/', $value, $m)) {
+                $anchors[$m[1]] = $m[2];
+                $value = $m[2];
+            }
+            // 处理 YAML reference: *id001
+            if (preg_match('/^\*(\S+)$/', $value, $m)) {
+                $value = $anchors[$m[1]] ?? $value;
+            }
+
+            // 去除可能的引号
+            $value = trim($value, '"\'');
+
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * 批量解析角色、军团、联盟名称（使用 ESI /universe/names/）
+     */
+    private function resolveNames(array $ids, string $token, string $baseUrl): array
+    {
+        if (empty($ids)) return [];
+
+        // 过滤有效 ID
+        $ids = array_filter($ids, fn($id) => is_numeric($id) && $id > 0);
+        $ids = array_values(array_unique($ids));
+        if (empty($ids)) return [];
+
+        $cacheKey = 'esi_names_' . md5(implode(',', $ids));
+        
+        return Cache::remember($cacheKey, 3600, function () use ($ids, $token, $baseUrl) {
+            $map = [];
+            
+            // ESI 一次最多 1000 个 ID，分批处理
+            $chunks = array_chunk($ids, 1000);
+            
+            foreach ($chunks as $chunk) {
+                try {
+                    $response = Http::timeout(15)
+                        ->withToken($token)
+                        ->post("{$baseUrl}/universe/names/?datasource=serenity", $chunk);
+
+                    if ($response->successful()) {
+                        foreach ($response->json() as $item) {
+                            $map[$item['id']] = $item['name'];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('ESI names 解析失败: ' . $e->getMessage());
+                }
+            }
+            
+            return $map;
+        });
+    }
+
+    /**
+     * 解析星系名称（使用本地 eve_systems_full.json）
+     */
+    private function resolveSystemNames(array $systemIds): array
+    {
+        if (empty($systemIds)) return [];
+
+        $map = [];
+        $systems = $this->getSystemsData();
+        
+        if (empty($systems)) return $map;
+
+        foreach ($systemIds as $id) {
+            $strId = (string) $id;
+            if (isset($systems[$strId]) && isset($systems[$strId]['name'])) {
+                $map[$id] = $systems[$strId]['name'];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * 解析物品类型名称（优先使用本地 items.json，未找到则调用 ESI）
+     */
+    private function resolveTypeNames(array $typeIds, string $token, string $baseUrl): array
+    {
+        if (empty($typeIds)) return [];
+
+        $map = [];
+        $items = $this->getItemsData();
+        $needEsi = [];
+
+        // 先从本地数据查找
+        foreach ($typeIds as $id) {
+            $found = false;
+            foreach ($items as $item) {
+                if (isset($item['id']) && $item['id'] == $id) {
+                    $map[$id] = $item['name'];
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                $needEsi[] = $id;
+            }
+        }
+
+        // 本地未找到的，从 ESI 获取
+        foreach ($needEsi as $typeId) {
+            $cacheKey = "esi_type_{$typeId}";
+            $name = Cache::remember($cacheKey, 86400, function () use ($typeId, $token, $baseUrl) {
+                try {
+                    $response = Http::timeout(10)
+                        ->withToken($token)
+                        ->get("{$baseUrl}/universe/types/{$typeId}/", [
+                            'datasource' => 'serenity',
+                            'language' => 'zh'
+                        ]);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        return $data['name'] ?? null;
+                    }
+                } catch (\Exception $e) {
+                    Log::warning("ESI type {$typeId} 解析失败: " . $e->getMessage());
+                }
+                return null;
+            });
+
+            if ($name) {
+                $map[$typeId] = $name;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * 获取本地星系数据
+     */
+    private function getSystemsData(): array
+    {
+        if ($this->systemsCache !== null) {
+            return $this->systemsCache;
+        }
+
+        $path = base_path('data/eve_systems_full.json');
+        if (!file_exists($path)) {
+            return [];
+        }
+
+        $content = file_get_contents($path);
+        $this->systemsCache = json_decode($content, true) ?? [];
+        
+        return $this->systemsCache;
+    }
+
+    /**
+     * 获取本地物品数据
+     */
+    private function getItemsData(): array
+    {
+        if ($this->itemsCache !== null) {
+            return $this->itemsCache;
+        }
+
+        $path = base_path('data/items.json');
+        if (!file_exists($path)) {
+            return [];
+        }
+
+        $content = file_get_contents($path);
+        $this->itemsCache = json_decode($content, true) ?? [];
+        
+        return $this->itemsCache;
     }
 }

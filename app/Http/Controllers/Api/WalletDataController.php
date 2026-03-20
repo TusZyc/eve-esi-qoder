@@ -142,7 +142,7 @@ class WalletDataController extends Controller
     ];
 
     /**
-     * 获取钱包余额
+     * 获取钱包余额和30天收支统计
      */
     public function balance(Request $request)
     {
@@ -152,6 +152,7 @@ class WalletDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
+            // 获取钱包余额
             $balance = Cache::remember("wallet_balance_{$characterId}", 60, function () use ($baseUrl, $characterId, $token) {
                 $response = Http::withToken($token)
                     ->timeout(15)
@@ -165,7 +166,69 @@ class WalletDataController extends Controller
                 return 0;
             });
 
-            return response()->json(['balance' => $balance]);
+            // 获取30天收支统计
+            $summary30d = Cache::remember("wallet_summary_30d_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+                $income = 0;
+                $expense = 0;
+                $thirtyDaysAgo = now()->subDays(30)->toIso8601String();
+                
+                // 获取流水数据（最多获取3页，足够覆盖30天）
+                for ($page = 1; $page <= 3; $page++) {
+                    $response = Http::withToken($token)
+                        ->timeout(15)
+                        ->get("{$baseUrl}characters/{$characterId}/wallet/journal/", [
+                            'datasource' => 'serenity',
+                            'page' => $page
+                        ]);
+                    
+                    if (!$response->ok()) {
+                        break;
+                    }
+                    
+                    $entries = $response->json();
+                    if (empty($entries)) {
+                        break;
+                    }
+                    
+                    $hasOlderEntries = false;
+                    foreach ($entries as $entry) {
+                        $entryDate = $entry['date'] ?? '';
+                        if ($entryDate < $thirtyDaysAgo) {
+                            $hasOlderEntries = true;
+                            continue;
+                        }
+                        
+                        $amount = $entry['amount'] ?? 0;
+                        if ($amount > 0) {
+                            $income += $amount;
+                        } else {
+                            $expense += abs($amount);
+                        }
+                    }
+                    
+                    // 如果已经有超过30天的记录，不需要继续获取下一页
+                    if ($hasOlderEntries) {
+                        break;
+                    }
+                    
+                    // 检查是否还有下一页
+                    $totalPages = (int) $response->header('X-Pages', 1);
+                    if ($page >= $totalPages) {
+                        break;
+                    }
+                }
+                
+                return [
+                    'income' => $income,
+                    'expense' => $expense,
+                    'net' => $income - $expense
+                ];
+            });
+
+            return response()->json([
+                'balance' => $balance,
+                'summary_30d' => $summary30d
+            ]);
 
         } catch (\Exception $e) {
             return response()->json(['error' => '获取钱包余额失败: ' . $e->getMessage()], 500);

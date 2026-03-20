@@ -195,6 +195,7 @@
 
     // 格式化通知内容为可读格式
     function formatNotificationText(notif) {
+        var resolvedNames = notif.resolved_names || {};
         var text = notif.text;
         var type = notif.type || '';
         
@@ -263,7 +264,7 @@
             if (payoutAmount) {
                 return '<div class="flex items-center gap-2"><span class="text-blue-400">🛡️ 保险通知</span><span class="text-blue-300">' + formatIsk(payoutAmount) + '</span></div>';
             }
-            return '<div class="flex items-center gap-2"><span class="text-blue-400">🛡️ 保险通知</span></div>' + formatFieldsAsTable(parsed);
+            return '<div class="flex items-center gap-2"><span class="text-blue-400">🛡️ 保险通知</span></div>' + formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 军团申请
@@ -282,19 +283,19 @@
         // 战争宣布
         if (type === 'WarDeclared' || typeLower.indexOf('wardeclared') >= 0) {
             return '<div class="flex items-center gap-2"><span class="text-orange-400">⚔️ 战争已宣布</span></div>' + 
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 战争无效/失效
         if (type === 'WarInvalid' || typeLower.indexOf('warinvalidated') >= 0) {
             return '<div class="flex items-center gap-2"><span class="text-green-400">🕊️ 战争已失效</span></div>' + 
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 其他战争相关
         if (typeLower.indexOf('war') >= 0) {
             return '<div class="flex items-center gap-2"><span class="text-orange-400">⚔️ 战争通知</span></div>' + 
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 建筑受攻击
@@ -302,7 +303,7 @@
             var structName = parsed.structureName || '';
             return '<div><span class="text-red-400">🚨 建筑正在被攻击！</span>' + 
                    (structName ? '<span class="text-slate-300 ml-2">' + escapeHtml(structName) + '</span>' : '') + '</div>' +
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 建筑/燃料相关
@@ -310,7 +311,7 @@
             var structName = parsed.structureName || parsed.moonName || '';
             return '<div><span class="text-cyan-400">🏗️ 建筑通知</span>' + 
                    (structName ? '<span class="text-slate-300 ml-2">' + escapeHtml(structName) + '</span>' : '') + '</div>' +
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 月矿相关
@@ -318,21 +319,21 @@
             var moonName = parsed.moonName || '';
             return '<div><span class="text-purple-400">🌙 月矿通知</span>' + 
                    (moonName ? '<span class="text-slate-300 ml-2">' + escapeHtml(moonName) + '</span>' : '') + '</div>' +
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 主权相关
         if (typeLower.indexOf('sov') >= 0) {
             return '<div class="flex items-center gap-2"><span class="text-yellow-400">🏛️ 主权通知</span></div>' + 
-                   formatFieldsAsTable(parsed);
+                   formatFieldsAsTable(parsed, resolvedNames);
         }
         
         // 其他类型：通用表格格式
-        return formatFieldsAsTable(parsed);
+        return formatFieldsAsTable(parsed, resolvedNames);
     }
     
     // 将字段格式化为表格
-    function formatFieldsAsTable(parsed) {
+    function formatFieldsAsTable(parsed, resolvedNames) {
         var keys = Object.keys(parsed);
         if (keys.length === 0) return '';
         
@@ -375,6 +376,10 @@
             // 布尔值转中文
             if (value === 'true' || value === true) value = '是';
             if (value === 'false' || value === false) value = '否';
+            // 使用解析后的名称替代原始ID
+            if (resolvedNames && resolvedNames[value]) {
+                value = resolvedNames[value];
+            }
             
             html += '<div class="flex text-sm">';
             html += '<span class="text-slate-500 w-28 shrink-0">' + escapeHtml(label) + '</span>';
