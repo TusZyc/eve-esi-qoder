@@ -667,6 +667,22 @@ class KillmailService
         return Cache::remember($cacheKey, 86400, function () use ($systemId) {
             $info = ['security_status' => null, 'region_name' => null];
 
+            // 1. 优先从本地数据获取
+            $localSystem = EveDataService::getLocalSystemInfo($systemId);
+            if ($localSystem) {
+                $info['security_status'] = isset($localSystem['security']) ? round($localSystem['security'], 1) : null;
+                
+                // 获取星域名称
+                if (!empty($localSystem['region_id'])) {
+                    $regionName = EveDataService::getLocalRegionName($localSystem['region_id']);
+                    if ($regionName) {
+                        $info['region_name'] = $regionName;
+                        return $info;
+                    }
+                }
+            }
+
+            // 2. 本地没有完整数据，调用 ESI API 兜底
             try {
                 $sysResponse = Http::timeout(10)->get(
                     $this->esiBaseUrl . "universe/systems/{$systemId}/",
@@ -681,6 +697,17 @@ class KillmailService
                 $constellationId = $sysData['constellation_id'] ?? null;
                 if (!$constellationId) return $info;
 
+                // 尝试从本地获取星座和星域信息
+                $localConst = EveDataService::getLocalConstellationInfo($constellationId);
+                if ($localConst && !empty($localConst['region_id'])) {
+                    $regionName = EveDataService::getLocalRegionName($localConst['region_id']);
+                    if ($regionName) {
+                        $info['region_name'] = $regionName;
+                        return $info;
+                    }
+                }
+
+                // 本地没有星座数据，继续 API 调用
                 $constResponse = Http::timeout(10)->get(
                     $this->esiBaseUrl . "universe/constellations/{$constellationId}/",
                     ['datasource' => $this->datasource]
@@ -692,6 +719,14 @@ class KillmailService
                 $regionId = $constData['region_id'] ?? null;
                 if (!$regionId) return $info;
 
+                // 尝试从本地获取星域名称
+                $regionName = EveDataService::getLocalRegionName($regionId);
+                if ($regionName) {
+                    $info['region_name'] = $regionName;
+                    return $info;
+                }
+
+                // 本地没有星域数据，调用 API
                 $regionResponse = Http::timeout(10)->get(
                     $this->esiBaseUrl . "universe/regions/{$regionId}/",
                     ['datasource' => $this->datasource, 'language' => 'zh']
@@ -785,13 +820,22 @@ class KillmailService
         $names = [];
         $missing = [];
 
+        // 1. 优先从本地静态数据查找
+        $localNames = EveDataService::getLocalNames($ids);
+        foreach ($localNames as $id => $name) {
+            $names[$id] = $name;
+        }
+
+        // 2. 从旧版内存数据库查找
         $itemDb = $this->eveData->getItemDatabase();
         foreach ($ids as $id) {
+            if (isset($names[$id])) continue;
             if (isset($itemDb[$id])) {
                 $names[$id] = $itemDb[$id];
             }
         }
 
+        // 3. 从缓存查找
         foreach ($ids as $id) {
             if (isset($names[$id])) continue;
             $cached = Cache::get("eve_name_{$id}");
@@ -802,6 +846,7 @@ class KillmailService
             }
         }
 
+        // 4. 调用 ESI API 查询剩余的 (主要是角色、军团、联盟等动态数据)
         if (!empty($missing)) {
             $this->resolveNamesFromEsi($missing, $names);
         }

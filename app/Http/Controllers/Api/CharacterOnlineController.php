@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Services\EveDataService;
 
 /**
  * 角色在线状态 API 控制器
@@ -72,16 +73,22 @@ class CharacterOnlineController extends Controller
             // 如果在线，查询舰船名称
             $shipName = null;
             if ($isOnline && $shipTypeId) {
-                try {
-                    $shipResponse = Http::timeout(10)
-                        ->get(config('esi.base_url') . "universe/types/{$shipTypeId}/");
-                    
-                    if ($shipResponse->ok()) {
-                        $shipData = $shipResponse->json();
-                        $shipName = $shipData['name'] ?? null;
+                // 先查本地数据
+                $shipName = EveDataService::getLocalItemName($shipTypeId);
+                
+                // 本地没有，调用 ESI API 兜底
+                if (!$shipName) {
+                    try {
+                        $shipResponse = Http::timeout(10)
+                            ->get(config('esi.base_url') . "universe/types/{$shipTypeId}/");
+                        
+                        if ($shipResponse->ok()) {
+                            $shipData = $shipResponse->json();
+                            $shipName = $shipData['name'] ?? null;
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('🟢 [API] 舰船名称查询失败：' . $e->getMessage());
                     }
-                } catch (\Exception $e) {
-                    Log::warning('🟢 [API] 舰船名称查询失败：' . $e->getMessage());
                 }
             }
             

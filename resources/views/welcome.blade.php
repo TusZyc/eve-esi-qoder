@@ -209,6 +209,8 @@
             <p>Tus Esi System &middot; 数据来源于 EVE ESI API &middot; 非官方项目</p>
             <p class="mt-2">
                 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-blue-300/80 transition-colors">苏ICP备17024259号-9</a>
+                <span class="mx-2">|</span>
+                <a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=32098202000512" target="_blank" rel="noopener noreferrer" class="hover:text-blue-300/80 transition-colors">苏公网安备32098202000512号</a>
             </p>
         </footer>
     </div>

@@ -180,8 +180,8 @@
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex">
-    <!-- 左侧边栏 -->
-    <aside class="admin-sidebar w-64 min-h-screen flex flex-col">
+    <!-- 左侧边栏 - flex-shrink-0 防止被压缩 -->
+    <aside class="admin-sidebar w-64 min-w-[256px] flex-shrink-0 min-h-screen flex flex-col">
         <!-- Logo 区域 -->
         <div class="p-5 border-b border-slate-700/50">
             <div class="flex items-center space-x-3">
@@ -218,6 +218,16 @@
                 <span class="text-xl w-6 text-center">📈</span>
                 <span>API 统计</span>
             </a>
+            <a href="{{ route('admin.cache') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'cache' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">💾</span>
+                <span>缓存管理</span>
+            </a>
+            <a href="{{ route('admin.data') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'data' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">📦</span>
+                <span>数据管理</span>
+            </a>
 
             <div class="border-t border-slate-700/50 my-4"></div>
             <p class="text-xs text-slate-500 uppercase tracking-wider px-4 py-2">快捷操作</p>
@@ -244,8 +254,8 @@
         </div>
     </aside>
 
-    <!-- 主内容区 -->
-    <main class="flex-1 admin-content">
+    <!-- 主内容区 - min-w-0 和 overflow-x-hidden 防止内容撑开 -->
+    <main class="flex-1 min-w-0 overflow-x-hidden admin-content">
         <!-- 顶部栏 -->
         <header class="relative bg-slate-900/60 backdrop-blur-xl border-b border-slate-700/50 px-6 py-4">
             <div class="flex items-center justify-between">

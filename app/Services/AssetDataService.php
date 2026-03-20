@@ -186,9 +186,18 @@ class AssetDataService
                             'owner' => $data['owner'] ?? 0,
                         ];
                     } else {
+                        $status = $response instanceof \Illuminate\Http\Client\Response ? $response->status() : 0;
+                        Log::warning('[Assets] NPC空间站查询失败', [
+                            'station_id' => $stationId,
+                            'status' => $status,
+                        ]);
                         $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
                     }
                 } catch (\Exception $e) {
+                    Log::warning('[Assets] NPC空间站查询异常', [
+                        'station_id' => $stationId,
+                        'error' => $e->getMessage(),
+                    ]);
                     $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
                 }
             }
@@ -246,7 +255,9 @@ class AssetDataService
 
             $locInfo = ['name' => $name, 'system_id' => $sysId];
             $info[$stationId] = $locInfo;
-            Cache::put("eve_locinfo_{$stationId}", $locInfo, 86400);
+            // 失败结果（包含"未知"）仅缓存5分钟，成功结果缓存1天
+            $cacheTtl = str_contains($name, '未知') ? 300 : 86400;
+            Cache::put("eve_locinfo_{$stationId}", $locInfo, $cacheTtl);
         }
     }
 
@@ -256,22 +267,46 @@ class AssetDataService
     protected function fetchSystemNames(array $sysIds, array &$zhNames, array &$enNames): void
     {
         $baseUrl = config('esi.base_url');
-        $sysBatches = array_chunk($sysIds, 5);
+        $uncachedIds = [];
+        
+        // 先从本地数据获取中文星系名
+        foreach ($sysIds as $sysId) {
+            $localInfo = EveDataService::getLocalSystemInfo($sysId);
+            if ($localInfo && isset($localInfo['name'])) {
+                $zhNames[$sysId] = $localInfo['name'];
+                Cache::put("eve_sysname_{$sysId}", $localInfo['name'], 86400);
+            } else {
+                $uncachedIds[] = $sysId;
+            }
+        }
+        
+        // 本地没有的，调用 ESI API 兜底
+        if (empty($uncachedIds)) {
+            // 英文名仍需要从 API 获取（用于站名翻译）
+            $uncachedIds = $sysIds;
+        }
+        
+        $sysBatches = array_chunk($uncachedIds, 5);
         foreach ($sysBatches as $batch) {
             $responses = Http::pool(function ($pool) use ($batch, $baseUrl) {
                 foreach ($batch as $sysId) {
+                    // 只有中文名未获取时才请求中文
                     $pool->as("zh_{$sysId}")->timeout(5)
                         ->get($baseUrl . "universe/systems/{$sysId}/", ['datasource' => 'serenity', 'language' => 'zh']);
+                    // 英文名用于站名翻译
                     $pool->as("en_{$sysId}")->timeout(5)
                         ->get($baseUrl . "universe/systems/{$sysId}/", ['datasource' => 'serenity', 'language' => 'en']);
                 }
             });
             foreach ($batch as $sysId) {
                 try {
-                    $r = $responses["zh_{$sysId}"] ?? null;
-                    if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
-                        $zhNames[$sysId] = $r->json()['name'] ?? '';
-                        Cache::put("eve_sysname_{$sysId}", $zhNames[$sysId], 86400);
+                    // 只有中文名未获取时才使用 API 结果
+                    if (!isset($zhNames[$sysId])) {
+                        $r = $responses["zh_{$sysId}"] ?? null;
+                        if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
+                            $zhNames[$sysId] = $r->json()['name'] ?? '';
+                            Cache::put("eve_sysname_{$sysId}", $zhNames[$sysId], 86400);
+                        }
                     }
                     $r = $responses["en_{$sysId}"] ?? null;
                     if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
@@ -348,13 +383,40 @@ class AssetDataService
                             'system_id' => $data['solar_system_id'] ?? 0,
                         ];
                     } else {
-                        $locInfo = ['name' => "未知建筑 ({$structureId})", 'system_id' => 0];
+                        $status = $response instanceof \Illuminate\Http\Client\Response ? $response->status() : 0;
+                        $errorBody = $response instanceof \Illuminate\Http\Client\Response ? substr($response->body(), 0, 200) : '';
+                        
+                        // 区分不同错误类型，并设置不同的显示名称
+                        [$reason, $displayName] = match ($status) {
+                            401 => ['token过期', "授权过期建筑 ({$structureId})"],
+                            403 => ['无权限访问该建筑', "权限受限建筑 ({$structureId})"],
+                            404 => ['建筑不存在（可能已被拆除）', "已拆除建筑 ({$structureId})"],
+                            default => ['网络/服务器错误', "未知建筑 ({$structureId})"],
+                        };
+                        
+                        Log::warning('[Assets] 玩家建筑查询失败', [
+                            'structure_id' => $structureId,
+                            'status' => $status,
+                            'reason' => $reason,
+                            'body' => $errorBody,
+                        ]);
+                        $locInfo = ['name' => $displayName, 'system_id' => 0];
                     }
                 } catch (\Exception $e) {
+                    Log::warning('[Assets] 玩家建筑查询异常', [
+                        'structure_id' => $structureId,
+                        'error' => $e->getMessage(),
+                    ]);
                     $locInfo = ['name' => "未知建筑 ({$structureId})", 'system_id' => 0];
                 }
                 $info[$structureId] = $locInfo;
-                Cache::put("eve_locinfo_{$structureId}", $locInfo, 86400);
+                // 失败结果（包含特殊标记）仅缓存5分钟，成功结果缓存1天
+                $isFailedResult = str_contains($locInfo['name'], '未知') 
+                    || str_contains($locInfo['name'], '权限受限') 
+                    || str_contains($locInfo['name'], '已拆除') 
+                    || str_contains($locInfo['name'], '授权过期');
+                $cacheTtl = $isFailedResult ? 300 : 86400;
+                Cache::put("eve_locinfo_{$structureId}", $locInfo, $cacheTtl);
             }
         }
     }

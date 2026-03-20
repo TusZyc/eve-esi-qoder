@@ -34,6 +34,46 @@
 
 @section('content')
 <div class="space-y-6">
+    <!-- 系统状态 -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">PHP 版本</p>
+            <p class="text-lg font-bold mt-1 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="stat-php">
+                <span class="skeleton inline-block w-14 h-5"></span>
+            </p>
+        </div>
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">Laravel 版本</p>
+            <p class="text-lg font-bold mt-1 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent" id="stat-laravel">
+                <span class="skeleton inline-block w-14 h-5"></span>
+            </p>
+        </div>
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">Redis 状态</p>
+            <p class="text-lg font-bold mt-1" id="stat-redis-status">
+                <span class="skeleton inline-block w-12 h-5"></span>
+            </p>
+        </div>
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">Redis 内存</p>
+            <p class="text-lg font-bold mt-1 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent" id="stat-redis-memory">
+                <span class="skeleton inline-block w-14 h-5"></span>
+            </p>
+        </div>
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">缓存键数</p>
+            <p class="text-lg font-bold mt-1 bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent" id="stat-redis-keys">
+                <span class="skeleton inline-block w-12 h-5"></span>
+            </p>
+        </div>
+        <div class="stat-card rounded-xl p-4 group">
+            <p class="text-slate-400 text-xs font-medium">日志大小</p>
+            <p class="text-lg font-bold mt-1 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent" id="stat-log-file">
+                <span class="skeleton inline-block w-14 h-5"></span>
+            </p>
+        </div>
+    </div>
+
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="stat-card rounded-2xl p-5 group">
@@ -142,14 +182,13 @@
             <span class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center mr-3">
                 <span class="text-lg">📈</span>
             </span>
-            <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">API 调用统计</span>
+            <span class="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">功能模块调用统计</span>
         </h3>
         <div class="overflow-x-auto">
             <table class="w-full" id="api-stats-table">
                 <thead>
                     <tr class="text-left text-slate-400 text-sm border-b border-slate-700">
-                        <th class="pb-3">端点</th>
-                        <th class="pb-3">名称</th>
+                        <th class="pb-3">功能模块</th>
                         <th class="pb-3 text-right">调用次数</th>
                         <th class="pb-3 text-right">状态</th>
                     </tr>
@@ -159,9 +198,8 @@
                     @for ($i = 0; $i < 5; $i++)
                     <tr class="border-b border-slate-700/50">
                         <td class="py-3"><span class="skeleton inline-block w-40 h-4"></span></td>
-                        <td class="py-3"><span class="skeleton inline-block w-24 h-4"></span></td>
-                        <td class="py-3 text-right"><span class="skeleton inline-block w-12 h-4"></span></td>
                         <td class="py-3 text-right"><span class="skeleton inline-block w-16 h-4"></span></td>
+                        <td class="py-3 text-right"><span class="skeleton inline-block w-24 h-4"></span></td>
                     </tr>
                     @endfor
                 </tbody>
@@ -181,11 +219,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadDashboardData() {
     try {
-        const response = await fetch('/api/admin/dashboard-data');
+        const response = await fetch('/admin/api/dashboard-data');
         const result = await response.json();
         
         if (result.success) {
             const data = result.data;
+            
+            // 更新系统状态
+            if (data.system_status) {
+                const ss = data.system_status;
+                document.getElementById('stat-php').textContent = ss.php_version;
+                document.getElementById('stat-laravel').textContent = ss.laravel_version;
+                
+                const redisStatusEl = document.getElementById('stat-redis-status');
+                if (ss.redis_status === 'online') {
+                    redisStatusEl.innerHTML = '<span class="text-green-400">在线</span>';
+                } else if (ss.redis_status === 'error') {
+                    redisStatusEl.innerHTML = '<span class="text-red-400">错误</span>';
+                } else {
+                    redisStatusEl.innerHTML = '<span class="text-slate-400">离线</span>';
+                }
+                
+                document.getElementById('stat-redis-memory').textContent = ss.redis_memory;
+                document.getElementById('stat-redis-keys').textContent = ss.redis_keys.toLocaleString();
+                document.getElementById('stat-log-file').textContent = formatBytes(ss.log_size);
+            }
             
             // 更新统计数据
             document.getElementById('stat-users').textContent = data.user_count;
@@ -206,7 +264,7 @@ async function loadDashboardData() {
 
 async function loadApiStats() {
     try {
-        const response = await fetch('/api/admin/api-stats');
+        const response = await fetch('/admin/api/api-stats-data');
         const result = await response.json();
         
         if (result.success) {
@@ -280,25 +338,56 @@ function renderErrorsList(errors) {
 function renderApiStats(stats) {
     const tbody = document.getElementById('api-stats-body');
     
-    if (!stats.endpoints || stats.endpoints.length === 0) {
+    // 模块中文名映射
+    const moduleNames = {
+        'API': 'ESI API 调用',
+        'Assets': '资产数据',
+        'AutoRefreshToken': 'Token 自动刷新',
+        'TokenRefresh': 'Token 刷新',
+        'Notifications': '通知系统',
+        'Admin': '管理后台',
+        'Market': '市场数据',
+        'Skills': '技能数据',
+        'Contracts': '合同数据',
+        'Wallet': '钱包数据',
+        'Killmails': 'KM数据',
+        'Contacts': '联系人数据',
+        'Bookmarks': '书签数据',
+        'Fittings': '装配数据',
+    };
+    
+    if (!stats.modules || stats.modules.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="py-8 text-center text-slate-400">暂无 API 调用记录</td>
+                <td colspan="3" class="py-8 text-center text-slate-400">暂无模块调用记录</td>
             </tr>
         `;
         return;
     }
     
-    tbody.innerHTML = stats.endpoints.map(endpoint => `
+    tbody.innerHTML = stats.modules.map(mod => {
+        const moduleName = moduleNames[mod.tag] || mod.name || mod.tag;
+        const hasError = mod.error > 0;
+        const hasWarning = mod.warning > 0;
+        
+        let statusHtml = '';
+        if (hasError) {
+            statusHtml = `<span class="text-xs px-2 py-1 rounded-full bg-red-500/15 text-red-400 font-medium mr-1">${mod.error} 错误</span>`;
+        }
+        if (hasWarning) {
+            statusHtml += `<span class="text-xs px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-400 font-medium mr-1">${mod.warning} 警告</span>`;
+        }
+        if (!hasError && !hasWarning) {
+            statusHtml = `<span class="text-xs px-2 py-1 rounded-full bg-green-500/15 text-green-400 font-medium">${mod.info || mod.calls} 成功</span>`;
+        }
+        
+        return `
         <tr class="border-b border-slate-700/30 hover:bg-blue-500/5 transition-colors">
-            <td class="py-4 font-mono text-sm text-blue-400">${endpoint.path}</td>
-            <td class="py-4 text-slate-300">${endpoint.name}</td>
-            <td class="py-4 text-right font-semibold text-white">${endpoint.calls.toLocaleString()}</td>
-            <td class="py-4 text-right">
-                <span class="text-xs px-3 py-1.5 rounded-full bg-green-500/15 text-green-400 font-medium">正常</span>
-            </td>
+            <td class="py-4 font-medium text-slate-200">${moduleName}</td>
+            <td class="py-4 text-right font-semibold text-white">${mod.calls.toLocaleString()}</td>
+            <td class="py-4 text-right">${statusHtml}</td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function getTokenStatusClass(status) {

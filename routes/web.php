@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\BookmarkDataController;
 use App\Http\Controllers\Api\ContractDataController;
 use App\Http\Controllers\Api\FittingDataController;
 use App\Http\Controllers\Api\CharacterKillmailDataController;
+use App\Http\Controllers\Api\CharacterDataController;
 use App\Http\Controllers\Admin\AdminController;
 use Illuminate\Support\Facades\Auth;
 
@@ -111,11 +112,10 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/wallet/journal', [WalletDataController::class, 'journal'])->name('api.dashboard.wallet.journal');
     Route::get('/wallet/transactions', [WalletDataController::class, 'transactions'])->name('api.dashboard.wallet.transactions');
     Route::get('/wallet/loyalty', [WalletDataController::class, 'loyalty'])->name('api.dashboard.wallet.loyalty');
-
-    // 军团钱包 API
-    Route::get('/wallet/corporation', [WalletDataController::class, 'corporationBalance'])->name('api.dashboard.wallet.corporation');
-    Route::get('/wallet/corporation/journal', [WalletDataController::class, 'corporationJournal'])->name('api.dashboard.wallet.corporation.journal');
     Route::get('/wallet/corp-permission', [WalletDataController::class, 'checkCorpPermission'])->name('api.dashboard.wallet.corp-permission');
+    Route::get('/wallet/corporation', [WalletDataController::class, 'corporationWallet'])->name('api.dashboard.wallet.corporation');
+    Route::get('/wallet/corporation/journal', [WalletDataController::class, 'corporationJournal'])->name('api.dashboard.wallet.corporation-journal');
+    Route::get('/wallet/corporation/transactions', [WalletDataController::class, 'corporationTransactions'])->name('api.dashboard.wallet.corporation-transactions');
 
     // 书签 API
     Route::get('/bookmarks', [BookmarkDataController::class, 'index'])->name('api.dashboard.bookmarks');
@@ -131,11 +131,11 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     // 击毁报告 API
     Route::get('/killmails', [CharacterKillmailDataController::class, 'index'])->name('api.dashboard.killmails');
 
-    // 角色管理 API（克隆体、属性、植入体等）
-    Route::get('/character/clones', [CharacterController::class, 'clones'])->name('api.dashboard.character.clones');
-    Route::get('/character/attributes', [CharacterController::class, 'attributes'])->name('api.dashboard.character.attributes');
-    Route::get('/character/implants', [CharacterController::class, 'implants'])->name('api.dashboard.character.implants');
-    Route::get('/character/corphistory', [CharacterController::class, 'corporationHistory'])->name('api.dashboard.character.corphistory');
+    // 角色详细数据 API
+    Route::get('/character/attributes', [CharacterDataController::class, 'attributes'])->name('api.dashboard.character.attributes');
+    Route::get('/character/implants', [CharacterDataController::class, 'implants'])->name('api.dashboard.character.implants');
+    Route::get('/character/clones', [CharacterDataController::class, 'clones'])->name('api.dashboard.character.clones');
+    Route::get('/character/corphistory', [CharacterDataController::class, 'corpHistory'])->name('api.dashboard.character.corphistory');
 });
 
 // 市场认证 API（需登录）
@@ -226,7 +226,12 @@ Route::middleware(['auth', 'eve.refresh', 'site.admin'])->prefix('admin')->group
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
     Route::get('/logs', [AdminController::class, 'logs'])->name('admin.logs');
     Route::get('/api-stats', [AdminController::class, 'apiStats'])->name('admin.api-stats');
+    Route::get('/cache', [AdminController::class, 'cache'])->name('admin.cache');
+    Route::get('/data', [AdminController::class, 'dataManage'])->name('admin.data');
     Route::get('/api/dashboard-data', [AdminController::class, 'dashboardData'])->name('admin.api.dashboard-data');
     Route::get('/api/api-stats-data', [AdminController::class, 'apiStatsData'])->name('admin.api.api-stats-data');
+    Route::get('/api/cache-data', [AdminController::class, 'cacheData'])->name('admin.api.cache-data');
+    Route::post('/api/clear-cache', [AdminController::class, 'clearCache'])->name('admin.api.clear-cache');
+    Route::get('/api/data-info', [AdminController::class, 'dataInfo'])->name('admin.api.data-info');
     Route::post('/users/{userId}/refresh-token', [AdminController::class, 'refreshToken'])->name('admin.users.refresh-token');
 });

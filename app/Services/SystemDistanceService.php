@@ -71,6 +71,7 @@ class SystemDistanceService
 
     /**
      * 获取星系名称
+     * 优先从本地数据获取，再调用 ESI API 兜底
      *
      * @param int $systemId
      * @param string $language
@@ -78,6 +79,13 @@ class SystemDistanceService
      */
     public function getSystemName(int $systemId, string $language = 'zh'): string
     {
+        // 1. 优先从本地数据获取
+        $localInfo = EveDataService::getLocalSystemInfo($systemId);
+        if ($localInfo && isset($localInfo['name'])) {
+            return $localInfo['name'];
+        }
+
+        // 2. 从缓存获取
         $cacheKey = "eve_system_name_{$systemId}_{$language}";
 
         return Cache::remember($cacheKey, $this->cacheTtl, function () use ($systemId, $language) {

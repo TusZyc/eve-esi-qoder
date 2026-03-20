@@ -347,7 +347,7 @@ class CharacterDataController extends Controller
 
     /**
      * 解析位置名称（空间站/建筑）
-     * 直接调用 ESI 的 stations/structures 接口获取中文名
+     * 优先查本地数据，本地没有再调用 ESI 的 stations/structures 接口获取中文名
      * 
      * @param array $locationIds 位置 ID 数组
      * @param array $cloneData 克隆体数据数组，用于获取 location_type
@@ -384,27 +384,44 @@ class CharacterDataController extends Controller
             // 判断位置类型：NPC 空间站 ID 范围是 60000000-69999999
             $isStation = ($locationTypes[$id] ?? null) === 'station' || ($id >= 60000000 && $id < 70000000);
             
-            try {
-                if ($isStation) {
-                    // NPC 空间站 - 国服 Serenity 的 stations 接口直接返回中文名
-                    $response = Http::timeout(10)
-                        ->get($baseUrl . "/universe/stations/{$id}/", ['datasource' => 'serenity']);
-                    if ($response->ok()) {
-                        $name = $response->json()['name'] ?? null;
-                    }
-                } else {
-                    // 玩家建筑 - structures 接口需要 token，这里尝试获取用户 token
-                    $user = Auth::user();
-                    if ($user && $user->access_token) {
-                        $response = Http::withToken($user->access_token)->timeout(10)
-                            ->get($baseUrl . "/universe/structures/{$id}/", ['datasource' => 'serenity']);
+            // 先查本地数据
+            if ($isStation) {
+                $localInfo = EveDataService::getLocalStationInfo($id);
+                if ($localInfo && isset($localInfo['name'])) {
+                    $name = $localInfo['name'];
+                }
+            } else {
+                // 玩家建筑
+                $localInfo = EveDataService::getLocalStructureInfo($id);
+                if ($localInfo && isset($localInfo['name'])) {
+                    $name = $localInfo['name'];
+                }
+            }
+            
+            // 本地没有，调用 ESI API 兜底
+            if (!$name) {
+                try {
+                    if ($isStation) {
+                        // NPC 空间站 - 国服 Serenity 的 stations 接口直接返回中文名
+                        $response = Http::timeout(10)
+                            ->get($baseUrl . "/universe/stations/{$id}/", ['datasource' => 'serenity']);
                         if ($response->ok()) {
                             $name = $response->json()['name'] ?? null;
                         }
+                    } else {
+                        // 玩家建筑 - structures 接口需要 token，这里尝试获取用户 token
+                        $user = Auth::user();
+                        if ($user && $user->access_token) {
+                            $response = Http::withToken($user->access_token)->timeout(10)
+                                ->get($baseUrl . "/universe/structures/{$id}/", ['datasource' => 'serenity']);
+                            if ($response->ok()) {
+                                $name = $response->json()['name'] ?? null;
+                            }
+                        }
                     }
+                } catch (\Exception $e) {
+                    Log::debug("[CharacterDataController] 解析位置名称失败 {$id}: " . $e->getMessage());
                 }
-            } catch (\Exception $e) {
-                Log::debug("[CharacterDataController] 解析位置名称失败 {$id}: " . $e->getMessage());
             }
             
             if ($name) {

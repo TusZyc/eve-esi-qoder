@@ -140,7 +140,7 @@ async function refreshToken(userId) {
     btn.innerHTML = '<span class="spinning inline-block">⏳</span> 刷新中...';
     
     try {
-        const response = await fetch(`/api/admin/users/${userId}/refresh-token`, {
+        const response = await fetch(`/admin/users/${userId}/refresh-token`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

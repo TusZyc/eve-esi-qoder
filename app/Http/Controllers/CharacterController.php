@@ -10,17 +10,13 @@ use App\Helpers\EveHelper;
 use App\Services\CharacterDataService;
 use App\Services\CacheKeyService;
 use App\Services\ApiErrorHandler;
-use App\Services\StationNameService;
+use App\Services\EveDataService;
 use App\Exceptions\EveApiException;
+use Illuminate\Support\Facades\Log;
 
 class CharacterController extends Controller
 {
-    private StationNameService $stationNameService;
-    
-    public function __construct(StationNameService $stationNameService)
-    {
-        $this->stationNameService = $stationNameService;
-    }
+
     /**
      * 角色管理页 — 直接显示角色全部信息
      */
@@ -477,13 +473,22 @@ class CharacterController extends Controller
 
     /**
      * 通过 ESI universe/names 接口批量解析ID为名称
+     * 优先从本地数据获取
      */
     private function resolveNames(array $ids): array
     {
         $names = [];
         $uncached = [];
 
+        // 1. 先从本地静态数据查找
+        $localNames = EveDataService::getLocalNames($ids);
+        foreach ($localNames as $id => $name) {
+            $names[$id] = $name;
+        }
+
+        // 2. 从缓存查找
         foreach ($ids as $id) {
+            if (isset($names[$id])) continue;
             $cached = Cache::get("eve_name_{$id}");
             if ($cached !== null) {
                 $names[$id] = $cached;
@@ -492,6 +497,7 @@ class CharacterController extends Controller
             }
         }
 
+        // 3. 调用 ESI API 查询剩余的 (主要是角色、军团、联盟等动态数据)
         if (!empty($uncached)) {
             try {
                 $response = Http::timeout(10)
@@ -512,16 +518,57 @@ class CharacterController extends Controller
 
     /**
      * 解析位置名称（空间站或建筑）
+     * 优先从本地数据获取，再调用 ESI API
      */
     private function resolveLocationName(int $locationId, string $locationType, $user): string
     {
-        if ($locationType === 'structure' && $user) {
-            // 玩家建筑需要token
-            return $this->stationNameService->getStructureName($locationId, $user->access_token);
+        // 1. 优先从本地数据获取
+        if ($locationType === 'structure') {
+            $localInfo = EveDataService::getLocalStructureInfo($locationId);
+            if ($localInfo && isset($localInfo['name'])) {
+                return $localInfo['name'];
+            }
         } else {
-            // NPC空间站
-            return $this->stationNameService->getStationNameZh($locationId);
+            // NPC 空间站
+            $localInfo = EveDataService::getLocalStationInfo($locationId);
+            if ($localInfo && isset($localInfo['name'])) {
+                return $localInfo['name'];
+            }
         }
+        
+        // 2. 从缓存获取
+        $cacheKey = "eve_location_name_zh_{$locationId}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $baseUrl = config('esi.base_url');
+        $name = "未知位置 (ID: {$locationId})";
+
+        // 3. 调用 ESI API
+        try {
+            if ($locationType === 'structure' && $user) {
+                // 玩家建筑需要 token
+                $response = Http::withToken($user->access_token)->timeout(10)
+                    ->get($baseUrl . "universe/structures/{$locationId}/", ['datasource' => 'serenity']);
+                if ($response->ok()) {
+                    $name = $response->json()['name'] ?? $name;
+                }
+            } else {
+                // NPC 空间站 - 国服 Serenity 的 stations 接口直接返回中文名
+                $response = Http::timeout(10)
+                    ->get($baseUrl . "universe/stations/{$locationId}/", ['datasource' => 'serenity']);
+                if ($response->ok()) {
+                    $name = $response->json()['name'] ?? $name;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning("获取位置名称失败: {$locationId}", ['error' => $e->getMessage()]);
+        }
+
+        Cache::put($cacheKey, $name, 86400);
+        return $name;
     }
 
     /**

@@ -81,7 +81,12 @@ class AssetDataController extends Controller
             // 构建最终结果
             $solarSystems = [];
             foreach ($systemGroups as $systemId => $group) {
-                $systemName = $systemNames[$systemId] ?? ($systemId > 0 ? "未知星系 (ID: {$systemId})" : '未知位置');
+                // 对于 system_id=0 的分组，根据位置名称判断分组名称
+                if ($systemId === 0) {
+                    $systemName = $this->determineUnknownGroupName($group['locations']);
+                } else {
+                    $systemName = $systemNames[$systemId] ?? "未知星系 (ID: {$systemId})";
+                }
                 $totalItems = array_sum(array_column($group['locations'], 'item_count'));
 
                 usort($group['locations'], fn($a, $b) => $b['item_count'] - $a['item_count']);
@@ -348,5 +353,49 @@ class AssetDataController extends Controller
             Log::error("[Assets] 位置 {$locationId} 物品加载异常：" . $e->getMessage());
             return ApiErrorHandler::error('unknown_error', $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * 根据位置名称确定 system_id=0 时的分组名称
+     * 
+     * @param array $locations 位置列表
+     * @return string 分组名称
+     */
+    protected function determineUnknownGroupName(array $locations): string
+    {
+        $hasRestricted = false;
+        $hasDemolished = false;
+        $hasExpired = false;
+        $hasUnknown = false;
+
+        foreach ($locations as $loc) {
+            $name = $loc['location_name'] ?? '';
+            if (str_contains($name, '权限受限')) {
+                $hasRestricted = true;
+            } elseif (str_contains($name, '已拆除')) {
+                $hasDemolished = true;
+            } elseif (str_contains($name, '授权过期')) {
+                $hasExpired = true;
+            } else {
+                $hasUnknown = true;
+            }
+        }
+
+        // 如果只有一种类型，显示对应的分组名
+        $typeCount = ($hasRestricted ? 1 : 0) + ($hasDemolished ? 1 : 0) + ($hasExpired ? 1 : 0) + ($hasUnknown ? 1 : 0);
+        
+        if ($typeCount === 1) {
+            if ($hasRestricted) return '权限受限的建筑';
+            if ($hasDemolished) return '已失效的建筑';
+            if ($hasExpired) return '授权过期的建筑';
+        }
+
+        // 如果主要是权限受限（占多数）
+        if ($hasRestricted && !$hasDemolished && !$hasExpired && !$hasUnknown) {
+            return '权限受限的建筑';
+        }
+
+        // 混合情况或其他
+        return '未知位置';
     }
 }

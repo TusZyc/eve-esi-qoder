@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
+use App\Services\EveDataService;
 
 class BookmarkDataController extends Controller
 {
@@ -379,6 +380,13 @@ class BookmarkDataController extends Controller
     private function getStationSystem(int $stationId): int
     {
         return Cache::remember("station_system_{$stationId}", 86400, function () use ($stationId) {
+            // 先查本地数据
+            $localInfo = EveDataService::getLocalStationInfo($stationId);
+            if ($localInfo && isset($localInfo['system_id'])) {
+                return (int) $localInfo['system_id'];
+            }
+            
+            // 本地没有，调用 ESI API 兜底
             try {
                 $url = config('esi.base_url') . "universe/stations/{$stationId}/";
                 $response = Http::timeout(10)
@@ -410,6 +418,13 @@ class BookmarkDataController extends Controller
     private function getStructureSystem(int $structureId, string $token): int
     {
         return Cache::remember("structure_system_{$structureId}", 86400, function () use ($structureId, $token) {
+            // 先查本地数据
+            $localInfo = EveDataService::getLocalStructureInfo($structureId);
+            if ($localInfo && isset($localInfo['system_id'])) {
+                return (int) $localInfo['system_id'];
+            }
+            
+            // 本地没有，调用 ESI API 兜底
             try {
                 $url = config('esi.base_url') . "universe/structures/{$structureId}/";
                 $response = Http::withToken($token)
