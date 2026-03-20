@@ -40,10 +40,6 @@
                                 <span class="text-lg">💰</span>
                                 <span class="text-sm">钱包</span>
                             </a>
-                            <a href="{{ route('bookmarks.index') }}" class="flex items-center space-x-2 px-4 py-3 hover:bg-white/10 transition-all{{ $activePage === 'bookmarks' ? ' bg-white/10' : '' }}">
-                                <span class="text-lg">📍</span>
-                                <span class="text-sm">保存的地点</span>
-                            </a>
                             <a href="{{ route('contacts.index') }}" class="flex items-center space-x-2 px-4 py-3 hover:bg-white/10 transition-all{{ $activePage === 'contacts' ? ' bg-white/10' : '' }}">
                                 <span class="text-lg">📇</span>
                                 <span class="text-sm">联系人</span>

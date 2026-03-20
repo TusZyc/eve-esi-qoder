@@ -112,6 +112,11 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/wallet/transactions', [WalletDataController::class, 'transactions'])->name('api.dashboard.wallet.transactions');
     Route::get('/wallet/loyalty', [WalletDataController::class, 'loyalty'])->name('api.dashboard.wallet.loyalty');
 
+    // 军团钱包 API
+    Route::get('/wallet/corporation', [WalletDataController::class, 'corporationBalance'])->name('api.dashboard.wallet.corporation');
+    Route::get('/wallet/corporation/journal', [WalletDataController::class, 'corporationJournal'])->name('api.dashboard.wallet.corporation.journal');
+    Route::get('/wallet/corp-permission', [WalletDataController::class, 'checkCorpPermission'])->name('api.dashboard.wallet.corp-permission');
+
     // 书签 API
     Route::get('/bookmarks', [BookmarkDataController::class, 'index'])->name('api.dashboard.bookmarks');
     Route::get('/bookmarks/folders', [BookmarkDataController::class, 'folders'])->name('api.dashboard.bookmarks.folders');
