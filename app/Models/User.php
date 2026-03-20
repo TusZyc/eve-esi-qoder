@@ -49,6 +49,14 @@ class User extends Authenticatable
     ];
 
     /**
+     * 检查是否有绑定的 EVE 角色
+     */
+    public function hasEveCharacter(): bool
+    {
+        return $this->eve_character_id !== null;
+    }
+
+    /**
      * 检查 Token 是否过期
      */
     public function isTokenExpired(): bool
@@ -56,23 +64,22 @@ class User extends Authenticatable
         if (!$this->token_expires_at) {
             return true;
         }
-        
+
         return $this->token_expires_at->isPast();
     }
 
     /**
-     * 检查是否需要刷新 Token（提前 5 分钟刷新，避免使用时过期）
+     * 检查是否需要刷新 Token（提前 5 分钟刷新）
      */
     public function shouldRefreshToken(): bool
     {
         if (!$this->token_expires_at) {
             return true;
         }
-        
-        // 提前 5 分钟刷新
+
         return $this->token_expires_at->copy()->subMinutes(5)->isPast();
     }
-    
+
     /**
      * 获取 Token 剩余有效时间（秒）
      */
@@ -81,10 +88,10 @@ class User extends Authenticatable
         if (!$this->token_expires_at) {
             return 0;
         }
-        
+
         return max(0, $this->token_expires_at->timestamp - time());
     }
-    
+
     /**
      * 获取 Token 过期时间（格式化）
      */
@@ -93,7 +100,7 @@ class User extends Authenticatable
         if (!$this->token_expires_at) {
             return '未知';
         }
-        
+
         return $this->token_expires_at->format('Y-m-d H:i:s');
     }
 }

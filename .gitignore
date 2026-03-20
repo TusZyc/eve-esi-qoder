@@ -1,35 +1,57 @@
+# Laravel 标准
 /node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
 /vendor
 .env
 .env.backup
 .env.production
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-auth.json
-npm-debug.log
-yarn-error.log
-/.fleet
-/.idea
-/.vscode
-
-# 运行时生成文件
-bootstrap/cache/
 storage/framework/
 storage/logs/
+bootstrap/cache/
 database/database.sqlite
 
-# 临时/调试文件
+# IDE
+.vscode/
+.idea/
+.fleet/
+*.swp
+*.swo
+*~
+
+# 系统
+.DS_Store
+Thumbs.db
+nul
+
+# 开发临时文件
 debug_*.php
 test_*.php
-nul
+*.py
+*.pyc
+__pycache__/
+*-fix.html
+
+# 脚本（不纳入版本控制）
+*.sh
+
+# 日志和临时
+*.log
+*.tmp
+*.bak
 
 # 上传的图片
 public/images/
 
 # 验证文件
 public/56d2c59d1863bde8dd84734b6020fd0e.txt
+
+# Laravel 其他
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+.phpunit.result.cache

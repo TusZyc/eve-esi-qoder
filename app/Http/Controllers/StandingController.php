@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class StandingController extends Controller
+class StandingController extends BasePageController
 {
     /**
      * 显示声望页面
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
-        return view('standings.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('standings.index');
     }
 }

@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class FittingController extends Controller
+class FittingController extends BasePageController
 {
     /**
      * 显示装配页面
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
-        return view('fittings.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('fittings.index');
     }
 }

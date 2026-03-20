@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class ContactController extends Controller
+class ContactController extends BasePageController
 {
     /**
      * 显示联系人页面
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
-        return view('contacts.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('contacts.index');
     }
 }

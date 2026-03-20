@@ -2,19 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-
-class CapitalNavController extends Controller
+class CapitalNavController extends BasePageController
 {
-    public function index(Request $request)
+    /**
+     * 显示旗舰导航页面
+     */
+    public function index()
     {
-        $user = Auth::user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-
-        return view('capital-nav.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('capital-nav.index');
     }
 }

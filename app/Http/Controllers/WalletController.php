@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class WalletController extends Controller
+class WalletController extends BasePageController
 {
     /**
      * 显示钱包页面
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
-        return view('wallet.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('wallet.index');
     }
 }

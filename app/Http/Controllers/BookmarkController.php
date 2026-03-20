@@ -2,21 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
-class BookmarkController extends Controller
+class BookmarkController extends BasePageController
 {
     /**
      * 显示保存的地点页面
      */
-    public function index(Request $request)
+    public function index()
     {
-        $user = $request->user();
-        $isLoggedIn = $user && $user->eve_character_id !== null;
-        
-        return view('bookmarks.index', [
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
-        ]);
+        return $this->renderPage('bookmarks.index');
     }
 }
