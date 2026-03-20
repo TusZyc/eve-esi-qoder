@@ -260,11 +260,6 @@
                 <span class="text-xl w-6 text-center">💰</span>
                 <span>钱包</span>
             </a>
-            <a href="{{ route('bookmarks.index') }}" 
-               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'bookmarks' ? 'active' : '' }}">
-                <span class="text-xl w-6 text-center">📍</span>
-                <span>保存的地点</span>
-            </a>
             <a href="{{ route('contacts.index') }}" 
                class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'contacts' ? 'active' : '' }}">
                 <span class="text-xl w-6 text-center">📇</span>
