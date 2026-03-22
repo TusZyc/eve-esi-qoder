@@ -95,10 +95,14 @@ class LpStoreController extends Controller
         $request->validate([
             'corporation_id' => 'required|integer|min:1',
             'region_id' => 'nullable|integer',
+            'material_price_mode' => 'nullable|string|in:default,buy,sell',
+            'output_price_mode' => 'nullable|string|in:default,buy,sell',
         ]);
 
         $corporationId = (int) $request->input('corporation_id');
         $regionId = (int) $request->input('region_id', config('lpstore.default_region'));
+        $materialPriceMode = $request->input('material_price_mode', 'default');
+        $outputPriceMode = $request->input('output_price_mode', 'default');
 
         try {
             // 获取 LP 报价
@@ -112,11 +116,11 @@ class LpStoreController extends Controller
                 ]);
             }
 
-            // 获取市场价格
-            $prices = $this->lpStoreService->getAllMarketPrices();
+            // 获取价格数据（根据计算模式选择不同来源）
+            $prices = $this->lpStoreService->getPricesForMode($materialPriceMode, $outputPriceMode);
 
             // 计算利润
-            $calculatedOffers = $this->lpStoreService->calculateOfferProfits($offers, $prices);
+            $calculatedOffers = $this->lpStoreService->calculateOfferProfits($offers, $prices, $materialPriceMode, $outputPriceMode);
 
             // 按 lp_ratio 降序排序
             usort($calculatedOffers, function ($a, $b) {

@@ -101,6 +101,12 @@
             right: 0;
             height: 1px;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .stat-card:hover::before {
+            opacity: 0;
         }
         .stat-card:hover {
             background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
@@ -108,7 +114,6 @@
             box-shadow: 0 12px 40px rgba(0,0,0,0.4),
                         0 0 0 1px rgba(59,130,246,0.1),
                         inset 0 1px 0 rgba(255,255,255,0.08);
-            transform: translateY(-2px);
         }
         
         /* 骨架屏动画 */
@@ -221,7 +226,7 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex">
     <!-- 左侧边栏 -->
-    <aside class="admin-sidebar w-64 min-h-screen flex flex-col">
+    <aside class="admin-sidebar w-64 min-h-screen flex flex-col shrink-0">
         <!-- Logo 区域 -->
         <div class="p-5 border-b border-slate-700/50">
             <div class="flex items-center space-x-3">
@@ -285,10 +290,20 @@
                 <span class="text-xl w-6 text-center">⭐</span>
                 <span>声望</span>
             </a>
+            <a href="{{ route('mail.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'mail' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">📧</span>
+                <span>邮件</span>
+            </a>
             <a href="{{ route('characters.index') }}" 
                class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'characters' ? 'active' : '' }}">
                 <span class="text-xl w-6 text-center">👥</span>
                 <span>角色管理</span>
+            </a>
+            <a href="{{ route('fleet.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'fleet' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">⚓</span>
+                <span>舰队管理</span>
             </a>
 
             <div class="border-t border-slate-700/50 my-4"></div>
@@ -341,7 +356,7 @@
     </aside>
 
     <!-- 主内容区 -->
-    <main class="flex-1 admin-content">
+    <main class="flex-1 admin-content min-w-0">
         <!-- 顶部栏 -->
         <header class="relative z-40 bg-slate-900/60 backdrop-blur-xl border-b border-slate-700/50 px-6 py-4">
             <div class="flex items-center justify-between">

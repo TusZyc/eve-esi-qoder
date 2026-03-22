@@ -83,6 +83,11 @@ return [
 
         // LP点数
         'esi-characters.read_loyalty.v1',
+
+        // 邮件相关
+        'esi-mail.read_mail.v1',
+        'esi-mail.send_mail.v1',
+        'esi-mail.organize_mail.v1',
     ],
     
     /*

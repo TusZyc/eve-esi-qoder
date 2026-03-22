@@ -17,7 +17,12 @@
 @section('content')
     <div class="container mx-auto px-4 py-8">
         <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 eve-glow">
-            <h2 class="text-2xl font-semibold mb-6">📜 合同</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold">📜 合同</h2>
+                <div class="text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-lg">
+                    <span class="text-amber-400">⚠️</span> ESI限制：仅显示30天内或未完成的合同
+                </div>
+            </div>
             
             <!-- 筛选栏 -->
             <div class="flex flex-wrap gap-4 mb-6">

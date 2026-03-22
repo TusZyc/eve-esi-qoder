@@ -15,6 +15,11 @@ class LpStoreService
     private MarketService $marketService;
     private string $baseUrl;
     private string $datasource = 'serenity';
+    
+    // 吉他4号空间站ID
+    const JITA_4_STATION_ID = 60003760;
+    // 伏尔戈星域ID
+    const THE_FORGE_REGION_ID = 10000002;
 
     public function __construct(EveDataService $eveDataService, MarketService $marketService)
     {
@@ -171,9 +176,164 @@ class LpStoreService
     }
 
     /**
-     * 计算 LP 报价的利润
+     * 根据计算模式获取价格数据
+     * 
+     * @param string $materialPriceMode 材料价格模式: default, buy, sell
+     * @param string $outputPriceMode 产出价格模式: default, buy, sell
+     * @return array 包含不同价格类型的价格数据
      */
-    public function calculateOfferProfits(array $offers, array $prices): array
+    public function getPricesForMode(string $materialPriceMode, string $outputPriceMode): array
+    {
+        // 始终获取默认价格作为基础
+        $defaultPrices = $this->getAllMarketPrices();
+        
+        // 如果都是默认模式，直接返回
+        if ($materialPriceMode === 'default' && $outputPriceMode === 'default') {
+            return $defaultPrices;
+        }
+        
+        // 如果有非默认模式，获取吉他4空间站价格
+        $stationPrices = [];
+        if ($materialPriceMode !== 'default' || $outputPriceMode !== 'default') {
+            $stationPrices = $this->getJitaStationPrices();
+        }
+        
+        // 合并价格数据
+        $result = [];
+        foreach ($defaultPrices as $typeId => $priceInfo) {
+            $result[$typeId] = [
+                'average_price' => $priceInfo['average_price'] ?? null,
+                'adjusted_price' => $priceInfo['adjusted_price'] ?? null,
+                'buy_price' => $stationPrices[$typeId]['buy_price'] ?? null,  // 最高买单价格
+                'sell_price' => $stationPrices[$typeId]['sell_price'] ?? null, // 最低卖单价格
+            ];
+        }
+        
+        // 添加仅存在于空间站价格中的物品
+        foreach ($stationPrices as $typeId => $priceInfo) {
+            if (!isset($result[$typeId])) {
+                $result[$typeId] = [
+                    'average_price' => null,
+                    'adjusted_price' => null,
+                    'buy_price' => $priceInfo['buy_price'] ?? null,
+                    'sell_price' => $priceInfo['sell_price'] ?? null,
+                ];
+            }
+        }
+        
+        return $result;
+    }
+
+    /**
+     * 获取吉他4号空间站的价格（最高买单和最低卖单）
+     * 
+     * @return array [type_id => ['buy_price' => xxx, 'sell_price' => xxx]]
+     */
+    public function getJitaStationPrices(): array
+    {
+        $ttl = 300; // 5分钟缓存
+        $cacheKey = 'lp_jita_station_prices';
+
+        return Cache::remember($cacheKey, $ttl, function () {
+            try {
+                // 获取伏尔戈星域的所有订单（需要分页）
+                $allOrders = $this->fetchAllMarketOrders(self::THE_FORGE_REGION_ID);
+                
+                $prices = [];
+                
+                foreach ($allOrders as $order) {
+                    // 只筛选吉他4号空间站的订单
+                    if (($order['location_id'] ?? 0) !== self::JITA_4_STATION_ID) {
+                        continue;
+                    }
+                    
+                    $typeId = $order['type_id'] ?? null;
+                    $price = $order['price'] ?? 0;
+                    $isBuy = $order['is_buy_order'] ?? false;
+                    
+                    if (!$typeId || !$price) continue;
+                    
+                    if (!isset($prices[$typeId])) {
+                        $prices[$typeId] = [
+                            'buy_price' => null,  // 最高买单
+                            'sell_price' => null, // 最低卖单
+                        ];
+                    }
+                    
+                    if ($isBuy) {
+                        // 买单：取最高价
+                        if ($prices[$typeId]['buy_price'] === null || $price > $prices[$typeId]['buy_price']) {
+                            $prices[$typeId]['buy_price'] = $price;
+                        }
+                    } else {
+                        // 卖单：取最低价
+                        if ($prices[$typeId]['sell_price'] === null || $price < $prices[$typeId]['sell_price']) {
+                            $prices[$typeId]['sell_price'] = $price;
+                        }
+                    }
+                }
+                
+                return $prices;
+            } catch (\Exception $e) {
+                Log::error('获取吉他空间站价格异常: ' . $e->getMessage());
+                return [];
+            }
+        });
+    }
+
+    /**
+     * 获取星域所有市场订单（分页）
+     */
+    private function fetchAllMarketOrders(int $regionId): array
+    {
+        $allOrders = [];
+        $page = 1;
+        
+        do {
+            try {
+                $response = Http::timeout(30)->get($this->baseUrl . '/markets/' . $regionId . '/orders/', [
+                    'datasource' => $this->datasource,
+                    'page' => $page,
+                    'order_type' => 'all',
+                ]);
+
+                if (!$response->ok()) {
+                    Log::warning("获取市场订单失败 (region={$regionId}, page={$page}): HTTP " . $response->status());
+                    break;
+                }
+
+                $orders = $response->json() ?: [];
+                
+                if (empty($orders)) {
+                    break;
+                }
+                
+                $allOrders = array_merge($allOrders, $orders);
+                $page++;
+                
+                // 安全限制：最多获取50页
+                if ($page > 50) {
+                    break;
+                }
+            } catch (\Exception $e) {
+                Log::error("获取市场订单异常 (region={$regionId}, page={$page}): " . $e->getMessage());
+                break;
+            }
+        } while (true);
+        
+        return $allOrders;
+    }
+
+    /**
+     * 计算 LP 报价的利润
+     * 
+     * @param array $offers LP报价数据
+     * @param array $prices 价格数据
+     * @param string $materialPriceMode 材料价格模式: default, buy, sell
+     * @param string $outputPriceMode 产出价格模式: default, buy, sell
+     * @return array 计算后的报价数据
+     */
+    public function calculateOfferProfits(array $offers, array $prices, string $materialPriceMode = 'default', string $outputPriceMode = 'default'): array
     {
         $result = [];
         $typeIds = [];
@@ -198,15 +358,12 @@ class LpStoreService
             $iskCost = $offer['isk_cost'] ?? 0;
             $quantity = $offer['quantity'] ?? 1;
 
-            // 计算产出物品价格
+            // 计算产出物品价格（根据产出价格模式）
             $priceInfo = $prices[$typeId] ?? null;
-            $unitPrice = 0;
-            if ($priceInfo) {
-                $unitPrice = $priceInfo['average_price'] ?? $priceInfo['adjusted_price'] ?? 0;
-            }
+            $unitPrice = $this->getPriceByMode($priceInfo, $outputPriceMode);
             $revenue = $unitPrice * $quantity;
 
-            // 计算材料成本
+            // 计算材料成本（根据材料价格模式）
             $materialCost = 0;
             $materialsDetail = [];
             if (!empty($offer['required_items'])) {
@@ -215,10 +372,7 @@ class LpStoreService
                     $matQuantity = $reqItem['quantity'] ?? 1;
                     
                     $matPriceInfo = $prices[$matTypeId] ?? null;
-                    $matUnitPrice = 0;
-                    if ($matPriceInfo) {
-                        $matUnitPrice = $matPriceInfo['average_price'] ?? $matPriceInfo['adjusted_price'] ?? 0;
-                    }
+                    $matUnitPrice = $this->getPriceByMode($matPriceInfo, $materialPriceMode);
                     $matTotalCost = $matUnitPrice * $matQuantity;
                     $materialCost += $matTotalCost;
 
@@ -255,6 +409,33 @@ class LpStoreService
         }
 
         return $result;
+    }
+
+    /**
+     * 根据价格模式获取价格
+     * 
+     * @param array|null $priceInfo 价格信息数组
+     * @param string $mode 价格模式: default, buy, sell
+     * @return float 价格
+     */
+    private function getPriceByMode(?array $priceInfo, string $mode): float
+    {
+        if (!$priceInfo) {
+            return 0;
+        }
+
+        switch ($mode) {
+            case 'buy':
+                // 收单价：最高买单价格（你卖东西时对方收的价格）
+                return (float) ($priceInfo['buy_price'] ?? 0);
+            case 'sell':
+                // 卖单价：最低卖单价格（你买东西时对方卖的价格）
+                return (float) ($priceInfo['sell_price'] ?? 0);
+            case 'default':
+            default:
+                // 默认：优先使用 average_price，其次 adjusted_price
+                return (float) ($priceInfo['average_price'] ?? $priceInfo['adjusted_price'] ?? 0);
+        }
     }
 
     /**

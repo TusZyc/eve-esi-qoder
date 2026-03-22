@@ -35,7 +35,10 @@ use App\Http\Controllers\Api\ContractDataController;
 use App\Http\Controllers\Api\FittingDataController;
 use App\Http\Controllers\Api\CharacterKillmailDataController;
 use App\Http\Controllers\Api\CharacterDataController;
+use App\Http\Controllers\Api\MailDataController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\FleetController;
+use App\Http\Controllers\MailController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -118,7 +121,7 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/wallet/transactions', [WalletDataController::class, 'transactions'])->name('api.dashboard.wallet.transactions');
     Route::get('/wallet/loyalty', [WalletDataController::class, 'loyalty'])->name('api.dashboard.wallet.loyalty');
     Route::get('/wallet/corp-permission', [WalletDataController::class, 'checkCorpPermission'])->name('api.dashboard.wallet.corp-permission');
-    Route::get('/wallet/corporation', [WalletDataController::class, 'corporationWallet'])->name('api.dashboard.wallet.corporation');
+    Route::get('/wallet/corporation', [WalletDataController::class, 'corporationBalance'])->name('api.dashboard.wallet.corporation');
     Route::get('/wallet/corporation/journal', [WalletDataController::class, 'corporationJournal'])->name('api.dashboard.wallet.corporation-journal');
     Route::get('/wallet/corporation/transactions', [WalletDataController::class, 'corporationTransactions'])->name('api.dashboard.wallet.corporation-transactions');
 
@@ -141,6 +144,15 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
     Route::get('/character/implants', [CharacterDataController::class, 'implants'])->name('api.dashboard.character.implants');
     Route::get('/character/clones', [CharacterDataController::class, 'clones'])->name('api.dashboard.character.clones');
     Route::get('/character/corphistory', [CharacterDataController::class, 'corpHistory'])->name('api.dashboard.character.corphistory');
+
+    // 邮件 API
+    Route::get('/mail', [MailDataController::class, 'index'])->name('api.dashboard.mail');
+    Route::get('/mail/labels', [MailDataController::class, 'labels'])->name('api.dashboard.mail.labels');
+    Route::get('/mail/lists', [MailDataController::class, 'lists'])->name('api.dashboard.mail.lists');
+    Route::get('/mail/{mail_id}', [MailDataController::class, 'show'])->name('api.dashboard.mail.show');
+    Route::post('/mail', [MailDataController::class, 'store'])->name('api.dashboard.mail.store');
+    Route::put('/mail/{mail_id}', [MailDataController::class, 'update'])->name('api.dashboard.mail.update');
+    Route::delete('/mail/{mail_id}', [MailDataController::class, 'destroy'])->name('api.dashboard.mail.destroy');
 });
 
 // 市场认证 API（需登录）
@@ -192,6 +204,23 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
 
     // 击毁报告
     Route::get('/my-killmails', [CharacterKillmailController::class, 'index'])->name('character-killmails.index');
+
+    // 邮件
+    Route::get('/mail', [MailController::class, 'index'])->name('mail.index');
+
+    // 舰队出勤统计
+    Route::prefix('fleet')->group(function () {
+        Route::get('/', [FleetController::class, 'index'])->name('fleet.index');
+        Route::get('/create', [FleetController::class, 'create'])->name('fleet.create');
+        Route::post('/', [FleetController::class, 'store'])->name('fleet.store');
+        Route::get('/check-status', [FleetController::class, 'checkStatus'])->name('fleet.check-status');
+        Route::get('/{id}', [FleetController::class, 'show'])->name('fleet.show');
+        Route::post('/{id}/snapshot', [FleetController::class, 'snapshot'])->name('fleet.snapshot');
+        Route::post('/{id}/end', [FleetController::class, 'end'])->name('fleet.end');
+        Route::get('/{id}/report', [FleetController::class, 'report'])->name('fleet.report');
+        Route::get('/{id}/export', [FleetController::class, 'export'])->name('fleet.export');
+        Route::get('/{id}/members', [FleetController::class, 'members'])->name('fleet.members');
+    });
 });
 
 // LP 商店公开 API

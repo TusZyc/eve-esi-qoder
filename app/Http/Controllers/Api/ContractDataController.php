@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
 
 class ContractDataController extends Controller
@@ -48,58 +49,43 @@ class ContractDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
-            // 获取合同列表（支持分页）
-            $contracts = Cache::remember("contracts_all_{$characterId}", 3600, function () use ($baseUrl, $characterId, $token) {
-                $allContracts = [];
-                $page = 1;
-                
-                do {
-                    $response = Http::withToken($token)
-                        ->timeout(15)
-                        ->get("{$baseUrl}characters/{$characterId}/contracts/", [
-                            'datasource' => 'serenity',
-                            'page' => $page
-                        ]);
-                    
-                    if (!$response->ok()) {
-                        break;
-                    }
-                    
-                    $data = $response->json();
-                    if (empty($data)) {
-                        break;
-                    }
-                    
-                    $allContracts = array_merge($allContracts, $data);
-                    $page++;
-                    
-                    $totalPages = (int) $response->header('X-Pages', 1);
-                } while ($page <= $totalPages);
-                
-                return $allContracts;
-            });
+            // 清除缓存以获取最新数据
+            Cache::forget("contracts_all_{$characterId}");
+            
+            // 获取角色合同
+            $characterContracts = $this->fetchContracts($baseUrl, 'characters', $characterId, $token);
+            Log::info('📜 [Contracts] 角色合同数量', ['count' => count($characterContracts)]);
+            
+            // 获取角色信息以获取军团ID
+            $corporationId = $this->getCharacterCorporationId($characterId, $token, $baseUrl);
+            
+            // 获取军团合同（如果有军团）
+            $corporationContracts = [];
+            if ($corporationId) {
+                $corporationContracts = $this->fetchContracts($baseUrl, 'corporations', $corporationId, $token);
+                Log::info('📜 [Contracts] 军团合同数量', ['count' => count($corporationContracts), 'corp_id' => $corporationId]);
+            }
+            
+            // 合并合同（去重）
+            $allContracts = $this->mergeContracts($characterContracts, $corporationContracts);
+            
+            Log::info('📜 [Contracts] 合同总数', ['total' => count($allContracts)]);
 
-            if (empty($contracts)) {
+            if (empty($allContracts)) {
                 return response()->json([]);
             }
 
             // 收集需要获取名称的ID
-            $issuerIds = array_filter(array_unique(array_column($contracts, 'issuer_id')));
-            $assigneeIds = array_filter(array_unique(array_column($contracts, 'assignee_id')));
-            $acceptorIds = array_filter(array_unique(array_column($contracts, 'acceptor_id')));
+            $issuerIds = array_filter(array_unique(array_column($allContracts, 'issuer_id')));
+            $assigneeIds = array_filter(array_unique(array_column($allContracts, 'assignee_id')));
+            $acceptorIds = array_filter(array_unique(array_column($allContracts, 'acceptor_id')));
             $allIds = array_unique(array_merge($issuerIds, $assigneeIds, $acceptorIds));
             
             $names = $this->getNames($allIds);
 
-            // 获取位置名称
-            $locationIds = array_filter(array_unique(array_merge(
-                array_column($contracts, 'start_location_id'),
-                array_column($contracts, 'end_location_id')
-            )));
-
             // 构建返回数据
             $result = [];
-            foreach ($contracts as $contract) {
+            foreach ($allContracts as $contract) {
                 $type = $contract['type'] ?? 'unknown';
                 $status = $contract['status'] ?? 'unknown';
                 
@@ -143,6 +129,94 @@ class ContractDataController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => '获取合同数据失败: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * 获取合同列表（通用方法）
+     */
+    private function fetchContracts(string $baseUrl, string $type, int $id, string $token): array
+    {
+        $allContracts = [];
+        $page = 1;
+        $totalPages = 1;
+        
+        do {
+            $response = Http::withToken($token)
+                ->timeout(15)
+                ->get("{$baseUrl}{$type}/{$id}/contracts/", [
+                    'datasource' => 'serenity',
+                    'page' => $page
+                ]);
+            
+            if (!$response->ok()) {
+                Log::error('📜 [Contracts] 获取合同失败', [
+                    'type' => $type,
+                    'id' => $id,
+                    'page' => $page,
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                break;
+            }
+            
+            $data = $response->json();
+            
+            if ($page === 1) {
+                $totalPages = (int) $response->header('X-Pages', 1);
+            }
+            
+            if (empty($data)) {
+                break;
+            }
+            
+            $allContracts = array_merge($allContracts, $data);
+            $page++;
+            
+        } while ($page <= $totalPages);
+        
+        return $allContracts;
+    }
+
+    /**
+     * 获取角色军团ID
+     */
+    private function getCharacterCorporationId(int $characterId, string $token, string $baseUrl): ?int
+    {
+        try {
+            $response = Http::withToken($token)
+                ->timeout(10)
+                ->get("{$baseUrl}characters/{$characterId}/", [
+                    'datasource' => 'serenity'
+                ]);
+            
+            if ($response->ok()) {
+                $data = $response->json();
+                return $data['corporation_id'] ?? null;
+            }
+        } catch (\Exception $e) {
+            Log::warning('📜 [Contracts] 获取角色军团ID失败', ['error' => $e->getMessage()]);
+        }
+        
+        return null;
+    }
+
+    /**
+     * 合并合同（去重）
+     */
+    private function mergeContracts(array $characterContracts, array $corporationContracts): array
+    {
+        $merged = [];
+        $seenIds = [];
+        
+        foreach (array_merge($characterContracts, $corporationContracts) as $contract) {
+            $id = $contract['contract_id'] ?? 0;
+            if ($id > 0 && !isset($seenIds[$id])) {
+                $merged[] = $contract;
+                $seenIds[$id] = true;
+            }
+        }
+        
+        return $merged;
     }
 
     /**

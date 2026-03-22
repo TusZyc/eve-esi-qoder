@@ -339,14 +339,14 @@
                         </p>
                     </div>
 
-                    <!-- 书签 -->
+                    <!-- 邮件 -->
                     <div class="glass-card rounded-2xl p-5">
                         <div class="flex items-center gap-3 mb-3">
-                            <span class="text-2xl">🔖</span>
-                            <h3 class="text-lg font-semibold text-white">书签</h3>
+                            <span class="text-2xl">📧</span>
+                            <h3 class="text-lg font-semibold text-white">邮件</h3>
                         </div>
                         <p class="text-blue-100/70 text-sm">
-                            查看和管理你保存的空间书签，按文件夹分类整理。
+                            查看角色邮件，按标签和群组分类筛选，支持查看发件人、收件人详情。
                         </p>
                     </div>
 

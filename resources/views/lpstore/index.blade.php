@@ -64,7 +64,7 @@
         <!-- 选择器区 -->
         <div class="bg-white/5 backdrop-blur rounded-xl p-4 mb-4 border border-white/10">
             <div class="flex flex-wrap items-center gap-4">
-                <!-- 左侧：势力和公司选择 -->
+                <!-- 第一行：势力和公司选择 -->
                 <div class="flex items-center gap-3 flex-1">
                     <div class="flex-1 max-w-xs">
                         <label class="block text-xs text-blue-200/70 mb-1">势力</label>
@@ -80,7 +80,7 @@
                         </select>
                     </div>
                 </div>
-                <!-- 右侧：星域选择 -->
+                <!-- 星域选择 -->
                 <div class="w-48 relative z-20">
                     <label class="block text-xs text-blue-200/70 mb-1">星域（价格来源）</label>
                     <select id="regionSelect" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400 relative z-20">
@@ -88,6 +88,30 @@
                             <option value="{{ $regionId }}" {{ ($defaultRegion ?? 10000002) == $regionId ? 'selected' : '' }}>{{ $regionName }}</option>
                         @endforeach
                     </select>
+                </div>
+            </div>
+            <!-- 第二行：价格计算方式选项 -->
+            <div class="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-white/10">
+                <div class="w-48">
+                    <label class="block text-xs text-blue-200/70 mb-1">材料成本计算方式</label>
+                    <select id="materialPriceMode" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400">
+                        <option value="default">默认（全服均价）</option>
+                        <option value="buy">收单价（吉他4最高买单）</option>
+                        <option value="sell">卖单价（吉他4最低卖单）</option>
+                    </select>
+                </div>
+                <div class="w-48">
+                    <label class="block text-xs text-blue-200/70 mb-1">产出单价计算方式</label>
+                    <select id="outputPriceMode" class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400">
+                        <option value="default">默认（全服均价）</option>
+                        <option value="buy">收单价（吉他4最高买单）</option>
+                        <option value="sell">卖单价（吉他4最低卖单）</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <p class="text-xs text-yellow-400/80 leading-relaxed pt-5">
+                        ⚠️ 若材料/产出在吉他没有收单/卖单，计算结果可能有较大误差，建议使用默认模式以均价参考
+                    </p>
                 </div>
             </div>
         </div>
@@ -180,6 +204,8 @@ let currentPage = 1;
 const PAGE_SIZE = 25;
 let currentRegionId = {{ $defaultRegion ?? 10000002 }};
 let currentCorporationId = null;
+let currentMaterialPriceMode = 'default';
+let currentOutputPriceMode = 'default';
 
 // 无订单物品集合（用于灰色按钮样式）
 let noOrderTypeIds = new Set();
@@ -235,7 +261,15 @@ async function loadOffers() {
     showLoading();
     
     try {
-        const resp = await fetch(`/api/public/lp-store/offers?corporation_id=${currentCorporationId}&region_id=${currentRegionId}`);
+        let url = `/api/public/lp-store/offers?corporation_id=${currentCorporationId}&region_id=${currentRegionId}`;
+        if (currentMaterialPriceMode !== 'default') {
+            url += `&material_price_mode=${currentMaterialPriceMode}`;
+        }
+        if (currentOutputPriceMode !== 'default') {
+            url += `&output_price_mode=${currentOutputPriceMode}`;
+        }
+        
+        const resp = await fetch(url);
         const result = await resp.json();
         if (result.success) {
             offersData = result.data || [];
@@ -668,6 +702,20 @@ document.getElementById('regionSelect').addEventListener('change', function() {
     currentRegionId = this.value;
     // 切换星域时清空无订单记录（不同星域订单不同）
     noOrderTypeIds.clear();
+    if (currentCorporationId) {
+        loadOffers();
+    }
+});
+
+document.getElementById('materialPriceMode').addEventListener('change', function() {
+    currentMaterialPriceMode = this.value;
+    if (currentCorporationId) {
+        loadOffers();
+    }
+});
+
+document.getElementById('outputPriceMode').addEventListener('change', function() {
+    currentOutputPriceMode = this.value;
     if (currentCorporationId) {
         loadOffers();
     }
