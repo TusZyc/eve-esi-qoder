@@ -29,15 +29,14 @@
         animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .tooltip-trigger { position: relative; }
-    .tooltip-trigger .tooltip-content {
-        position: absolute; z-index: 50; bottom: 100%; left: 50%; transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 8px; padding: 8px 12px; font-size: 12px; white-space: nowrap;
-        opacity: 0; visibility: hidden; transition: all 0.2s;
-        backdrop-filter: blur(12px); box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    .tooltip-trigger { position: relative; cursor: help; }
+    .material-tooltip {
+        position: fixed; z-index: 99999;
+        background: rgba(15, 23, 42, 0.98); border: 1px solid rgba(96, 165, 250, 0.4);
+        border-radius: 8px; padding: 12px 16px; font-size: 12px;
+        backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        min-width: 300px; pointer-events: none;
     }
-    .tooltip-trigger:hover .tooltip-content { opacity: 1; visibility: visible; }
     .modal-backdrop {
         position: fixed; inset: 0; background: rgba(0,0,0,0.7);
         backdrop-filter: blur(4px); z-index: 100;
@@ -145,8 +144,8 @@
 
         <!-- 数据表格 -->
         <div id="tableContainer" class="hidden">
-            <div class="bg-white/5 backdrop-blur rounded-xl border border-white/10 overflow-hidden">
-                <div class="overflow-x-auto">
+            <div class="bg-white/5 backdrop-blur rounded-xl border border-white/10" style="overflow: visible;">
+                <div class="overflow-x-auto" style="overflow-y: visible;">
                     <table class="w-full text-sm lp-table" id="lpTable">
                         <thead>
                             <tr class="text-blue-300 border-b border-white/10 text-xs">
@@ -414,7 +413,6 @@ function renderTable() {
     let html = '';
     pageData.forEach(item => {
         const profitClass = item.profit >= 0 ? 'text-green-400' : 'text-red-400';
-        const materialTooltip = renderMaterialTooltip(item.materials_detail);
         
         html += `<tr class="border-b border-white/5">`;
         // 物品（带图标）- 移除 truncate 和 max-w 限制，让文字跟随列宽
@@ -431,10 +429,9 @@ function renderTable() {
         // ISK成本
         html += `<td class="px-2 py-2 text-right">${formatNumber(item.isk_cost)}</td>`;
         // 材料成本（带tooltip）
+        const materialData = renderMaterialTooltip(item.materials_detail);
         html += `<td class="px-2 py-2 text-right">
-            <span class="tooltip-trigger cursor-help">${formatNumber(item.material_cost)}
-                ${materialTooltip}
-            </span>
+            <span class="tooltip-trigger" ${materialData}>${formatNumber(item.material_cost)}</span>
         </td>`;
         // 单价
         html += `<td class="px-2 py-2 text-right">${formatNumber(item.unit_price)}</td>`;
@@ -466,16 +463,8 @@ function renderTable() {
 
 function renderMaterialTooltip(materials) {
     if (!materials || !materials.length) return '';
-    let html = '<div class="tooltip-content text-left">';
-    html += '<div class="text-blue-300 font-medium mb-1 border-b border-white/10 pb-1">材料明细</div>';
-    materials.forEach(m => {
-        html += `<div class="flex justify-between gap-4 py-0.5">
-            <span>${escapeHtml(m.name)} x${formatNumber(m.quantity)}</span>
-            <span class="text-yellow-300">${formatNumber(m.total_cost)}</span>
-        </div>`;
-    });
-    html += '</div>';
-    return html;
+    // 将材料数据存入 data 属性，由 JS 事件处理显示
+    return `data-materials='${JSON.stringify(materials).replace(/'/g, "&apos;")}'`;
 }
 
 function renderPagination() {
@@ -792,6 +781,83 @@ function initColumnResize() {
         }
     });
 }
+
+// ==================== 材料成本 Tooltip ====================
+let materialTooltipEl = null;
+
+function showMaterialTooltip(e, materials) {
+    if (!materials || !materials.length) return;
+    
+    // 创建或获取 tooltip 元素
+    if (!materialTooltipEl) {
+        materialTooltipEl = document.createElement('div');
+        materialTooltipEl.className = 'material-tooltip';
+        document.body.appendChild(materialTooltipEl);
+    }
+    
+    // 构建内容
+    let html = '<div class="text-blue-300 font-medium mb-2 border-b border-white/20 pb-2">📦 材料明细</div>';
+    html += '<table class="w-full">';
+    materials.forEach(m => {
+        html += `<tr>
+            <td class="py-1 pr-4">${escapeHtml(m.name)} <span class="text-blue-300/70">x${formatNumber(m.quantity)}</span></td>
+            <td class="py-1 text-right text-yellow-300">${formatNumber(m.total_cost)}</td>
+        </tr>`;
+    });
+    html += '</table>';
+    const total = materials.reduce((sum, m) => sum + (m.total_cost || 0), 0);
+    html += `<div class="border-t border-white/20 mt-2 pt-2 text-right">
+        <span class="text-blue-200/70">合计:</span> <span class="text-yellow-400 font-bold">${formatNumber(total)}</span>
+    </div>`;
+    
+    materialTooltipEl.innerHTML = html;
+    materialTooltipEl.style.display = 'block';
+    
+    // 计算位置 - 在鼠标右侧显示
+    const rect = e.target.getBoundingClientRect();
+    let left = rect.right + 10;
+    let top = rect.top - 10;
+    
+    // 如果右侧空间不足，显示在左侧
+    if (left + 320 > window.innerWidth) {
+        left = rect.left - 320;
+    }
+    // 如果下方空间不足，向上调整
+    if (top + materialTooltipEl.offsetHeight > window.innerHeight) {
+        top = window.innerHeight - materialTooltipEl.offsetHeight - 10;
+    }
+    // 确保不超出顶部
+    if (top < 10) top = 10;
+    
+    materialTooltipEl.style.left = left + 'px';
+    materialTooltipEl.style.top = top + 'px';
+}
+
+function hideMaterialTooltip() {
+    if (materialTooltipEl) {
+        materialTooltipEl.style.display = 'none';
+    }
+}
+
+// 材料成本 tooltip 事件委托
+document.addEventListener('mouseover', function(e) {
+    const trigger = e.target.closest('.tooltip-trigger[data-materials]');
+    if (trigger) {
+        try {
+            const materials = JSON.parse(trigger.dataset.materials.replace(/&apos;/g, "'"));
+            showMaterialTooltip(e, materials);
+        } catch (err) {
+            console.error('解析材料数据失败:', err);
+        }
+    }
+});
+
+document.addEventListener('mouseout', function(e) {
+    const trigger = e.target.closest('.tooltip-trigger[data-materials]');
+    if (trigger) {
+        hideMaterialTooltip();
+    }
+});
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {

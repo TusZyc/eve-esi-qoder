@@ -415,16 +415,37 @@
     // ==================== 市场分组树 ====================
     let marketGroupsRetryCount = 0;
     const MAX_RETRY = 3;
+    const STATIC_GROUPS_URL = '/data/market_groups.json';
 
     async function loadMarketGroups() {
         try {
-            const resp = await fetch(API.groups);
-            const result = await resp.json();
-            if (result.success && result.data && result.data.length > 0) {
-                marketGroups = result.data;
+            // 优先尝试加载静态 JSON 文件（速度更快，无需 PHP 处理）
+            let data = null;
+            try {
+                const staticResp = await fetch(STATIC_GROUPS_URL);
+                if (staticResp.ok) {
+                    data = await staticResp.json();
+                    console.log('市场分组从静态文件加载成功');
+                }
+            } catch (staticErr) {
+                console.warn('静态文件加载失败，回退到 API:', staticErr);
+            }
+
+            // 如果静态文件加载失败，回退到 API
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                const resp = await fetch(API.groups);
+                const result = await resp.json();
+                if (result.success && result.data) {
+                    data = result.data;
+                    console.log('市场分组从 API 加载成功');
+                }
+            }
+
+            if (data && Array.isArray(data) && data.length > 0) {
+                marketGroups = data;
                 buildGroupNameMap(marketGroups, '');
                 renderMarketTree();
-                marketGroupsRetryCount = 0; // 成功后重置重试计数
+                marketGroupsRetryCount = 0;
             } else {
                 // 数据为空，可能正在构建中
                 marketGroupsRetryCount++;
@@ -435,8 +456,7 @@
                         '分类数据加载中...<br>' +
                         '<span class="text-[10px] text-blue-300/30">' + marketGroupsRetryCount + '/' + MAX_RETRY + ' 重试中，请稍候</span>' +
                         '</div>';
-                    // 10 秒后重试
-                    setTimeout(loadMarketGroups, 10000);
+                    setTimeout(loadMarketGroups, 5000);
                 } else {
                     document.getElementById('market-tree').innerHTML =
                         '<div class="text-xs text-yellow-400/70 text-center py-4">' +
@@ -457,7 +477,7 @@
                     '网络错误，重试中...<br>' +
                     '<span class="text-[10px] text-blue-300/30">' + marketGroupsRetryCount + '/' + MAX_RETRY + '</span>' +
                     '</div>';
-                setTimeout(loadMarketGroups, 5000);
+                setTimeout(loadMarketGroups, 3000);
             } else {
                 document.getElementById('market-tree').innerHTML =
                     '<div class="text-xs text-red-400 text-center py-4">' +

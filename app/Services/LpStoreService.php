@@ -180,9 +180,10 @@ class LpStoreService
      * 
      * @param string $materialPriceMode 材料价格模式: default, buy, sell
      * @param string $outputPriceMode 产出价格模式: default, buy, sell
+     * @param array $requiredTypeIds 需要价格的物品ID列表（用于非默认模式时获取吉他4价格）
      * @return array 包含不同价格类型的价格数据
      */
-    public function getPricesForMode(string $materialPriceMode, string $outputPriceMode): array
+    public function getPricesForMode(string $materialPriceMode, string $outputPriceMode, array $requiredTypeIds = []): array
     {
         // 始终获取默认价格作为基础
         $defaultPrices = $this->getAllMarketPrices();
@@ -192,10 +193,12 @@ class LpStoreService
             return $defaultPrices;
         }
         
-        // 如果有非默认模式，获取吉他4空间站价格
+        // 如果有非默认模式，针对需要的物品ID获取吉他4空间站价格
         $stationPrices = [];
         if ($materialPriceMode !== 'default' || $outputPriceMode !== 'default') {
-            $stationPrices = $this->getJitaStationPrices();
+            if (!empty($requiredTypeIds)) {
+                $stationPrices = $this->getJitaStationPrices($requiredTypeIds);
+            }
         }
         
         // 合并价格数据
@@ -209,7 +212,7 @@ class LpStoreService
             ];
         }
         
-        // 添加仅存在于空间站价格中的物品
+        // 添加仅存在于空间站价格中的物品（不在全服均价中的物品）
         foreach ($stationPrices as $typeId => $priceInfo) {
             if (!isset($result[$typeId])) {
                 $result[$typeId] = [
@@ -226,102 +229,117 @@ class LpStoreService
 
     /**
      * 获取吉他4号空间站的价格（最高买单和最低卖单）
+     * 针对指定的物品ID列表获取价格，使用并发请求提高效率
      * 
+     * @param array $typeIds 需要获取价格的物品ID列表
      * @return array [type_id => ['buy_price' => xxx, 'sell_price' => xxx]]
      */
-    public function getJitaStationPrices(): array
+    public function getJitaStationPrices(array $typeIds = []): array
     {
-        $ttl = 300; // 5分钟缓存
-        $cacheKey = 'lp_jita_station_prices';
+        if (empty($typeIds)) {
+            return [];
+        }
 
-        return Cache::remember($cacheKey, $ttl, function () {
-            try {
-                // 获取伏尔戈星域的所有订单（需要分页）
-                $allOrders = $this->fetchAllMarketOrders(self::THE_FORGE_REGION_ID);
-                
-                $prices = [];
-                
-                foreach ($allOrders as $order) {
-                    // 只筛选吉他4号空间站的订单
-                    if (($order['location_id'] ?? 0) !== self::JITA_4_STATION_ID) {
-                        continue;
-                    }
-                    
-                    $typeId = $order['type_id'] ?? null;
-                    $price = $order['price'] ?? 0;
-                    $isBuy = $order['is_buy_order'] ?? false;
-                    
-                    if (!$typeId || !$price) continue;
-                    
-                    if (!isset($prices[$typeId])) {
-                        $prices[$typeId] = [
-                            'buy_price' => null,  // 最高买单
-                            'sell_price' => null, // 最低卖单
-                        ];
-                    }
-                    
-                    if ($isBuy) {
-                        // 买单：取最高价
-                        if ($prices[$typeId]['buy_price'] === null || $price > $prices[$typeId]['buy_price']) {
-                            $prices[$typeId]['buy_price'] = $price;
-                        }
-                    } else {
-                        // 卖单：取最低价
-                        if ($prices[$typeId]['sell_price'] === null || $price < $prices[$typeId]['sell_price']) {
-                            $prices[$typeId]['sell_price'] = $price;
-                        }
-                    }
-                }
-                
-                return $prices;
-            } catch (\Exception $e) {
-                Log::error('获取吉他空间站价格异常: ' . $e->getMessage());
-                return [];
+        $ttl = 300; // 5分钟缓存
+        $prices = [];
+        $uncachedIds = [];
+
+        // 先检查缓存，收集未缓存的物品ID
+        foreach ($typeIds as $typeId) {
+            $cacheKey = "jita_price_{$typeId}";
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                $prices[$typeId] = $cached;
+            } else {
+                $uncachedIds[] = $typeId;
             }
-        });
+        }
+
+        if (empty($uncachedIds)) {
+            return $prices;
+        }
+
+        // 并发请求未缓存的物品价格
+        $client = new Client([
+            'timeout' => 15,
+            'connect_timeout' => 5,
+        ]);
+
+        $requests = function () use ($uncachedIds) {
+            foreach ($uncachedIds as $typeId) {
+                $url = $this->baseUrl . '/markets/' . self::THE_FORGE_REGION_ID . '/orders/?datasource=' . $this->datasource . '&type_id=' . $typeId . '&order_type=all';
+                yield $typeId => new Request('GET', $url);
+            }
+        };
+
+        $pool = new Pool($client, $requests(), [
+            'concurrency' => 5, // 并发数（受限于服务器pm.max_children=3）
+            'fulfilled' => function ($response, $typeId) use (&$prices, $ttl) {
+                try {
+                    $orders = json_decode($response->getBody()->getContents(), true);
+                    $priceData = $this->extractJitaPriceFromOrders($orders ?: []);
+                    $prices[$typeId] = $priceData;
+                    
+                    // 缓存结果
+                    $cacheKey = "jita_price_{$typeId}";
+                    Cache::put($cacheKey, $priceData, $ttl);
+                } catch (\Exception $e) {
+                    Log::warning("处理物品价格失败 (type={$typeId}): " . $e->getMessage());
+                    $prices[$typeId] = ['buy_price' => null, 'sell_price' => null];
+                }
+            },
+            'rejected' => function ($reason, $typeId) use (&$prices, $ttl) {
+                Log::warning("获取物品订单失败 (type={$typeId}): " . $reason->getMessage());
+                $defaultData = ['buy_price' => null, 'sell_price' => null];
+                $prices[$typeId] = $defaultData;
+                
+                // 短缓存避免频繁重试
+                $cacheKey = "jita_price_{$typeId}";
+                Cache::put($cacheKey, $defaultData, 60);
+            },
+        ]);
+
+        $pool->promise()->wait();
+
+        return $prices;
     }
 
     /**
-     * 获取星域所有市场订单（分页）
+     * 从订单列表中提取吉他4空间站的最高买价和最低卖价
      */
-    private function fetchAllMarketOrders(int $regionId): array
+    private function extractJitaPriceFromOrders(array $orders): array
     {
-        $allOrders = [];
-        $page = 1;
-        
-        do {
-            try {
-                $response = Http::timeout(30)->get($this->baseUrl . '/markets/' . $regionId . '/orders/', [
-                    'datasource' => $this->datasource,
-                    'page' => $page,
-                    'order_type' => 'all',
-                ]);
+        $buyPrice = null;
+        $sellPrice = null;
 
-                if (!$response->ok()) {
-                    Log::warning("获取市场订单失败 (region={$regionId}, page={$page}): HTTP " . $response->status());
-                    break;
-                }
-
-                $orders = $response->json() ?: [];
-                
-                if (empty($orders)) {
-                    break;
-                }
-                
-                $allOrders = array_merge($allOrders, $orders);
-                $page++;
-                
-                // 安全限制：最多获取50页
-                if ($page > 50) {
-                    break;
-                }
-            } catch (\Exception $e) {
-                Log::error("获取市场订单异常 (region={$regionId}, page={$page}): " . $e->getMessage());
-                break;
+        foreach ($orders as $order) {
+            // 只处理吉他4号空间站的订单
+            if (($order['location_id'] ?? 0) !== self::JITA_4_STATION_ID) {
+                continue;
             }
-        } while (true);
-        
-        return $allOrders;
+
+            $price = $order['price'] ?? 0;
+            if ($price <= 0) continue;
+
+            $isBuy = $order['is_buy_order'] ?? false;
+
+            if ($isBuy) {
+                // 买单：取最高价
+                if ($buyPrice === null || $price > $buyPrice) {
+                    $buyPrice = $price;
+                }
+            } else {
+                // 卖单：取最低价
+                if ($sellPrice === null || $price < $sellPrice) {
+                    $sellPrice = $price;
+                }
+            }
+        }
+
+        return [
+            'buy_price' => $buyPrice,
+            'sell_price' => $sellPrice,
+        ];
     }
 
     /**

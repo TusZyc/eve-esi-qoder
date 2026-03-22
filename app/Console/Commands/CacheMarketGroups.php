@@ -152,6 +152,19 @@ class CacheMarketGroups extends Command
         Cache::put('market_groups_tree', $tree, 86400 * 7);
         $this->info('Market groups tree cached! (' . count($tree) . ' top-level groups)');
 
+        // ====== 生成静态 JSON 文件供前端直接加载 ======
+        $this->info('Generating static JSON files...');
+        $publicDataDir = public_path('data');
+        if (!is_dir($publicDataDir)) {
+            mkdir($publicDataDir, 0755, true);
+        }
+
+        // 生成市场分组 JSON（压缩格式，减小文件大小）
+        $groupsJson = json_encode($tree, JSON_UNESCAPED_UNICODE);
+        $groupsFile = $publicDataDir . '/market_groups.json';
+        file_put_contents($groupsFile, $groupsJson);
+        $this->info('Static file generated: ' . $groupsFile . ' (' . round(strlen($groupsJson) / 1024) . ' KB)');
+
         // ====== 第二部分：缓存星域列表 ======
         $this->newLine();
         $this->info('Fetching region list...');

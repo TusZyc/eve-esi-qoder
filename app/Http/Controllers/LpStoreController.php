@@ -116,8 +116,20 @@ class LpStoreController extends Controller
                 ]);
             }
 
-            // 获取价格数据（根据计算模式选择不同来源）
-            $prices = $this->lpStoreService->getPricesForMode($materialPriceMode, $outputPriceMode);
+            // 收集所有需要价格的物品ID（产出物品 + 材料物品）
+            $requiredTypeIds = [];
+            foreach ($offers as $offer) {
+                $requiredTypeIds[] = $offer['type_id'];
+                if (!empty($offer['required_items'])) {
+                    foreach ($offer['required_items'] as $item) {
+                        $requiredTypeIds[] = $item['type_id'];
+                    }
+                }
+            }
+            $requiredTypeIds = array_unique($requiredTypeIds);
+
+            // 获取价格数据（根据计算模式选择不同来源，传入需要价格的物品ID列表）
+            $prices = $this->lpStoreService->getPricesForMode($materialPriceMode, $outputPriceMode, $requiredTypeIds);
 
             // 计算利润
             $calculatedOffers = $this->lpStoreService->calculateOfferProfits($offers, $prices, $materialPriceMode, $outputPriceMode);
