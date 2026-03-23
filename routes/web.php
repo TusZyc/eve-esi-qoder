@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\MailDataController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\FleetController;
 use App\Http\Controllers\MailController;
+use App\Http\Controllers\ScoutController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -65,6 +66,11 @@ Route::get('/market', [MarketController::class, 'index'])->name('market.index');
 
 // LP 商店（公开访问）
 Route::get('/lp-store', [LpStoreController::class, 'index'])->name('lp-store.index');
+
+// 斥候工具（公开访问）
+Route::get('/scout', [ScoutController::class, 'index'])->name('scout.index');
+Route::post('/scout', [ScoutController::class, 'store'])->name('scout.store');
+Route::get('/scout/{id}', [ScoutController::class, 'result'])->name('scout.result');
 
 // 公开 API（无需认证）
 Route::get('/api/public/server-status', [ServerStatusController::class, 'index'])

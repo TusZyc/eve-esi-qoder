@@ -21,6 +21,11 @@ class Kernel extends ConsoleKernel
         $schedule->command('market:cache-groups')
                  ->dailyAt('03:00')
                  ->withoutOverlapping();
+
+        // 每小时清理过期的斥候工具扫描结果
+        $schedule->command('scout:clean-expired')
+                 ->hourly()
+                 ->withoutOverlapping();
     }
 
     /**

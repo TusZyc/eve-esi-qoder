@@ -176,6 +176,11 @@
                 <span class="text-xl w-6 text-center">💎</span>
                 <span>LP商店</span>
             </a>
+            <a href="{{ route('scout.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'scout' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">🔭</span>
+                <span>斥候工具</span>
+            </a>
 
             <!-- 登录提示 -->
             <div class="border-t border-slate-700/50 my-4"></div>
