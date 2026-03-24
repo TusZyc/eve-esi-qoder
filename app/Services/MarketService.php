@@ -20,11 +20,23 @@ class MarketService
     }
 
     /**
-     * 获取市场分组树（cache-through 模式：缓存不存在时自动从 ESI 获取）
+     * 获取市场分组树（优先从静态文件加载，缓存后再从ESI更新）
      */
     public function getMarketGroupsTree(): array
     {
         return Cache::remember('market_groups_tree', 86400 * 7, function () {
+            // 优先从静态文件加载（速度快且可靠）
+            $staticFile = public_path('data/market_groups.json');
+            if (file_exists($staticFile)) {
+                $content = file_get_contents($staticFile);
+                $data = json_decode($content, true);
+                if (is_array($data) && !empty($data)) {
+                    Log::info('Market groups tree loaded from static file');
+                    return $data;
+                }
+            }
+            
+            // 静态文件不存在或为空，从ESI获取
             Log::info('Market groups tree cache miss, rebuilding from ESI...');
             return $this->buildMarketGroupsTreeFromApi();
         });
