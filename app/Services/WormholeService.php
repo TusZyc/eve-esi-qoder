@@ -299,7 +299,7 @@ class WormholeService
                 );
                 
                 if (!$response->ok()) {
-                    return ['planets' => [], 'system_radius_au' => null];
+                    return ['planets' => [], 'system_radius_au' => null, 'planets_count' => 0, 'moons_count' => 0];
                 }
                 
                 $data = $response->json();
@@ -307,15 +307,29 @@ class WormholeService
                 // 计算系统大小（基于行星位置）
                 $maxDistance = 0;
                 $planets = [];
+                $moonsCount = 0;
                 
                 foreach ($data['planets'] ?? [] as $planet) {
+                    $moonCount = count($planet['moons'] ?? []);
+                    $moonsCount += $moonCount;
+                    
                     $planetInfo = [
                         'planet_id' => $planet['planet_id'],
                         'name' => $planet['name'] ?? null,
+                        'type' => null,
+                        'type_name' => null,
+                        'moons_count' => $moonCount,
                         'moons' => [],
                     ];
                     
-                    // 添加卫星信息
+                    // 获取行星类型信息（异步但不阻塞）
+                    $planetTypeInfo = $this->fetchPlanetType($planet['planet_id']);
+                    if ($planetTypeInfo) {
+                        $planetInfo['type'] = $planetTypeInfo['type'];
+                        $planetInfo['type_name'] = $planetTypeInfo['type_name'];
+                    }
+                    
+                    // 保留卫星信息（用于未来需要）
                     foreach ($planet['moons'] ?? [] as $moon) {
                         $planetInfo['moons'][] = [
                             'moon_id' => $moon['moon_id'] ?? $moon,
@@ -342,24 +356,90 @@ class WormholeService
                 return [
                     'planets' => $planets,
                     'system_radius_au' => $radiusAu,
+                    'planets_count' => count($planets),
+                    'moons_count' => $moonsCount,
                 ];
                 
             } catch (\Exception $e) {
                 Log::debug("ESI系统数据获取失败: {$systemId} - " . $e->getMessage());
-                return ['planets' => [], 'system_radius_au' => null];
+                return ['planets' => [], 'system_radius_au' => null, 'planets_count' => 0, 'moons_count' => 0];
+            }
+        });
+    }
+    
+    /**
+     * 获取行星类型信息
+     */
+    private function fetchPlanetType(int $planetId): ?array
+    {
+        $cacheKey = "wormhole:planet:type:{$planetId}";
+        
+        return Cache::remember($cacheKey, 86400 * 7, function() use ($planetId) {
+            try {
+                $baseUrl = rtrim(config('esi.base_url'), '/');
+                $datasource = config('esi.datasource', 'serenity');
+                
+                $response = Http::timeout(5)->get(
+                    "{$baseUrl}/universe/planets/{$planetId}/?datasource={$datasource}&language=zh"
+                );
+                
+                if (!$response->ok()) {
+                    return null;
+                }
+                
+                $data = $response->json();
+                
+                // 行星类型中文名称映射
+                $typeNames = [
+                    'Temperate' => '温和',
+                    'Barren' => '贫瘠',
+                    'Oceanic' => '海洋',
+                    'Ice' => '冰',
+                    'Gas' => '气态',
+                    'Lava' => '熔岩',
+                    'Storm' => '风暴',
+                    'Plasma' => '等离子',
+                ];
+                
+                $type = $data['type'] ?? null;
+                if (!$type) return null;
+                
+                // 从类型ID字符串中提取类型名称
+                $typeName = null;
+                foreach ($typeNames as $en => $zh) {
+                    if (stripos($type, $en) !== false) {
+                        $typeName = $zh;
+                        break;
+                    }
+                }
+                
+                return [
+                    'type' => $type,
+                    'type_name' => $typeName,
+                ];
+                
+            } catch (\Exception $e) {
+                return null;
             }
         });
     }
     
     /**
      * 获取击杀报告
+     * 
+     * @param int $systemId 星系ID
+     * @param int $limit 返回数量限制
+     * @param int $days 查询天数范围（默认30天）
      */
-    public function getSystemKills(int $systemId, int $limit = 5): array
+    public function getSystemKills(int $systemId, int $limit = 10, int $days = 30): array
     {
         try {
             // 使用 Beta KB API 搜索该系统的击杀
+            // 设置时间范围以获取更多历史数据
             $params = [
                 'systems' => [$systemId],
+                'start_date' => date('Y-m-d', strtotime("-{$days} days")),
+                'end_date' => date('Y-m-d'),
             ];
             
             $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($params);

@@ -2,6 +2,11 @@
 
 @push('styles')
 <style>
+    /* 下拉框选项样式 - 修复暗色主题下选项不可见问题 */
+    select option {
+        background-color: #0f1a3e;
+        color: #ffffff;
+    }
     .wh-tab { @apply px-6 py-3 text-sm font-medium cursor-pointer border-b-2 border-transparent transition-all; }
     .wh-tab.active { @apply border-blue-500 text-blue-400 bg-white/5; }
     .wh-tab:hover:not(.active) { @apply text-white/80 bg-white/5; }
@@ -181,18 +186,20 @@
 let currentSystemPage = 1;
 let searchTimeout = null;
 
-// 标签切换
-function switchTab(tab) {
+// 标签切换 - 使用URL参数
+function switchTab(tab, updateUrl = true) {
     document.querySelectorAll('.wh-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
     document.getElementById(`tab-${tab}`).classList.remove('hidden');
     
-    // 更新URL
-    const url = new URL(window.location);
-    url.searchParams.set('tab', tab);
-    url.searchParams.delete('system');
-    window.history.pushState({}, '', url);
+    // 更新URL（只保留tab参数，清除其他参数）
+    if (updateUrl) {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tab);
+        url.searchParams.delete('system');
+        window.history.pushState({}, '', url);
+    }
     
     // 加载数据
     if (tab === 'systems') loadSystemsList();
@@ -204,11 +211,8 @@ function searchSystem() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
     
-    // 更新URL
-    const url = new URL(window.location);
-    url.searchParams.set('system', query);
-    url.searchParams.set('tab', 'search');
-    window.location.href = url.toString();
+    // 更新URL - 使用search参数跳转到详情页
+    window.location.href = `/wormhole/${query.toUpperCase().replace(/^[Jj]/, 'J')}`;
 }
 
 // 自动补全
@@ -313,6 +317,13 @@ function formatMass(kg) {
     if (kg >= 1e3) return (kg / 1e3).toFixed(1) + 'K';
     return kg;
 }
+
+// 浏览器前进/后退处理
+window.addEventListener('popstate', function() {
+    const url = new URL(window.location);
+    const tab = url.searchParams.get('tab') || 'search';
+    switchTab(tab, false);
+});
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {

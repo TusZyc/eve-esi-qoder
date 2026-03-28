@@ -48,12 +48,43 @@
         
         <!-- 效果详情 -->
         @if($systemInfo['effect_detail'])
+        @php
+            $effectNames = [
+                'armor_hp' => '装甲值',
+                'shield_hp' => '护盾值',
+                'signature_radius' => '信号半径',
+                'armor_em_resist' => '装甲电磁抗性',
+                'armor_explosive_resist' => '装甲爆炸抗性',
+                'armor_kinetic_resist' => '装甲动能抗性',
+                'armor_thermal_resist' => '装甲热能抗性',
+                'damage' => '伤害',
+                'missile_explosion_radius' => '导弹爆炸半径',
+                'tracking' => '跟踪速度',
+                'capacitor_recharge' => '电容器回复',
+                'capacitor_capacity' => '电容器容量',
+                'remote_repair_amount' => '远程维修量',
+                'remote_repair_range' => '远程维修范围',
+                'local_repair_amount' => '本地维修量',
+                'missile_velocity' => '导弹速度',
+                'missile_explosion_velocity' => '导弹爆炸速度',
+                'ship_velocity' => '舰船速度',
+                'targeting_range' => '锁定距离',
+                'stasis_webifier_strength' => '停滞缠绕强度',
+                'inertia' => '惯性',
+                'smart_bomb_range' => '智能炸弹范围',
+                'smart_bomb_damage' => '智能炸弹伤害',
+                'shield_em_resist' => '护盾电磁抗性',
+                'shield_explosive_resist' => '护盾爆炸抗性',
+                'shield_kinetic_resist' => '护盾动能抗性',
+                'shield_thermal_resist' => '护盾热能抗性',
+            ];
+        @endphp
         <div class="mt-4 p-4 bg-white/5 rounded-lg">
-            <div class="text-sm text-pink-300 mb-2">{{ $systemInfo['effect_detail']['name_en'] }}</div>
+            <div class="text-sm text-pink-300 mb-2">{{ $systemInfo['effect_detail']['name_zh'] ?? $systemInfo['effect_detail']['name_en'] }}</div>
             <div class="text-sm text-white/70 mb-2">{{ $systemInfo['effect_detail']['description'] }}</div>
             <div class="flex flex-wrap gap-2">
                 @foreach($systemInfo['effect_detail']['effects'] as $key => $value)
-                    <span class="text-xs bg-white/10 px-2 py-1 rounded">{{ $key }}: {{ $value }}</span>
+                    <span class="text-xs bg-white/10 px-2 py-1 rounded">{{ $effectNames[$key] ?? $key }}: {{ $value }}</span>
                 @endforeach
             </div>
         </div>
@@ -104,19 +135,20 @@
             <span>🌍 天体信息</span>
         </h3>
         @if(count($systemInfo['planets']) > 0)
-            <div class="space-y-2">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 @foreach($systemInfo['planets'] as $planet)
                     <div class="p-3 bg-white/5 rounded-lg">
-                        <div class="font-medium text-white">{{ $planet['name'] ?? '行星 ' . $loop->iteration }}</div>
-                        @if(count($planet['moons']) > 0)
-                            <div class="ml-4 mt-2 space-y-1">
-                                @foreach($planet['moons'] as $moon)
-                                    <div class="text-sm text-white/60">└─ {{ $moon['name'] ?? '卫星 ' . $loop->iteration }}</div>
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-sm text-white/40 ml-4">└─ 无卫星</div>
-                        @endif
+                        <div class="font-medium text-white text-sm truncate" title="{{ $planet['name'] ?? '行星 ' . $loop->iteration }}">
+                            {{ $planet['name'] ?? '行星 ' . $loop->iteration }}
+                        </div>
+                        <div class="text-xs text-white/50 mt-1">
+                            @if($planet['type_name'])
+                                <span class="text-blue-300">{{ $planet['type_name'] }}</span>
+                            @endif
+                            @if($planet['moons_count'] > 0)
+                                <span class="ml-1">({{ $planet['moons_count'] }} 卫星)</span>
+                            @endif
+                        </div>
                     </div>
                 @endforeach
             </div>
