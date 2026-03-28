@@ -275,3 +275,18 @@ Route::middleware(['auth', 'eve.refresh', 'site.admin'])->prefix('admin')->group
     Route::get('/api/data-info', [AdminController::class, 'dataInfo'])->name('admin.api.data-info');
     Route::post('/users/{userId}/refresh-token', [AdminController::class, 'refreshToken'])->name('admin.users.refresh-token');
 });
+
+// 虫洞查询（公开访问）
+Route::get('/wormhole', [\App\Http\Controllers\WormholeController::class, 'index'])->name('wormhole.index');
+Route::get('/wormhole/{systemName}', [\App\Http\Controllers\WormholeController::class, 'show'])->name('wormhole.show');
+
+// 虫洞公开 API
+Route::middleware('throttle:30,1')->prefix('api/public/wormhole')->group(function () {
+    Route::get('/search', [\App\Http\Controllers\Api\WormholeApiController::class, 'search'])->name('api.public.wormhole.search');
+    Route::get('/autocomplete', [\App\Http\Controllers\Api\WormholeApiController::class, 'autocomplete'])->name('api.public.wormhole.autocomplete');
+    Route::get('/system/{systemId}', [\App\Http\Controllers\Api\WormholeApiController::class, 'systemInfo'])->name('api.public.wormhole.system');
+    Route::get('/system/{systemId}/kills', [\App\Http\Controllers\Api\WormholeApiController::class, 'systemKills'])->name('api.public.wormhole.kills');
+    Route::get('/systems', [\App\Http\Controllers\Api\WormholeApiController::class, 'systemsList'])->name('api.public.wormhole.systems');
+    Route::get('/types', [\App\Http\Controllers\Api\WormholeApiController::class, 'typesList'])->name('api.public.wormhole.types');
+    Route::get('/effects', [\App\Http\Controllers\Api\WormholeApiController::class, 'effectsList'])->name('api.public.wormhole.effects');
+});

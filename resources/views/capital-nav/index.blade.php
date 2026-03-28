@@ -94,6 +94,7 @@
                                 class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400">
                                 <option value="jump_freighter">战略货舰</option>
                                 <option value="rorqual">长须鲸级</option>
+                                <option value="bowhead">座头鲸级</option>
                                 <option value="black_ops">黑隐特勤舰</option>
                                 <option value="carrier">航空母舰</option>
                                 <option value="dreadnought">无畏舰</option>
@@ -153,6 +154,7 @@
                                 class="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400">
                                 <option value="jump_freighter">战略货舰</option>
                                 <option value="rorqual">长须鲸级</option>
+                                <option value="bowhead">座头鲸级</option>
                                 <option value="black_ops">黑隐特勤舰</option>
                                 <option value="carrier">航空母舰</option>
                                 <option value="dreadnought">无畏舰</option>
@@ -301,6 +303,7 @@
 var SHIP_DATA = {
     'jump_freighter': { name: '战略货舰', baseRange: 5.0, baseFuel: 10000 },
     'rorqual':        { name: '长须鲸级', baseRange: 5.0, baseFuel: 4000 },
+    'bowhead':        { name: '座头鲸级', baseRange: 6.0, baseFuel: 12500 },
     'black_ops':      { name: '黑隐特勤舰', baseRange: 4.0, baseFuel: 700 },
     'carrier':        { name: '航空母舰', baseRange: 3.5, baseFuel: 3000 },
     'dreadnought':    { name: '无畏舰', baseRange: 3.5, baseFuel: 3000 },
@@ -366,7 +369,8 @@ function calcFuelRate(shipType, fuelEffLevel, jfLevel) {
     var ship = SHIP_DATA[shipType];
     if (!ship) return 0;
     var fuelEff = 1 - 0.10 * fuelEffLevel;
-    var jfRed = (shipType === 'jump_freighter') ? (1 - 0.10 * jfLevel) : 1;
+    // 战略货舰和座头鲸级都可以享受战略货舰概论技能加成
+    var jfRed = (shipType === 'jump_freighter' || shipType === 'bowhead') ? (1 - 0.10 * jfLevel) : 1;
     return Math.ceil(ship.baseFuel * fuelEff * jfRed);
 }
 
@@ -374,7 +378,8 @@ function onShipChange(prefix) {
     var shipType = document.getElementById(prefix + '-ship').value;
     var jfWrap = document.getElementById(prefix + '-jf-wrap');
     var jfSelect = document.getElementById(prefix + '-jf');
-    if (shipType === 'jump_freighter') {
+    // 战略货舰和座头鲸级都可以享受战略货舰概论技能加成
+    if (shipType === 'jump_freighter' || shipType === 'bowhead') {
         jfWrap.style.opacity = '1';
         jfSelect.disabled = false;
     } else {

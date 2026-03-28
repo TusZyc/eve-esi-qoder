@@ -176,6 +176,11 @@
                 <span class="text-xl w-6 text-center">💎</span>
                 <span>LP商店</span>
             </a>
+            <a href="{{ route('wormhole.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'wormhole' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">🕳️</span>
+                <span>虫洞查询</span>
+            </a>
             <a href="{{ route('scout.index') }}" 
                class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'scout' ? 'active' : '' }}">
                 <span class="text-xl w-6 text-center">🔭</span>

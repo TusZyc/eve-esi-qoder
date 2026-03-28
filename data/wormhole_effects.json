@@ -1,0 +1,84 @@
+{
+  "wolf_rayet": {
+    "effect_id": 14,
+    "name_zh": "沃尔夫-拉叶星",
+    "name_en": "Wolf-Rayet Star",
+    "description": "提高装甲值，降低护盾值，增加信号半径",
+    "effects": {
+      "armor_hp": "+30%",
+      "shield_hp": "-15%",
+      "signature_radius": "+50%",
+      "armor_em_resist": "+15%",
+      "armor_explosive_resist": "+15%",
+      "armor_kinetic_resist": "+15%",
+      "armor_thermal_resist": "+15%"
+    }
+  },
+  "magnetar": {
+    "effect_id": 13,
+    "name_zh": "磁星",
+    "name_en": "Magnetar",
+    "description": "提高伤害，降低跟踪速度，增加信号半径",
+    "effects": {
+      "damage": "+30%",
+      "missile_explosion_radius": "+15%",
+      "tracking": "-15%",
+      "signature_radius": "+30%"
+    }
+  },
+  "pulsar": {
+    "effect_id": 15,
+    "name_zh": "脉冲星",
+    "name_en": "Pulsar",
+    "description": "提高护盾值和电容器回复，降低装甲值，增加信号半径",
+    "effects": {
+      "shield_hp": "+30%",
+      "armor_hp": "-15%",
+      "capacitor_recharge": "+30%",
+      "signature_radius": "+50%",
+      "shield_em_resist": "+15%",
+      "shield_explosive_resist": "+15%",
+      "shield_kinetic_resist": "+15%",
+      "shield_thermal_resist": "+15%"
+    }
+  },
+  "cataclysmic_variable": {
+    "effect_id": 16,
+    "name_zh": "激变变星",
+    "name_en": "Cataclysmic Variable",
+    "description": "提高电容器容量和远程维修效果，降低电容器回复",
+    "effects": {
+      "capacitor_capacity": "+30%",
+      "capacitor_recharge": "-15%",
+      "remote_repair_amount": "+30%",
+      "remote_repair_range": "+30%",
+      "local_repair_amount": "-15%"
+    }
+  },
+  "black_hole": {
+    "effect_id": 17,
+    "name_zh": "黑洞",
+    "name_en": "Black Hole",
+    "description": "提高导弹速度和舰船速度，降低停滞缠绕强度",
+    "effects": {
+      "missile_velocity": "+15%",
+      "missile_explosion_velocity": "+15%",
+      "ship_velocity": "+30%",
+      "targeting_range": "+30%",
+      "stasis_webifier_strength": "-15%",
+      "inertia": "-15%"
+    }
+  },
+  "red_giant": {
+    "effect_id": 18,
+    "name_zh": "红巨星",
+    "name_en": "Red Giant",
+    "description": "提高装甲值和智能炸弹效果，降低电容器回复",
+    "effects": {
+      "armor_hp": "+30%",
+      "capacitor_recharge": "-15%",
+      "smart_bomb_range": "+30%",
+      "smart_bomb_damage": "+30%"
+    }
+  }
+}

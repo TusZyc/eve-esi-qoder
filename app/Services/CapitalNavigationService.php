@@ -14,6 +14,7 @@ class CapitalNavigationService
     const SHIP_DATA = [
         'jump_freighter' => ['name' => '战略货舰',     'base_range' => 5.0, 'base_fuel' => 10000, 'highsec' => true],
         'rorqual'        => ['name' => '长须鲸级',     'base_range' => 5.0, 'base_fuel' => 4000,  'highsec' => true],
+        'bowhead'        => ['name' => '座头鲸级',     'base_range' => 6.0, 'base_fuel' => 12500, 'highsec' => true],
         'black_ops'      => ['name' => '黑隐特勤舰',   'base_range' => 4.0, 'base_fuel' => 700,   'highsec' => true],
         'carrier'        => ['name' => '航空母舰',     'base_range' => 3.5, 'base_fuel' => 3000,  'highsec' => false],
         'dreadnought'    => ['name' => '无畏舰',       'base_range' => 3.5, 'base_fuel' => 3000,  'highsec' => false],
@@ -102,7 +103,7 @@ class CapitalNavigationService
     /**
      * 计算每光年燃料消耗
      * 燃效: 每级 -10%
-     * JF技能: 每级 -10%（仅战略货舰）
+     * JF技能: 每级 -10%（战略货舰和座头鲸级）
      */
     public function calculateFuelRate(string $shipType, int $fuelEffLevel, int $jfLevel = 0): int
     {
@@ -112,7 +113,8 @@ class CapitalNavigationService
         }
 
         $fuelEffReduction = 1 - 0.10 * $fuelEffLevel;
-        $jfReduction = ($shipType === 'jump_freighter') ? (1 - 0.10 * $jfLevel) : 1;
+        // 战略货舰和座头鲸级都可以享受战略货舰概论技能加成
+        $jfReduction = ($shipType === 'jump_freighter' || $shipType === 'bowhead') ? (1 - 0.10 * $jfLevel) : 1;
 
         return (int) ceil($ship['base_fuel'] * $fuelEffReduction * $jfReduction);
     }

@@ -1,0 +1,1251 @@
+{
+  "T405": {
+    "name": "T405",
+    "type_id": 30683,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "R943": {
+    "name": "R943",
+    "type_id": 30583,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "hs",
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "B041": {
+    "name": "B041",
+    "type_id": 30645,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 48,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "S804": {
+    "name": "S804",
+    "type_id": 30665,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "Q063": {
+    "name": "Q063",
+    "type_id": 34368,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "thera"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "K329": {
+    "name": "K329",
+    "type_id": 30697,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c4"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 5000000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "B520": {
+    "name": "B520",
+    "type_id": 30713,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 48,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "M267": {
+    "name": "M267",
+    "type_id": 30700,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "V911": {
+    "name": "V911",
+    "type_id": 30711,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "O883": {
+    "name": "O883",
+    "type_id": 30662,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "W237": {
+    "name": "W237",
+    "type_id": 30712,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "L031": {
+    "name": "L031",
+    "type_id": 34367,
+    "destination": "thera",
+    "destination_zh": "席拉",
+    "source": [
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "H121": {
+    "name": "H121",
+    "type_id": 30660,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "E004": {
+    "name": "E004",
+    "type_id": 34134,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "V753": {
+    "name": "V753",
+    "type_id": 30703,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "C008": {
+    "name": "C008",
+    "type_id": 34138,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "F353": {
+    "name": "F353",
+    "type_id": 34371,
+    "destination": "thera",
+    "destination_zh": "席拉",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 100000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "U319": {
+    "name": "U319",
+    "type_id": 30646,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 48,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "Z457": {
+    "name": "Z457",
+    "type_id": 30710,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "X877": {
+    "name": "X877",
+    "type_id": 30692,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "Y683": {
+    "name": "Y683",
+    "type_id": 30674,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "O128": {
+    "name": "O128",
+    "type_id": 30642,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "hs",
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "C414": {
+    "name": "C414",
+    "type_id": 35653,
+    "destination": "conflux",
+    "destination_zh": "conflux",
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "A009": {
+    "name": "A009",
+    "type_id": 34439,
+    "destination": "c13",
+    "destination_zh": "C13级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "L614": {
+    "name": "L614",
+    "type_id": 30664,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "B274": {
+    "name": "B274",
+    "type_id": 30677,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "H900": {
+    "name": "H900",
+    "type_id": 30693,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "O477": {
+    "name": "O477",
+    "type_id": 30673,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "L005": {
+    "name": "L005",
+    "type_id": 34135,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "E175": {
+    "name": "E175",
+    "type_id": 30701,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "K346": {
+    "name": "K346",
+    "type_id": 30688,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c3"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "Z006": {
+    "name": "Z006",
+    "type_id": 34136,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "P060": {
+    "name": "P060",
+    "type_id": 30689,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "A239": {
+    "name": "A239",
+    "type_id": 30678,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "C125": {
+    "name": "C125",
+    "type_id": 30661,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "Z142": {
+    "name": "Z142",
+    "type_id": 30706,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c5",
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "R051": {
+    "name": "R051",
+    "type_id": 30658,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "N770": {
+    "name": "N770",
+    "type_id": 30684,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "Y790": {
+    "name": "Y790",
+    "type_id": 30698,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "V898": {
+    "name": "V898",
+    "type_id": 34369,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "thera"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "A641": {
+    "name": "A641",
+    "type_id": 30657,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "M164": {
+    "name": "M164",
+    "type_id": 34366,
+    "destination": "thera",
+    "destination_zh": "席拉",
+    "source": [
+      "ls"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "B735": {
+    "name": "B735",
+    "type_id": 35651,
+    "destination": "barbican",
+    "destination_zh": "barbican",
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "I182": {
+    "name": "I182",
+    "type_id": 30681,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "N290": {
+    "name": "N290",
+    "type_id": 30696,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c4"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "S877": {
+    "name": "S877",
+    "type_id": 35650,
+    "destination": "sentinel",
+    "destination_zh": "sentinel",
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "D364": {
+    "name": "D364",
+    "type_id": 30699,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "N766": {
+    "name": "N766",
+    "type_id": 30690,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "U210": {
+    "name": "U210",
+    "type_id": 30687,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c3"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "Z971": {
+    "name": "Z971",
+    "type_id": 30579,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "hs",
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 100000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "Z060": {
+    "name": "Z060",
+    "type_id": 30668,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c1"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "H296": {
+    "name": "H296",
+    "type_id": 30702,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c5"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "Q317": {
+    "name": "Q317",
+    "type_id": 30707,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "A982": {
+    "name": "A982",
+    "type_id": 30685,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "X702": {
+    "name": "X702",
+    "type_id": 30584,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "hs",
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "V301": {
+    "name": "V301",
+    "type_id": 30680,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "C391": {
+    "name": "C391",
+    "type_id": 30714,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 48,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "M555": {
+    "name": "M555",
+    "type_id": 30644,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "F135": {
+    "name": "F135",
+    "type_id": 34372,
+    "destination": "thera",
+    "destination_zh": "席拉",
+    "source": [
+      "c2",
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "E545": {
+    "name": "E545",
+    "type_id": 30679,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "D382": {
+    "name": "D382",
+    "type_id": 30672,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "M609": {
+    "name": "M609",
+    "type_id": 30663,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": [
+      "c1"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "S047": {
+    "name": "S047",
+    "type_id": 30686,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c4"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "R474": {
+    "name": "R474",
+    "type_id": 30676,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "N062": {
+    "name": "N062",
+    "type_id": 30675,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "E587": {
+    "name": "E587",
+    "type_id": 34370,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "thera"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "S199": {
+    "name": "S199",
+    "type_id": 30649,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "Z647": {
+    "name": "Z647",
+    "type_id": 30671,
+    "destination": "c1",
+    "destination_zh": "C1级虫洞空间",
+    "source": [
+      "c2"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "C247": {
+    "name": "C247",
+    "type_id": 30691,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "Q003": {
+    "name": "Q003",
+    "type_id": 34140,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "N944": {
+    "name": "N944",
+    "type_id": 30648,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "D792": {
+    "name": "D792",
+    "type_id": 30704,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c5",
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "N110": {
+    "name": "N110",
+    "type_id": 30666,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c1"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "M001": {
+    "name": "M001",
+    "type_id": 34137,
+    "destination": "c4",
+    "destination_zh": "C4级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "K162": {
+    "name": "K162",
+    "type_id": 30831,
+    "destination": null,
+    "destination_zh": null,
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": null,
+    "max_mass": null,
+    "jump_mass": null,
+    "mass_regen": null
+  },
+  "G008": {
+    "name": "G008",
+    "type_id": 34139,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": null,
+    "is_static": false,
+    "lifetime_hours": 4.5,
+    "max_mass": 3000000000,
+    "jump_mass": 5000000,
+    "mass_regen": 3000000000
+  },
+  "C248": {
+    "name": "C248",
+    "type_id": 30715,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "V928": {
+    "name": "V928",
+    "type_id": 35652,
+    "destination": "vidette",
+    "destination_zh": "vidette",
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "D845": {
+    "name": "D845",
+    "type_id": 30695,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "c3"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 5000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "R259": {
+    "name": "R259",
+    "type_id": 35654,
+    "destination": "redoubt",
+    "destination_zh": "redoubt",
+    "source": null,
+    "is_static": null,
+    "lifetime_hours": 16,
+    "max_mass": 750000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "N968": {
+    "name": "N968",
+    "type_id": 30682,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c3"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "T458": {
+    "name": "T458",
+    "type_id": 34338,
+    "destination": "thera",
+    "destination_zh": "席拉",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 500000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "V283": {
+    "name": "V283",
+    "type_id": 30659,
+    "destination": "ns",
+    "destination_zh": "零安全区域",
+    "source": [
+      "hs"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 3000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "C140": {
+    "name": "C140",
+    "type_id": 30705,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c5",
+      "c6"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "U574": {
+    "name": "U574",
+    "type_id": 30694,
+    "destination": "c6",
+    "destination_zh": "C6级虫洞空间",
+    "source": [
+      "c4"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 3000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "N432": {
+    "name": "N432",
+    "type_id": 30643,
+    "destination": "c5",
+    "destination_zh": "C5级虫洞空间",
+    "source": [
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 24,
+    "max_mass": 3300000000,
+    "jump_mass": 2000000000,
+    "mass_regen": 0
+  },
+  "B449": {
+    "name": "B449",
+    "type_id": 30647,
+    "destination": "hs",
+    "destination_zh": "高安全区域",
+    "source": [
+      "ls",
+      "ns"
+    ],
+    "is_static": false,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 1000000000,
+    "mass_regen": 0
+  },
+  "G024": {
+    "name": "G024",
+    "type_id": 30708,
+    "destination": "c2",
+    "destination_zh": "C2级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  },
+  "J244": {
+    "name": "J244",
+    "type_id": 30667,
+    "destination": "ls",
+    "destination_zh": "低安全区域",
+    "source": [
+      "c1"
+    ],
+    "is_static": true,
+    "lifetime_hours": 24,
+    "max_mass": 1000000000,
+    "jump_mass": 62000000,
+    "mass_regen": 0
+  },
+  "L477": {
+    "name": "L477",
+    "type_id": 30709,
+    "destination": "c3",
+    "destination_zh": "C3级虫洞空间",
+    "source": [
+      "c6"
+    ],
+    "is_static": true,
+    "lifetime_hours": 16,
+    "max_mass": 2000000000,
+    "jump_mass": 375000000,
+    "mass_regen": 0
+  }
+}

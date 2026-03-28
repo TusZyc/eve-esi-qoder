@@ -98,6 +98,10 @@
                             <span class="text-lg">💎</span>
                             <span class="text-sm">LP商店</span>
                         </a>
+                        <a href="{{ route('wormhole.index') }}" class="flex items-center space-x-2 px-4 py-3 hover:bg-white/10 transition-all{{ $activePage === 'wormhole' ? ' bg-white/10' : '' }}">
+                            <span class="text-lg">🕳️</span>
+                            <span class="text-sm">虫洞查询</span>
+                        </a>
                     </div>
                 </div>
             </div>
