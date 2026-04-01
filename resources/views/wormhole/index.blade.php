@@ -1,26 +1,29 @@
 @extends('layouts.app')
 
 @push('styles')
-<style>
     /* 下拉框选项样式 - 修复暗色主题下选项不可见问题 */
     select option {
-        background-color: #0f1a3e;
-        color: #ffffff;
+        background-color: #1e293b;
+        color: #e2e8f0;
     }
-    .wh-tab { @apply px-6 py-3 text-sm font-medium cursor-pointer border-b-2 border-transparent transition-all; }
-    .wh-tab.active { @apply border-blue-500 text-blue-400 bg-white/5; }
-    .wh-tab:hover:not(.active) { @apply text-white/80 bg-white/5; }
-    .wh-section { @apply bg-white/5 backdrop-blur rounded-xl p-6 mb-4 border border-white/10; }
-    .wh-label { @apply text-sm text-blue-200 mb-1; }
-    .wh-value { @apply text-white font-medium; }
-    .wh-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
-    .wh-badge-c1 { @apply bg-blue-500/20 text-blue-300; }
-    .wh-badge-c2 { @apply bg-green-500/20 text-green-300; }
-    .wh-badge-c3 { @apply bg-yellow-500/20 text-yellow-300; }
-    .wh-badge-c4 { @apply bg-orange-500/20 text-orange-300; }
-    .wh-badge-c5 { @apply bg-red-500/20 text-red-300; }
-    .wh-badge-c6 { @apply bg-purple-500/20 text-purple-300; }
-    .wh-badge-effect { @apply bg-pink-500/20 text-pink-300; }
+    .wh-tab {
+        padding: 10px 24px; cursor: pointer; font-size: 14px; font-weight: 500;
+        border-bottom: 2px solid transparent; transition: all 0.2s;
+        color: rgba(255,255,255,0.5); border-radius: 8px 8px 0 0;
+    }
+    .wh-tab:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); }
+    .wh-tab.active { color: white; border-bottom-color: #60a5fa; background: rgba(255,255,255,0.08); }
+    .wh-section { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border-radius: 12px; padding: 24px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); }
+    .wh-label { font-size: 14px; color: #bfdbfe; margin-bottom: 4px; }
+    .wh-value { color: white; font-weight: 500; }
+    .wh-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+    .wh-badge-c1 { background: rgba(59,130,246,0.2); color: #93c5fd; }
+    .wh-badge-c2 { background: rgba(34,197,94,0.2); color: #86efac; }
+    .wh-badge-c3 { background: rgba(234,179,8,0.2); color: #fde047; }
+    .wh-badge-c4 { background: rgba(249,115,22,0.2); color: #fdba74; }
+    .wh-badge-c5 { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .wh-badge-c6 { background: rgba(168,85,247,0.2); color: #d8b4fe; }
+    .wh-badge-effect { background: rgba(236,72,153,0.2); color: #f9a8d4; }
     .ac-dropdown {
         position: absolute; left: 0; right: 0; top: 100%;
         z-index: 50; max-height: 240px; overflow-y: auto;
@@ -30,40 +33,45 @@
     .ac-dropdown .ac-item {
         padding: 8px 12px; cursor: pointer; font-size: 14px;
         border-bottom: 1px solid rgba(255,255,255,0.05);
+        color: rgba(255,255,255,0.8);
     }
-    .ac-dropdown .ac-item:hover { background: rgba(59, 130, 246, 0.3); }
-    .km-row { @apply flex items-center justify-between p-3 bg-white/5 rounded-lg mb-2 hover:bg-white/10 transition-colors cursor-pointer; }
+    .ac-dropdown .ac-item:hover, .ac-dropdown .ac-item.active {
+        background: rgba(59, 130, 246, 0.3); color: white;
+    }
+    .km-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+    .km-row:hover { background: rgba(255,255,255,0.1); }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { border: 2px solid rgba(255,255,255,0.1); border-top-color: #60a5fa; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
-</style>
 @endpush
 
 @section('title', '虫洞查询 - Tus Esi System')
 
 @section('content')
 <div class="container mx-auto px-4 py-6 max-w-7xl">
-    <!-- 标签栏 -->
-    <div class="flex border-b border-white/10 mb-6">
-        <button class="wh-tab {{ $tab === 'search' ? 'active' : '' }}" data-tab="search" onclick="switchTab('search')">
-            🔍 虫洞搜索
-        </button>
-        <button class="wh-tab {{ $tab === 'systems' ? 'active' : '' }}" data-tab="systems" onclick="switchTab('systems')">
-            📋 虫洞检索
-        </button>
-        <button class="wh-tab {{ $tab === 'types' ? 'active' : '' }}" data-tab="types" onclick="switchTab('types')">
-            🕳️ 洞点快查
-        </button>
+    <!-- 标签栏 - 纯JS切换，不操控URL -->
+    <div class="bg-white/5 backdrop-blur rounded-xl border border-white/10 mb-6">
+        <div class="flex px-4 pt-2 border-b border-white/10">
+            <button id="wh-tab-search" class="wh-tab active" onclick="switchTab('search')">
+                🔍 虫洞搜索
+            </button>
+            <button id="wh-tab-systems" class="wh-tab" onclick="switchTab('systems')">
+                📋 虫洞检索
+            </button>
+            <button id="wh-tab-types" class="wh-tab" onclick="switchTab('types')">
+                🕳️ 洞点快查
+            </button>
+        </div>
     </div>
 
     <!-- 标签栏一：虫洞搜索 -->
-    <div id="tab-search" class="tab-content {{ $tab !== 'search' ? 'hidden' : '' }}">
+    <div id="content-search" class="tab-content">
         <!-- 搜索框 -->
-        <div class="wh-section">
+        <div class="wh-section" style="position: relative; z-index: 20;">
             <h3 class="text-lg font-bold mb-4">搜索虫洞星系</h3>
             <div class="flex gap-4">
                 <div class="relative flex-1">
                     <input type="text" id="searchInput" placeholder="输入虫洞星系编号（如 J100033 或 100033）" 
-                           class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 outline-none focus:border-blue-400" 
+                           class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-400" 
                            value="{{ $searchQuery ?? '' }}" autocomplete="off">
                     <div id="searchDropdown" class="ac-dropdown hidden"></div>
                 </div>
@@ -75,6 +83,14 @@
 
         <!-- 搜索结果 -->
         <div id="systemResult">
+            @if($searchError ?? false)
+                <div class="wh-section border-red-500/30 bg-red-500/10">
+                    <div class="flex items-center gap-3 text-red-300">
+                        <span class="text-xl">⚠️</span>
+                        <span>{{ $searchError }}</span>
+                    </div>
+                </div>
+            @endif
             @if($systemInfo)
                 @include('wormhole.partials.system-detail', ['systemInfo' => $systemInfo, 'kills' => $kills ?? null])
             @endif
@@ -82,12 +98,12 @@
     </div>
 
     <!-- 标签栏二：虫洞检索 -->
-    <div id="tab-systems" class="tab-content {{ $tab !== 'systems' ? 'hidden' : '' }}">
+    <div id="content-systems" class="tab-content hidden">
         <div class="wh-section">
             <div class="flex flex-wrap items-center gap-4 mb-4">
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-blue-200">等级:</span>
-                    <select id="filterClass" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm" onchange="loadSystemsList()">
+                    <select id="filterClass" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400" onchange="loadSystemsList()">
                         <option value="">全部</option>
                         <option value="1">C1</option>
                         <option value="2">C2</option>
@@ -99,7 +115,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-blue-200">效果:</span>
-                    <select id="filterEffect" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm" onchange="loadSystemsList()">
+                    <select id="filterEffect" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400" onchange="loadSystemsList()">
                         <option value="">全部</option>
                         @foreach($effects as $effect)
                             <option value="{{ $effect['key'] }}">{{ $effect['name_zh'] }}</option>
@@ -138,16 +154,16 @@
     </div>
 
     <!-- 标签栏三：洞点快查 -->
-    <div id="tab-types" class="tab-content {{ $tab !== 'types' ? 'hidden' : '' }}">
+    <div id="content-types" class="tab-content hidden">
         <div class="wh-section">
             <div class="flex items-center gap-4 mb-4">
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-blue-200">目的地:</span>
-                    <select id="filterDestination" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm" onchange="loadTypesList()">
+                    <select id="filterDestination" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-400" onchange="loadTypesList()">
                         <option value="">全部</option>
-                        <option value="high_sec">高安全区域</option>
-                        <option value="low_sec">低安全区域</option>
-                        <option value="null_sec">零安全区域</option>
+                        <option value="hs">高安全区域</option>
+                        <option value="ls">低安全区域</option>
+                        <option value="ns">零安全区域</option>
                         <option value="c1">C1 虫洞</option>
                         <option value="c2">C2 虫洞</option>
                         <option value="c3">C3 虫洞</option>
@@ -183,42 +199,52 @@
 
 @push('scripts')
 <script>
-let currentSystemPage = 1;
-let searchTimeout = null;
+var currentSystemPage = 1;
+var searchTimeout = null;
+var systemsLoaded = false;
+var typesLoaded = false;
 
-// 标签切换 - 使用URL参数
-function switchTab(tab, updateUrl = true) {
-    document.querySelectorAll('.wh-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+// 标签切换 - 纯JS，不操控URL参数
+function switchTab(tab) {
+    document.querySelectorAll('.wh-tab').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('wh-tab-' + tab).classList.add('active');
+    document.getElementById('content-search').classList.add('hidden');
+    document.getElementById('content-systems').classList.add('hidden');
+    document.getElementById('content-types').classList.add('hidden');
+    document.getElementById('content-' + tab).classList.remove('hidden');
     
-    // 更新URL（只保留tab参数，清除其他参数）
-    if (updateUrl) {
-        const url = new URL(window.location);
-        url.searchParams.set('tab', tab);
-        url.searchParams.delete('system');
-        window.history.pushState({}, '', url);
+    // 按需加载数据（首次切换时加载）
+    if (tab === 'systems' && !systemsLoaded) {
+        systemsLoaded = true;
+        loadSystemsList();
     }
-    
-    // 加载数据
-    if (tab === 'systems') loadSystemsList();
-    if (tab === 'types') loadTypesList();
+    if (tab === 'types' && !typesLoaded) {
+        typesLoaded = true;
+        loadTypesList();
+    }
 }
 
-// 搜索系统
+// 搜索系统 - 跳转到详情页（J前缀可选）
 function searchSystem() {
-    const query = document.getElementById('searchInput').value.trim();
+    var query = document.getElementById('searchInput').value.trim();
     if (!query) return;
-    
-    // 更新URL - 使用search参数跳转到详情页
-    window.location.href = `/wormhole/${query.toUpperCase().replace(/^[Jj]/, 'J')}`;
+    // 去掉开头的J/j，再统一加回J前缀
+    var num = query.toUpperCase().replace(/^J/, '');
+    window.location.href = '/wormhole/J' + num;
 }
+
+// Enter键搜索
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    var dropdown = document.getElementById('searchDropdown');
+    if (e.key === 'Enter' && dropdown.classList.contains('hidden')) {
+        searchSystem();
+    }
+});
 
 // 自动补全
-document.getElementById('searchInput')?.addEventListener('input', function(e) {
-    const query = e.target.value.trim();
-    const dropdown = document.getElementById('searchDropdown');
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    var query = e.target.value.trim();
+    var dropdown = document.getElementById('searchDropdown');
     
     clearTimeout(searchTimeout);
     if (query.length < 1) {
@@ -226,85 +252,99 @@ document.getElementById('searchInput')?.addEventListener('input', function(e) {
         return;
     }
     
-    searchTimeout = setTimeout(() => {
-        fetch(`/api/public/wormhole/autocomplete?q=${encodeURIComponent(query)}`)
-            .then(r => r.json())
-            .then(data => {
+    searchTimeout = setTimeout(function() {
+        fetch('/api/public/wormhole/autocomplete?q=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 if (data.length === 0) {
                     dropdown.classList.add('hidden');
                     return;
                 }
                 
-                dropdown.innerHTML = data.map(s => `
-                    <div class="ac-item" onclick="selectSystem('${s.name}')">
-                        <span class="font-medium">${s.name}</span>
-                        <span class="wh-badge wh-badge-c${s.class} ml-2">C${s.class}</span>
-                        ${s.effect_zh ? `<span class="wh-badge wh-badge-effect ml-1">${s.effect_zh}</span>` : ''}
-                    </div>
-                `).join('');
+                dropdown.innerHTML = data.map(function(s) {
+                    return '<div class="ac-item" data-name="' + s.name + '">' +
+                        '<span class="font-medium">' + s.name + '</span>' +
+                        '<span class="wh-badge wh-badge-c' + s.class + ' ml-2">C' + s.class + '</span>' +
+                        (s.effect_zh ? '<span class="wh-badge wh-badge-effect ml-1">' + s.effect_zh + '</span>' : '') +
+                        '</div>';
+                }).join('');
                 dropdown.classList.remove('hidden');
+                
+                // 绑定点击事件
+                dropdown.querySelectorAll('.ac-item').forEach(function(el) {
+                    el.addEventListener('click', function() {
+                        document.getElementById('searchInput').value = el.dataset.name;
+                        dropdown.classList.add('hidden');
+                        searchSystem();
+                    });
+                });
             });
     }, 300);
 });
 
-function selectSystem(name) {
-    document.getElementById('searchInput').value = name;
-    document.getElementById('searchDropdown').classList.add('hidden');
-    searchSystem();
-}
+// 点击外部关闭下拉框
+document.addEventListener('click', function(e) {
+    var input = document.getElementById('searchInput');
+    var dropdown = document.getElementById('searchDropdown');
+    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
 
 // 加载系统列表
-function loadSystemsList(page = 1) {
+function loadSystemsList(page) {
+    page = page || 1;
     currentSystemPage = page;
-    const classFilter = document.getElementById('filterClass').value;
-    const effectFilter = document.getElementById('filterEffect').value;
+    var classFilter = document.getElementById('filterClass').value;
+    var effectFilter = document.getElementById('filterEffect').value;
     
-    let url = `/api/public/wormhole/systems?page=${page}&per_page=30`;
-    if (classFilter) url += `&class=${classFilter}`;
-    if (effectFilter) url += `&effect=${effectFilter}`;
+    var url = '/api/public/wormhole/systems?page=' + page + '&per_page=30';
+    if (classFilter) url += '&class=' + classFilter;
+    if (effectFilter) url += '&effect=' + effectFilter;
     
-    fetch(url).then(r => r.json()).then(data => {
-        const tbody = document.getElementById('systemsTableBody');
-        tbody.innerHTML = data.systems.map(s => `
-            <tr class="border-b border-white/5 hover:bg-white/5">
-                <td class="py-3 px-4 font-medium">${s.name}</td>
-                <td class="py-3 px-4"><span class="wh-badge wh-badge-c${s.class}">C${s.class}</span></td>
-                <td class="py-3 px-4">${s.effect_zh || '-'}</td>
-                <td class="py-3 px-4">${s.statics.map(st => `<span class="text-blue-300">${st.type}→${st.destination_zh}</span>`).join(', ') || '-'}</td>
-                <td class="py-3 px-4">
-                    <a href="/wormhole/${s.name}" class="text-blue-400 hover:text-blue-300">详情</a>
-                </td>
-            </tr>
-        `).join('');
+    fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+        var tbody = document.getElementById('systemsTableBody');
+        tbody.innerHTML = data.systems.map(function(s) {
+            var statics = s.statics.map(function(st) {
+                return '<span class="text-blue-300">' + st.type + '\u2192' + st.destination_zh + '</span>';
+            }).join(', ') || '-';
+            return '<tr class="border-b border-white/5 hover:bg-white/5">' +
+                '<td class="py-3 px-4 font-medium">' + s.name + '</td>' +
+                '<td class="py-3 px-4"><span class="wh-badge wh-badge-c' + s.class + '">C' + s.class + '</span></td>' +
+                '<td class="py-3 px-4">' + (s.effect_zh || '-') + '</td>' +
+                '<td class="py-3 px-4">' + statics + '</td>' +
+                '<td class="py-3 px-4"><a href="/wormhole/' + s.name + '" class="text-blue-400 hover:text-blue-300">详情</a></td>' +
+                '</tr>';
+        }).join('');
         
         // 分页
-        const p = data.pagination;
-        document.getElementById('systemsInfo').textContent = `共 ${p.total} 条，第 ${p.page}/${p.total_pages} 页`;
+        var p = data.pagination;
+        document.getElementById('systemsInfo').textContent = '共 ' + p.total + ' 条，第 ' + p.page + '/' + p.total_pages + ' 页';
         
-        let btns = '';
-        if (p.page > 1) btns += `<button onclick="loadSystemsList(${p.page - 1})" class="px-3 py-1 bg-white/10 rounded hover:bg-white/20">上一页</button>`;
-        if (p.page < p.total_pages) btns += `<button onclick="loadSystemsList(${p.page + 1})" class="px-3 py-1 bg-white/10 rounded hover:bg-white/20">下一页</button>`;
+        var btns = '';
+        if (p.page > 1) btns += '<button onclick="loadSystemsList(' + (p.page - 1) + ')" class="px-3 py-1 bg-white/10 rounded hover:bg-white/20">上一页</button>';
+        if (p.page < p.total_pages) btns += '<button onclick="loadSystemsList(' + (p.page + 1) + ')" class="px-3 py-1 bg-white/10 rounded hover:bg-white/20">下一页</button>';
         document.getElementById('systemsPageButtons').innerHTML = btns;
     });
 }
 
 // 加载类型列表
 function loadTypesList() {
-    const dest = document.getElementById('filterDestination').value;
-    let url = '/api/public/wormhole/types';
-    if (dest) url += `?destination=${dest}`;
+    var dest = document.getElementById('filterDestination').value;
+    var url = '/api/public/wormhole/types';
+    if (dest) url += '?destination=' + dest;
     
-    fetch(url).then(r => r.json()).then(data => {
-        const tbody = document.getElementById('typesTableBody');
-        tbody.innerHTML = data.types.map(t => `
-            <tr class="border-b border-white/5 hover:bg-white/5">
-                <td class="py-3 px-4 font-medium text-blue-300">${t.type}</td>
-                <td class="py-3 px-4">${t.destination_zh}</td>
-                <td class="py-3 px-4">${t.lifetime_hours}小时</td>
-                <td class="py-3 px-4">${formatMass(t.max_mass)}</td>
-                <td class="py-3 px-4">${formatMass(t.jump_mass)}</td>
-            </tr>
-        `).join('');
+    fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+        var tbody = document.getElementById('typesTableBody');
+        tbody.innerHTML = data.types.map(function(t) {
+            return '<tr class="border-b border-white/5 hover:bg-white/5">' +
+                '<td class="py-3 px-4 font-medium text-blue-300">' + t.type + '</td>' +
+                '<td class="py-3 px-4">' + t.destination_zh + '</td>' +
+                '<td class="py-3 px-4">' + t.lifetime_hours + '小时</td>' +
+                '<td class="py-3 px-4">' + formatMass(t.max_mass) + '</td>' +
+                '<td class="py-3 px-4">' + formatMass(t.jump_mass) + '</td>' +
+                '</tr>';
+        }).join('');
     });
 }
 
@@ -317,19 +357,5 @@ function formatMass(kg) {
     if (kg >= 1e3) return (kg / 1e3).toFixed(1) + 'K';
     return kg;
 }
-
-// 浏览器前进/后退处理
-window.addEventListener('popstate', function() {
-    const url = new URL(window.location);
-    const tab = url.searchParams.get('tab') || 'search';
-    switchTab(tab, false);
-});
-
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
-    const tab = '{{ $tab }}';
-    if (tab === 'systems') loadSystemsList();
-    if (tab === 'types') loadTypesList();
-});
 </script>
 @endpush

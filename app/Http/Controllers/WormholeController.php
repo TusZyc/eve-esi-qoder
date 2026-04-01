@@ -23,19 +23,6 @@ class WormholeController extends Controller
      */
     public function index(Request $request)
     {
-        $tab = $request->get('tab', 'search');
-        $systemName = $request->get('system');
-        
-        // 如果指定了系统，获取详情
-        $systemInfo = null;
-        $kills = null;
-        if ($systemName) {
-            $systemInfo = $this->wormholeService->getSystemInfo($systemName);
-            if ($systemInfo) {
-                $kills = $this->wormholeService->getSystemKills($systemInfo['system_id']);
-            }
-        }
-        
         // 获取效果列表（用于筛选）
         $effects = WormholeService::getEffectsList();
         
@@ -44,11 +31,11 @@ class WormholeController extends Controller
         $isLoggedIn = $user && $user->eve_character_id !== null;
         
         return view('wormhole.index', [
-            'tab' => $tab,
-            'systemInfo' => $systemInfo,
-            'kills' => $kills,
+            'systemInfo' => null,
+            'kills' => null,
             'effects' => $effects,
-            'searchQuery' => $systemName,
+            'searchQuery' => null,
+            'searchError' => null,
             'user' => $user,
             'isLoggedIn' => $isLoggedIn,
             'activePage' => 'wormhole',
@@ -60,14 +47,32 @@ class WormholeController extends Controller
      */
     public function show(string $systemName)
     {
-        $systemInfo = $this->wormholeService->getSystemInfo($systemName);
-        
-        if (!$systemInfo) {
-            abort(404, '未找到该虫洞星系');
+        try {
+            $systemInfo = $this->wormholeService->getSystemInfo($systemName);
+        } catch (\Exception $e) {
+            $systemInfo = null;
         }
         
-        // 获取击杀报告
-        $kills = $this->wormholeService->getSystemKills($systemInfo['system_id']);
+        if (!$systemInfo) {
+            // 返回虫洞首页并带上错误提示，而非500/404白页
+            $effects = WormholeService::getEffectsList();
+            $user = Auth::user();
+            $isLoggedIn = $user && $user->eve_character_id !== null;
+            
+            return view('wormhole.index', [
+                'systemInfo' => null,
+                'kills' => null,
+                'effects' => $effects,
+                'searchQuery' => $systemName,
+                'searchError' => '未找到虫洞星系「' . e($systemName) . '」，请检查编号是否正确',
+                'user' => $user,
+                'isLoggedIn' => $isLoggedIn,
+                'activePage' => 'wormhole',
+            ]);
+        }
+        
+        // 获取击杀报告（最多5条）
+        $kills = $this->wormholeService->getSystemKills($systemInfo['system_id'], 5);
         
         // 获取效果列表
         $effects = WormholeService::getEffectsList();
@@ -77,11 +82,11 @@ class WormholeController extends Controller
         $isLoggedIn = $user && $user->eve_character_id !== null;
         
         return view('wormhole.index', [
-            'tab' => 'search',
             'systemInfo' => $systemInfo,
             'kills' => $kills,
             'effects' => $effects,
             'searchQuery' => $systemName,
+            'searchError' => null,
             'user' => $user,
             'isLoggedIn' => $isLoggedIn,
             'activePage' => 'wormhole',

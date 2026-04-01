@@ -25,8 +25,8 @@
                 </div>
             </div>
             <div>
-                <div class="wh-label">系统大小</div>
-                <div class="wh-value">{{ $systemInfo['system_radius_au'] ? $systemInfo['system_radius_au'] . ' AU' : '未知' }}</div>
+                <div class="wh-label">星系半径</div>
+                <div class="wh-value">{{ $systemInfo['system_radius_au'] ? $systemInfo['system_radius_au'] . ' AU' : '计算中...' }}</div>
             </div>
             <div>
                 <div class="wh-label">星座</div>
@@ -41,7 +41,7 @@
                 <div class="wh-value">{{ $systemInfo['security'] }}</div>
             </div>
             <div>
-                <div class="wh-label">系统ID</div>
+                <div class="wh-label">星系ID</div>
                 <div class="wh-value text-white/60">{{ $systemInfo['system_id'] }}</div>
             </div>
         </div>
@@ -133,24 +133,44 @@
     <div class="wh-section">
         <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
             <span>🌍 天体信息</span>
+            @if(count($systemInfo['planets']) > 0)
+                <span class="text-sm text-white/40 font-normal">（{{ count($systemInfo['planets']) }} 颗行星）</span>
+            @endif
         </h3>
         @if(count($systemInfo['planets']) > 0)
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                @foreach($systemInfo['planets'] as $planet)
-                    <div class="p-3 bg-white/5 rounded-lg">
-                        <div class="font-medium text-white text-sm truncate" title="{{ $planet['name'] ?? '行星 ' . $loop->iteration }}">
-                            {{ $planet['name'] ?? '行星 ' . $loop->iteration }}
-                        </div>
-                        <div class="text-xs text-white/50 mt-1">
-                            @if($planet['type_name'])
-                                <span class="text-blue-300">{{ $planet['type_name'] }}</span>
-                            @endif
-                            @if($planet['moons_count'] > 0)
-                                <span class="ml-1">({{ $planet['moons_count'] }} 卫星)</span>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-white/10 text-left">
+                            <th class="py-2 px-3 text-white/60 font-medium">#</th>
+                            <th class="py-2 px-3 text-white/60 font-medium">名称</th>
+                            <th class="py-2 px-3 text-white/60 font-medium">行星类型</th>
+                            <th class="py-2 px-3 text-white/60 font-medium">卫星</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($systemInfo['planets'] as $planet)
+                            <tr class="border-b border-white/5 hover:bg-white/5">
+                                <td class="py-2 px-3 text-white/40">{{ $loop->iteration }}</td>
+                                <td class="py-2 px-3 text-white font-medium">{{ $planet['name'] ?? '行星 ' . $loop->iteration }}</td>
+                                <td class="py-2 px-3">
+                                    @if($planet['type_name'])
+                                        <span class="wh-badge" style="background:rgba(59,130,246,0.15); color:#93c5fd;">{{ $planet['type_name'] }}</span>
+                                    @else
+                                        <span class="text-white/30">-</span>
+                                    @endif
+                                </td>
+                                <td class="py-2 px-3 text-white/60">
+                                    @if($planet['moons_count'] > 0)
+                                        {{ $planet['moons_count'] }} 颗
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @else
             <div class="text-white/50">暂无天体数据</div>

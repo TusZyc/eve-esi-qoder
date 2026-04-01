@@ -322,11 +322,22 @@ class WormholeService
                         'moons' => [],
                     ];
                     
-                    // 获取行星类型信息（异步但不阻塞）
+                    // 获取行星类型信息和坐标（从 /universe/planets/{id}/ 端点）
                     $planetTypeInfo = $this->fetchPlanetType($planet['planet_id']);
                     if ($planetTypeInfo) {
                         $planetInfo['type'] = $planetTypeInfo['type'];
                         $planetInfo['type_name'] = $planetTypeInfo['type_name'];
+                        
+                        // 使用行星端点返回的坐标计算星系半径
+                        if (isset($planetTypeInfo['position'])) {
+                            $pos = $planetTypeInfo['position'];
+                            $distance = sqrt(
+                                pow($pos['x'] ?? 0, 2) +
+                                pow($pos['y'] ?? 0, 2) +
+                                pow($pos['z'] ?? 0, 2)
+                            );
+                            $maxDistance = max($maxDistance, $distance);
+                        }
                     }
                     
                     // 保留卫星信息（用于未来需要）
@@ -338,16 +349,6 @@ class WormholeService
                     }
                     
                     $planets[] = $planetInfo;
-                    
-                    // 计算距离
-                    if (isset($planet['position'])) {
-                        $distance = sqrt(
-                            pow($planet['position']['x'], 2) +
-                            pow($planet['position']['y'], 2) +
-                            pow($planet['position']['z'], 2)
-                        );
-                        $maxDistance = max($maxDistance, $distance);
-                    }
                 }
                 
                 // 转换为AU (1 AU ≈ 149,597,870,700 米)
@@ -368,7 +369,7 @@ class WormholeService
     }
     
     /**
-     * 获取行星类型信息
+     * 获取行星类型信息（含坐标位置）
      */
     private function fetchPlanetType(int $planetId): ?array
     {
@@ -380,7 +381,7 @@ class WormholeService
                 $datasource = config('esi.datasource', 'serenity');
                 
                 $response = Http::timeout(5)->get(
-                    "{$baseUrl}/universe/planets/{$planetId}/?datasource={$datasource}&language=zh"
+                    "{$baseUrl}/universe/planets/{$planetId}/?datasource={$datasource}"
                 );
                 
                 if (!$response->ok()) {
@@ -388,34 +389,16 @@ class WormholeService
                 }
                 
                 $data = $response->json();
+                $typeId = $data['type_id'] ?? null;
+                if (!$typeId) return null;
                 
-                // 行星类型中文名称映射
-                $typeNames = [
-                    'Temperate' => '温和',
-                    'Barren' => '贫瘠',
-                    'Oceanic' => '海洋',
-                    'Ice' => '冰',
-                    'Gas' => '气态',
-                    'Lava' => '熔岩',
-                    'Storm' => '风暴',
-                    'Plasma' => '等离子',
-                ];
-                
-                $type = $data['type'] ?? null;
-                if (!$type) return null;
-                
-                // 从类型ID字符串中提取类型名称
-                $typeName = null;
-                foreach ($typeNames as $en => $zh) {
-                    if (stripos($type, $en) !== false) {
-                        $typeName = $zh;
-                        break;
-                    }
-                }
+                // 通过 type_id 解析行星类型名称
+                $typeName = $this->resolvePlanetTypeName($typeId);
                 
                 return [
-                    'type' => $type,
+                    'type' => $typeId,
                     'type_name' => $typeName,
+                    'position' => $data['position'] ?? null,
                 ];
                 
             } catch (\Exception $e) {
@@ -425,24 +408,77 @@ class WormholeService
     }
     
     /**
-     * 获取击杀报告
+     * 解析行星类型名称（基于 type_id）
+     */
+    private function resolvePlanetTypeName(int $typeId): ?string
+    {
+        $cacheKey = "esi:planet_type_name:{$typeId}";
+        return Cache::remember($cacheKey, 86400 * 30, function() use ($typeId) {
+            try {
+                $baseUrl = rtrim(config('esi.base_url'), '/');
+                $datasource = config('esi.datasource', 'serenity');
+                
+                $response = Http::timeout(5)->get(
+                    "{$baseUrl}/universe/types/{$typeId}/?datasource={$datasource}&language=zh"
+                );
+                
+                if (!$response->ok()) return null;
+                
+                $name = $response->json()['name'] ?? null;
+                if (!$name) return null;
+                
+                // 从类型名称中提取行星类型关键词
+                $typeKeywords = [
+                    'Temperate' => '温和', 'Barren' => '贫瘠', 'Oceanic' => '海洋',
+                    'Ice' => '冰', 'Gas' => '气态', 'Lava' => '熔岩',
+                    'Storm' => '风暴', 'Plasma' => '等离子', 'Shattered' => '破碎',
+                    '温和' => '温和', '贫瘠' => '贫瘠', '海洋' => '海洋',
+                    '冰' => '冰', '气' => '气态', '熔岩' => '熔岩',
+                    '风暴' => '风暴', '等离子' => '等离子', '破碎' => '破碎',
+                ];
+                
+                foreach ($typeKeywords as $key => $zh) {
+                    if (mb_stripos($name, $key) !== false) {
+                        return $zh;
+                    }
+                }
+                
+                return $name; // 未匹配到关键词时返回原始名称
+            } catch (\Exception $e) {
+                return null;
+            }
+        });
+    }
+    
+    /**
+     * 获取击杀报告（渐进式搜索）
+     * 
+     * 虫洞系统活跃度差异很大，使用渐进策略：
+     * 1. 先查最近365天
+     * 2. 若无结果，不带日期范围查询（获取所有历史数据）
      * 
      * @param int $systemId 星系ID
      * @param int $limit 返回数量限制
-     * @param int $days 查询天数范围（默认30天）
      */
-    public function getSystemKills(int $systemId, int $limit = 10, int $days = 30): array
+    public function getSystemKills(int $systemId, int $limit = 5): array
     {
         try {
-            // 使用 Beta KB API 搜索该系统的击杀
-            // 设置时间范围以获取更多历史数据
+            // Phase 1: 查最近365天（覆盖大多数活跃系统）
             $params = [
                 'systems' => [$systemId],
-                'start_date' => date('Y-m-d', strtotime("-{$days} days")),
+                'start_date' => date('Y-m-d', strtotime('-365 days')),
                 'end_date' => date('Y-m-d'),
             ];
             
             $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($params);
+            
+            // Phase 2: 若无结果，尝试不带日期范围（获取所有可用历史数据）
+            if (empty($kills)) {
+                $params = [
+                    'systems' => [$systemId],
+                ];
+                $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($params);
+            }
             
             // 按时间排序，取最近的 $limit 条
             usort($kills, function($a, $b) {
