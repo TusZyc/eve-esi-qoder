@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class ContactDataController extends Controller
 {
@@ -26,10 +27,13 @@ class ContactDataController extends Controller
 
         try {
             // 获取联系人数据（支持分页）
-            $contacts = Cache::remember("contacts_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $contacts = Cache::remember("contacts_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $allContacts = [];
                 $page = 1;
-                
+
                 do {
                     $response = Http::withToken($token)
                         ->timeout(15)
@@ -37,23 +41,23 @@ class ContactDataController extends Controller
                             'datasource' => 'serenity',
                             'page' => $page
                         ]);
-                    
+
                     if (!$response->ok()) {
-                        break;
+                        throw new \Exception('ESI request failed for contacts');
                     }
-                    
+
                     $data = $response->json();
                     if (empty($data)) {
                         break;
                     }
-                    
+
                     $allContacts = array_merge($allContacts, $data);
                     $page++;
-                    
+
                     // 检查是否还有更多页
                     $totalPages = (int) $response->header('X-Pages', 1);
                 } while ($page <= $totalPages);
-                
+
                 return $allContacts;
             });
 

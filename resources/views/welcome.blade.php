@@ -75,12 +75,197 @@
             transform: translateY(-2px);
             box-shadow: 0 0 20px rgba(255,255,255,0.1);
         }
+
+        /* === 星空背景 === */
+        #starfield {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #0a0e27 0%, #0c1445 30%, #1a237e 60%, #0d1137 100%);
+            transition: opacity 1s ease-out;
+            z-index: 1;
+        }
+        #starfield.fade-out {
+            opacity: 0;
+        }
+
+        /* 星星层 - 通过 box-shadow 批量绘制 */
+        .stars-layer {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+        .stars-sm, .stars-md, .stars-lg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            border-radius: 50%;
+            background: transparent;
+        }
+        .stars-sm {
+            box-shadow:
+                25vw 10vh 0 0 rgba(255,255,255,0.5),
+                50vw 20vh 0 0 rgba(255,255,255,0.4),
+                75vw 5vh 0 0 rgba(255,255,255,0.6),
+                10vw 35vh 0 0 rgba(255,255,255,0.3),
+                90vw 45vh 0 0 rgba(255,255,255,0.5),
+                30vw 55vh 0 0 rgba(255,255,255,0.4),
+                60vw 65vh 0 0 rgba(255,255,255,0.6),
+                85vw 75vh 0 0 rgba(255,255,255,0.3),
+                15vw 85vh 0 0 rgba(255,255,255,0.5),
+                45vw 90vh 0 0 rgba(255,255,255,0.4),
+                5vw 50vh 0 0 rgba(255,255,255,0.3),
+                95vw 25vh 0 0 rgba(255,255,255,0.5),
+                40vw 40vh 0 0 rgba(255,255,255,0.4),
+                70vw 30vh 0 0 rgba(255,255,255,0.6),
+                20vw 70vh 0 0 rgba(255,255,255,0.3),
+                55vw 80vh 0 0 rgba(255,255,255,0.5),
+                80vw 15vh 0 0 rgba(255,255,255,0.4),
+                35vw 95vh 0 0 rgba(255,255,255,0.3),
+                65vw 50vh 0 0 rgba(255,255,255,0.6),
+                12vw 60vh 0 0 rgba(255,255,255,0.4),
+                88vw 88vh 0 0 rgba(255,255,255,0.3),
+                42vw 12vh 0 0 rgba(255,255,255,0.5),
+                72vw 92vh 0 0 rgba(255,255,255,0.4),
+                8vw 22vh 0 0 rgba(255,255,255,0.6),
+                52vw 42vh 0 0 rgba(255,255,255,0.3),
+                33vw 8vh 0 0 rgba(255,255,255,0.5),
+                78vw 58vh 0 0 rgba(255,255,255,0.4),
+                18vw 48vh 0 0 rgba(255,255,255,0.6),
+                62vw 78vh 0 0 rgba(255,255,255,0.3),
+                92vw 62vh 0 0 rgba(255,255,255,0.5);
+        }
+        .stars-md {
+            box-shadow:
+                15vw 15vh 0 0.5px rgba(255,255,255,0.7),
+                48vw 32vh 0 0.5px rgba(255,255,255,0.6),
+                82vw 52vh 0 0.5px rgba(255,255,255,0.8),
+                28vw 72vh 0 0.5px rgba(255,255,255,0.6),
+                68vw 18vh 0 0.5px rgba(255,255,255,0.7),
+                38vw 88vh 0 0.5px rgba(255,255,255,0.6),
+                92vw 38vh 0 0.5px rgba(255,255,255,0.8),
+                5vw 78vh 0 0.5px rgba(255,255,255,0.6),
+                58vw 58vh 0 0.5px rgba(255,255,255,0.7),
+                75vw 85vh 0 0.5px rgba(255,255,255,0.6),
+                22vw 28vh 0 0.5px rgba(255,255,255,0.7),
+                88vw 8vh 0 0.5px rgba(255,255,255,0.6),
+                42vw 62vh 0 0.5px rgba(255,255,255,0.8),
+                3vw 92vh 0 0.5px rgba(255,255,255,0.6),
+                65vw 42vh 0 0.5px rgba(255,255,255,0.7);
+            animation: twinkle-md 4s ease-in-out infinite alternate;
+        }
+        .stars-lg {
+            box-shadow:
+                20vw 25vh 0 1px rgba(200,220,255,0.9),
+                55vw 45vh 0 1px rgba(200,220,255,0.8),
+                80vw 70vh 0 1px rgba(200,220,255,0.9),
+                35vw 15vh 0 1px rgba(200,220,255,0.7),
+                70vw 90vh 0 1px rgba(200,220,255,0.8),
+                10vw 55vh 0 1px rgba(200,220,255,0.9),
+                90vw 30vh 0 1px rgba(200,220,255,0.7),
+                45vw 75vh 0 1px rgba(200,220,255,0.8);
+            animation: twinkle-lg 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes twinkle-md {
+            0%   { opacity: 1; }
+            50%  { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        @keyframes twinkle-lg {
+            0%   { opacity: 0.6; }
+            50%  { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        /* 流星 */
+        .shooting-star {
+            position: absolute;
+            width: 80px;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.9), transparent);
+            border-radius: 1px;
+            opacity: 0;
+            filter: drop-shadow(0 0 3px rgba(150,180,255,0.6));
+        }
+        .shooting-star::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 0;
+            width: 4px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 6px 2px rgba(150,180,255,0.5);
+        }
+
+        .shooting-star-1 {
+            top: 12%;
+            left: -80px;
+            transform: rotate(25deg);
+            animation: shoot1 6s ease-in 1s infinite;
+        }
+        .shooting-star-2 {
+            top: 35%;
+            left: -80px;
+            transform: rotate(35deg);
+            animation: shoot2 8s ease-in 4s infinite;
+        }
+        .shooting-star-3 {
+            top: 8%;
+            right: -80px;
+            left: auto;
+            transform: rotate(-20deg) scaleX(-1);
+            animation: shoot3 10s ease-in 7s infinite;
+        }
+
+        @keyframes shoot1 {
+            0%   { opacity: 0; transform: rotate(25deg) translateX(0); }
+            2%   { opacity: 1; }
+            15%  { opacity: 0; transform: rotate(25deg) translateX(calc(100vw + 160px)); }
+            100% { opacity: 0; transform: rotate(25deg) translateX(calc(100vw + 160px)); }
+        }
+        @keyframes shoot2 {
+            0%   { opacity: 0; transform: rotate(35deg) translateX(0); }
+            2%   { opacity: 1; }
+            12%  { opacity: 0; transform: rotate(35deg) translateX(calc(100vw + 160px)); }
+            100% { opacity: 0; transform: rotate(35deg) translateX(calc(100vw + 160px)); }
+        }
+        @keyframes shoot3 {
+            0%   { opacity: 0; transform: rotate(-20deg) scaleX(-1) translateX(0); }
+            2%   { opacity: 1; }
+            10%  { opacity: 0; transform: rotate(-20deg) scaleX(-1) translateX(calc(100vw + 160px)); }
+            100% { opacity: 0; transform: rotate(-20deg) scaleX(-1) translateX(calc(100vw + 160px)); }
+        }
+
+        /* 视频初始隐藏 */
+        #bg-video {
+            opacity: 0;
+            transition: opacity 1s ease-in;
+        }
+        #bg-video.video-ready {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="eve-bg min-h-screen text-white overflow-x-hidden">
 
     <!-- 背景层 -->
     <div id="bg-container" class="fixed inset-0 z-0 overflow-hidden">
+        <!-- 星空效果（视频加载前显示） -->
+        <div id="starfield">
+            <div class="stars-layer">
+                <div class="stars-sm"></div>
+                <div class="stars-md"></div>
+                <div class="stars-lg"></div>
+            </div>
+            <div class="shooting-star shooting-star-1"></div>
+            <div class="shooting-star shooting-star-2"></div>
+            <div class="shooting-star shooting-star-3"></div>
+        </div>
+
         <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover" id="bg-video">
             <source src="/eve-esi-bg.webm" type="video/webm">
         </video>
@@ -295,6 +480,21 @@
 
         loadServerStatus();
         setInterval(loadServerStatus, 60000);
+
+        // === 星空 → 视频过渡 ===
+        var bgVideo = document.getElementById('bg-video');
+        var starfield = document.getElementById('starfield');
+        if (bgVideo) {
+            bgVideo.addEventListener('canplaythrough', function() {
+                bgVideo.classList.add('video-ready');
+                if (starfield) starfield.classList.add('fade-out');
+            });
+            // 如果视频已经加载完毕（缓存命中）
+            if (bgVideo.readyState >= 4) {
+                bgVideo.classList.add('video-ready');
+                if (starfield) starfield.classList.add('fade-out');
+            }
+        }
 
         // === 模态框 ===
         function showComingSoon() {

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class TokenRefreshService
@@ -34,7 +35,23 @@ class TokenRefreshService
             return false;
         }
 
+        $lock = Cache::lock("token_refresh_{$user->id}", 10);
+
+        if (!$lock->get()) {
+            // 另一个请求正在刷新，等待完成后使用新 token
+            Log::debug('[TokenRefresh] 等待其他刷新完成', ['user_id' => $user->id]);
+            usleep(500000); // 等 0.5 秒
+            $user->refresh();
+            return !$user->isTokenExpired();
+        }
+
         try {
+            // 拿到锁后再次检查，可能其他请求已完成刷新
+            $user->refresh();
+            if (!$user->isTokenExpired() && !$user->shouldRefreshToken()) {
+                return true;
+            }
+
             $response = Http::timeout(10)
                 ->asForm()
                 ->post(config('esi.oauth_url') . 'token', [
@@ -75,6 +92,8 @@ class TokenRefreshService
         } catch (\Exception $e) {
             Log::error('[TokenRefresh] 异常', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             return false;
+        } finally {
+            $lock->release();
         }
     }
 }

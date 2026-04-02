@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class SkillDataController extends Controller
 {
@@ -184,19 +185,33 @@ class SkillDataController extends Controller
 
     private function getSkillsData($user)
     {
-        return Cache::remember('skills_' . $user->eve_character_id, 300, function () use ($user) {
-            $resp = Http::withToken($user->access_token)
-                ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/skills/');
-            return $resp->ok() ? $resp->json() : null;
+        $characterId = $user->eve_character_id;
+        return Cache::remember('skills_' . $characterId, 300, function () use ($characterId) {
+            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            if (!$token) return null;
+
+            $resp = Http::withToken($token)
+                ->get(config('esi.base_url') . "characters/{$characterId}/skills/", [
+                    'datasource' => 'serenity'
+                ]);
+            if (!$resp->ok()) throw new \Exception('ESI request failed');
+            return $resp->json();
         });
     }
 
     private function getSkillQueue($user)
     {
-        return Cache::remember('skillqueue_' . $user->eve_character_id, 60, function () use ($user) {
-            $resp = Http::withToken($user->access_token)
-                ->get(config('esi.base_url') . 'characters/' . $user->eve_character_id . '/skillqueue/');
-            return $resp->ok() ? $resp->json() : [];
+        $characterId = $user->eve_character_id;
+        return Cache::remember('skillqueue_' . $characterId, 60, function () use ($characterId) {
+            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            if (!$token) return [];
+
+            $resp = Http::withToken($token)
+                ->get(config('esi.base_url') . "characters/{$characterId}/skillqueue/", [
+                    'datasource' => 'serenity'
+                ]);
+            if (!$resp->ok()) throw new \Exception('ESI request failed');
+            return $resp->json();
         });
     }
 

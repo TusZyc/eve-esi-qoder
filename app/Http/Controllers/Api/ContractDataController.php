@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class ContractDataController extends Controller
 {
@@ -49,9 +50,13 @@ class ContractDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
-            // 清除缓存以获取最新数据
-            Cache::forget("contracts_all_{$characterId}");
-            
+            // 使用缓存，5分钟内重复访问不再请求ESI
+            $cacheKey = "contracts_all_{$characterId}";
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                return response()->json(['success' => true, 'data' => $cached]);
+            }
+
             // 获取角色合同
             $characterContracts = $this->fetchContracts($baseUrl, 'characters', $characterId, $token);
             Log::info('📜 [Contracts] 角色合同数量', ['count' => count($characterContracts)]);
@@ -124,7 +129,10 @@ class ContractDataController extends Controller
                 return strtotime($b['date_issued']) - strtotime($a['date_issued']);
             });
 
-            return response()->json($result);
+            // 缓存5分钟
+            Cache::put($cacheKey, $result, 300);
+
+            return response()->json(['success' => true, 'data' => $result]);
 
         } catch (\Exception $e) {
             return response()->json(['error' => '获取合同数据失败: ' . $e->getMessage()], 500);
@@ -230,17 +238,20 @@ class ContractDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
-            $items = Cache::remember("contract_items_{$characterId}_{$contractId}", 300, function () use ($baseUrl, $characterId, $token, $contractId) {
+            $items = Cache::remember("contract_items_{$characterId}_{$contractId}", 300, function () use ($baseUrl, $characterId, $contractId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/contracts/{$contractId}/items/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for contract items');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($items)) {

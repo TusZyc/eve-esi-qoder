@@ -80,7 +80,9 @@ class CharacterOnlineController extends Controller
                 if (!$shipName) {
                     try {
                         $shipResponse = Http::timeout(10)
-                            ->get(config('esi.base_url') . "universe/types/{$shipTypeId}/");
+                            ->get(config('esi.base_url') . "universe/types/{$shipTypeId}/", [
+                                'datasource' => 'serenity'
+                            ]);
                         
                         if ($shipResponse->ok()) {
                             $shipData = $shipResponse->json();

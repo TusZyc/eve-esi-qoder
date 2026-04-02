@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Tus Esi System')</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 侧边栏 - 深邃渐变 + 微光效果 */
@@ -574,7 +575,7 @@
     }
 
     function loadNotifications() {
-        fetch('/api/dashboard/notifications')
+        fetch('/api/dashboard/notifications/summary')
             .then(r => r.json())
             .then(data => {
                 notificationsLoaded = true;
@@ -582,33 +583,31 @@
                     document.getElementById('notification-list').innerHTML = '<div class="text-center text-sm text-red-400 py-4">加载失败</div>';
                     return;
                 }
-                
-                // 计算未读数
-                const unread = data.filter(n => !n.is_read).length;
+
+                // 更新未读数
+                const unread = data.unread || 0;
                 const countEl = document.getElementById('notification-count');
                 if (unread > 0) {
                     countEl.textContent = unread > 99 ? '99+' : unread;
                     countEl.classList.remove('hidden');
                 }
-                
-                // 渲染最近 10 条通知
-                const recent = data.slice(0, 10);
-                if (recent.length === 0) {
+
+                // 渲染最近通知（只显示类型名+时间）
+                const items = data.items || [];
+                if (items.length === 0) {
                     document.getElementById('notification-list').innerHTML = '<div class="text-center text-sm text-slate-500 py-4">暂无通知</div>';
                     return;
                 }
-                
+
                 let html = '';
-                recent.forEach(n => {
+                items.forEach(n => {
                     const isUnread = !n.is_read;
-                    const preview = getNotificationPreview(n);
                     html += '<div class="p-2 rounded-lg hover:bg-slate-700/50 transition-colors ' + (isUnread ? 'bg-blue-500/5' : '') + '">';
                     html += '<div class="flex items-start gap-2">';
                     if (isUnread) html += '<div class="w-2 h-2 mt-1.5 bg-blue-500 rounded-full shrink-0"></div>';
                     else html += '<div class="w-2 h-2 mt-1.5 shrink-0"></div>';
                     html += '<div class="flex-1 min-w-0">';
                     html += '<div class="text-sm font-medium truncate">' + (n.type_name || '通知') + '</div>';
-                    html += '<div class="text-xs text-slate-400 truncate">' + preview + '</div>';
                     html += '<div class="text-xs text-slate-500 mt-1">' + formatTime(n.timestamp) + '</div>';
                     html += '</div></div></div>';
                 });
@@ -628,11 +627,11 @@
 
     // 页面加载后检查未读数
     setTimeout(() => {
-        fetch('/api/dashboard/notifications')
+        fetch('/api/dashboard/notifications/summary')
             .then(r => r.json())
             .then(data => {
                 if (data && !data.error) {
-                    const unread = data.filter(n => !n.is_read).length;
+                    const unread = data.unread || 0;
                     const countEl = document.getElementById('notification-count');
                     if (unread > 0) {
                         countEl.textContent = unread > 99 ? '99+' : unread;

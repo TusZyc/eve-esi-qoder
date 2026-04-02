@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class MailDataController extends Controller
 {
@@ -38,9 +39,12 @@ class MailDataController extends Controller
         try {
             $cacheKey = "mail_list_{$characterId}_" . md5(json_encode([$labels, $lastMailId]));
             
-            $mails = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $token, $labels, $lastMailId) {
+            $mails = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $labels, $lastMailId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $params = ['datasource' => 'serenity'];
-                
+
                 if ($labels) {
                     $params['labels'] = $labels;
                 }
@@ -52,16 +56,15 @@ class MailDataController extends Controller
                     ->timeout(15)
                     ->get("{$baseUrl}/characters/{$characterId}/mail/", $params);
 
-                if ($response->ok()) {
-                    return $response->json();
+                if (!$response->ok()) {
+                    Log::error('📧 [Mail] 获取邮件列表失败', [
+                        'status' => $response->status(),
+                        'body' => $response->body()
+                    ]);
+                    throw new \Exception('ESI request failed for mail list');
                 }
 
-                Log::error('📧 [Mail] 获取邮件列表失败', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-
-                return [];
+                return $response->json();
             });
 
             if (empty($mails)) {
@@ -166,18 +169,21 @@ class MailDataController extends Controller
         try {
             $cacheKey = "mail_detail_{$characterId}_{$mailId}";
 
-            $mail = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $token, $mailId) {
+            $mail = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $mailId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return null;
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}/characters/{$characterId}/mail/{$mailId}/", [
                         'datasource' => 'serenity'
                     ]);
 
-                if ($response->ok()) {
-                    return $response->json();
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for mail detail');
                 }
 
-                return null;
+                return $response->json();
             });
 
             if (!$mail) {
@@ -270,18 +276,21 @@ class MailDataController extends Controller
         try {
             $cacheKey = "mail_labels_{$characterId}";
 
-            $labels = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $token) {
+            $labels = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return null;
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}/characters/{$characterId}/mail/labels/", [
                         'datasource' => 'serenity'
                     ]);
 
-                if ($response->ok()) {
-                    return $response->json();
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for mail labels');
                 }
 
-                return null;
+                return $response->json();
             });
 
             if (!$labels) {
@@ -341,18 +350,21 @@ class MailDataController extends Controller
         try {
             $cacheKey = "mail_lists_{$characterId}";
 
-            $lists = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $token) {
+            $lists = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}/characters/{$characterId}/mail/lists/", [
                         'datasource' => 'serenity'
                     ]);
 
-                if ($response->ok()) {
-                    return $response->json();
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for mail lists');
                 }
 
-                return [];
+                return $response->json();
             });
 
             return response()->json($lists);
@@ -531,7 +543,10 @@ class MailDataController extends Controller
     {
         $cacheKey = "mail_lists_map_{$characterId}";
         
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($characterId, $token, $baseUrl) {
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($characterId, $baseUrl) {
+            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            if (!$token) return [];
+
             $response = Http::withToken($token)
                 ->timeout(15)
                 ->get("{$baseUrl}/characters/{$characterId}/mail/lists/", [
@@ -539,7 +554,7 @@ class MailDataController extends Controller
                 ]);
 
             if (!$response->ok()) {
-                return [];
+                throw new \Exception('ESI request failed for mailing lists map');
             }
 
             $lists = $response->json();
@@ -566,12 +581,12 @@ class MailDataController extends Controller
         if (empty($ids)) return [];
 
         $cacheKey = 'esi_names_types_' . md5(implode(',', $ids));
-        
-        return Cache::remember($cacheKey, 3600, function () use ($ids, $token, $baseUrl) {
+
+        return Cache::remember($cacheKey, 3600, function () use ($ids, $baseUrl) {
             $map = [];
-            
+
             $chunks = array_chunk($ids, 1000);
-            
+
             foreach ($chunks as $chunk) {
                 try {
                     $response = Http::timeout(15)
@@ -584,12 +599,15 @@ class MailDataController extends Controller
                                 'category' => $item['category'] ?? 'character',
                             ];
                         }
+                    } else {
+                        throw new \Exception('ESI request failed for universe/names');
                     }
                 } catch (\Exception $e) {
                     Log::warning('ESI names 解析失败: ' . $e->getMessage());
+                    throw $e;
                 }
             }
-            
+
             return $map;
         });
     }

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class NotificationDataController extends Controller
 {
@@ -185,17 +186,20 @@ class NotificationDataController extends Controller
         ]);
 
         try {
-            $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}/characters/{$characterId}/notifications/", [
                         'datasource' => 'serenity'
                     ]);
 
-                if ($response->ok()) {
-                    return $response->json();
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($notifications)) {
@@ -246,9 +250,9 @@ class NotificationDataController extends Controller
             }
 
             // 批量解析名称
-            $resolvedNames = $this->resolveNames(array_unique($nameIds), $token, $baseUrl);
+            $resolvedNames = $this->resolveNames(array_unique($nameIds), $characterId, $baseUrl);
             $resolvedSystems = $this->resolveSystemNames(array_unique($systemIds));
-            $resolvedTypes = $this->resolveTypeNames(array_unique($typeIds), $token, $baseUrl);
+            $resolvedTypes = $this->resolveTypeNames(array_unique($typeIds), $characterId, $baseUrl);
 
             // 合并所有解析结果
             $allResolved = array_merge($resolvedNames, $resolvedSystems, $resolvedTypes);
@@ -284,6 +288,64 @@ class NotificationDataController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return response()->json(['error' => '获取提醒数据失败: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * 轻量级通知摘要（仅返回类型名+时间+未读状态，用于下拉框）
+     */
+    public function summary(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => '用户未登录'], 401);
+        }
+
+        $characterId = $user->eve_character_id;
+        $baseUrl = rtrim(config('esi.base_url'), '/');
+
+        try {
+            $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
+                $response = Http::withToken($token)
+                    ->timeout(15)
+                    ->get("{$baseUrl}/characters/{$characterId}/notifications/", [
+                        'datasource' => 'serenity'
+                    ]);
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed');
+                }
+                return $response->json();
+            });
+
+            if (empty($notifications)) {
+                return response()->json(['unread' => 0, 'items' => []]);
+            }
+
+            usort($notifications, function ($a, $b) {
+                return strtotime($b['timestamp'] ?? '') - strtotime($a['timestamp'] ?? '');
+            });
+
+            $unread = count(array_filter($notifications, fn($n) => !($n['is_read'] ?? false)));
+            $recent = array_slice($notifications, 0, 10);
+
+            $items = array_map(function ($n) {
+                $type = $n['type'] ?? '';
+                return [
+                    'notification_id' => $n['notification_id'] ?? 0,
+                    'type_name' => self::NOTIFICATION_TYPES[$type] ?? $type,
+                    'timestamp' => $n['timestamp'] ?? '',
+                    'is_read' => $n['is_read'] ?? false,
+                ];
+            }, $recent);
+
+            return response()->json(['unread' => $unread, 'items' => $items]);
+        } catch (\Exception $e) {
+            Log::error('🔔 [Notifications] 摘要获取失败', ['error' => $e->getMessage()]);
+            return response()->json(['error' => '获取失败'], 500);
         }
     }
 
@@ -330,7 +392,7 @@ class NotificationDataController extends Controller
     /**
      * 批量解析角色、军团、联盟名称（使用 ESI /universe/names/）
      */
-    private function resolveNames(array $ids, string $token, string $baseUrl): array
+    private function resolveNames(array $ids, int $characterId, string $baseUrl): array
     {
         if (empty($ids)) return [];
 
@@ -340,29 +402,35 @@ class NotificationDataController extends Controller
         if (empty($ids)) return [];
 
         $cacheKey = 'esi_names_' . md5(implode(',', $ids));
-        
-        return Cache::remember($cacheKey, 3600, function () use ($ids, $token, $baseUrl) {
+
+        return Cache::remember($cacheKey, 3600, function () use ($ids, $characterId, $baseUrl) {
+            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            if (!$token) return [];
+
             $map = [];
-            
+
             // ESI 一次最多 1000 个 ID，分批处理
             $chunks = array_chunk($ids, 1000);
-            
+
             foreach ($chunks as $chunk) {
                 try {
                     $response = Http::timeout(15)
                         ->withToken($token)
                         ->post("{$baseUrl}/universe/names/?datasource=serenity", $chunk);
 
-                    if ($response->successful()) {
-                        foreach ($response->json() as $item) {
-                            $map[$item['id']] = $item['name'];
-                        }
+                    if (!$response->successful()) {
+                        throw new \Exception('ESI request failed for universe/names');
+                    }
+
+                    foreach ($response->json() as $item) {
+                        $map[$item['id']] = $item['name'];
                     }
                 } catch (\Exception $e) {
                     Log::warning('ESI names 解析失败: ' . $e->getMessage());
+                    throw $e;
                 }
             }
-            
+
             return $map;
         });
     }
@@ -392,7 +460,7 @@ class NotificationDataController extends Controller
     /**
      * 解析物品类型名称（优先使用本地 items.json，未找到则调用 ESI）
      */
-    private function resolveTypeNames(array $typeIds, string $token, string $baseUrl): array
+    private function resolveTypeNames(array $typeIds, int $characterId, string $baseUrl): array
     {
         if (empty($typeIds)) return [];
 
@@ -418,7 +486,10 @@ class NotificationDataController extends Controller
         // 本地未找到的，从 ESI 获取
         foreach ($needEsi as $typeId) {
             $cacheKey = "esi_type_{$typeId}";
-            $name = Cache::remember($cacheKey, 86400, function () use ($typeId, $token, $baseUrl) {
+            $name = Cache::remember($cacheKey, 86400, function () use ($typeId, $characterId, $baseUrl) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return null;
+
                 try {
                     $response = Http::timeout(10)
                         ->withToken($token)
@@ -427,14 +498,16 @@ class NotificationDataController extends Controller
                             'language' => 'zh'
                         ]);
 
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        return $data['name'] ?? null;
+                    if (!$response->successful()) {
+                        throw new \Exception("ESI request failed for universe/types/{$typeId}");
                     }
+
+                    $data = $response->json();
+                    return $data['name'] ?? null;
                 } catch (\Exception $e) {
                     Log::warning("ESI type {$typeId} 解析失败: " . $e->getMessage());
+                    throw $e;
                 }
-                return null;
             });
 
             if ($name) {

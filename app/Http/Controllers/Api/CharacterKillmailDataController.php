@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class CharacterKillmailDataController extends Controller
 {
@@ -22,17 +23,20 @@ class CharacterKillmailDataController extends Controller
 
         try {
             // 获取角色最近的击毁报告
-            $killmails = Cache::remember("character_killmails_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $killmails = Cache::remember("character_killmails_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/killmails/recent/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for killmails');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($killmails)) {

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
 use App\Services\EveDataService;
+use App\Models\User;
 
 class BookmarkDataController extends Controller
 {
@@ -47,7 +48,10 @@ class BookmarkDataController extends Controller
             $folders = $this->getFolders($characterId, $token);
             
             // 获取书签列表（使用 v3 缓存键确保获取最新数据）
-            $bookmarks = Cache::remember("bookmarks_v3_{$characterId}", 300, function () use ($characterId, $token) {
+            $bookmarks = Cache::remember("bookmarks_v3_{$characterId}", 300, function () use ($characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 return $this->fetchAllBookmarks($characterId, $token);
             });
 
@@ -61,7 +65,7 @@ class BookmarkDataController extends Controller
             // 解析 location_id 到实际星系ID（简化版，出错时不阻止显示）
             $locationToSystem = [];
             try {
-                $locationToSystem = $this->resolveLocationsToSystems($bookmarks, $token);
+                $locationToSystem = $this->resolveLocationsToSystems($bookmarks, $token, $characterId);
             } catch (\Exception $e) {
                 Log::warning("Bookmarks: 位置解析失败", ['error' => $e->getMessage()]);
                 // 继续执行，让数据能显示出来
@@ -273,9 +277,12 @@ class BookmarkDataController extends Controller
      */
     private function getFolders(int $characterId, string $token): array
     {
-        return Cache::remember("bookmark_folders_v3_{$characterId}", 300, function () use ($characterId, $token) {
+        return Cache::remember("bookmark_folders_v3_{$characterId}", 300, function () use ($characterId) {
+            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            if (!$token) return [];
+
             $url = self::ESI_V1_BASE_URL . "characters/{$characterId}/bookmarks/folders/";
-            
+
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$token}",
                 'Accept' => 'application/json',
@@ -286,24 +293,24 @@ class BookmarkDataController extends Controller
                 'datasource' => 'serenity',
                 'language' => 'zh'
             ]);
-            
+
             Log::info("Bookmarks: 文件夹 ESI 响应", [
                 'character_id' => $characterId,
                 'status' => $response->status(),
                 'count' => $response->ok() ? count($response->json() ?? []) : 0
             ]);
-            
-            if ($response->ok()) {
-                $folders = $response->json() ?? [];
-                Log::info("Bookmarks: 获取到 " . count($folders) . " 个文件夹");
-                return $folders;
+
+            if (!$response->ok()) {
+                Log::warning("Bookmarks: 文件夹请求失败", [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                throw new \Exception('ESI request failed for bookmark folders');
             }
-            
-            Log::warning("Bookmarks: 文件夹请求失败", [
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
-            return [];
+
+            $folders = $response->json() ?? [];
+            Log::info("Bookmarks: 获取到 " . count($folders) . " 个文件夹");
+            return $folders;
         });
     }
 
@@ -333,7 +340,7 @@ class BookmarkDataController extends Controller
      * - 空间站 ID: 60000000-69999999
      * - 建筑物 ID: > 1000000000000 (1万亿+)
      */
-    private function resolveLocationsToSystems(array $bookmarks, string $token): array
+    private function resolveLocationsToSystems(array $bookmarks, string $token, int $characterId = 0): array
     {
         $locationToSystem = [];
         $stationIds = [];
@@ -367,7 +374,7 @@ class BookmarkDataController extends Controller
 
         // 批量解析建筑物ID到星系ID（需要token）
         foreach (array_unique($structureIds) as $structureId) {
-            $systemId = $this->getStructureSystem($structureId, $token);
+            $systemId = $this->getStructureSystem($structureId, $token, $characterId);
             $locationToSystem[$structureId] = $systemId;
         }
 
@@ -415,17 +422,22 @@ class BookmarkDataController extends Controller
     /**
      * 获取建筑物所在星系（需要token）
      */
-    private function getStructureSystem(int $structureId, string $token): int
+    private function getStructureSystem(int $structureId, string $token, int $characterId = 0): int
     {
-        return Cache::remember("structure_system_{$structureId}", 86400, function () use ($structureId, $token) {
+        return Cache::remember("structure_system_{$structureId}", 86400, function () use ($structureId, $characterId) {
             // 先查本地数据
             $localInfo = EveDataService::getLocalStructureInfo($structureId);
             if ($localInfo && isset($localInfo['system_id'])) {
                 return (int) $localInfo['system_id'];
             }
-            
+
             // 本地没有，调用 ESI API 兜底
             try {
+                $token = $characterId > 0
+                    ? User::where('eve_character_id', $characterId)->value('access_token')
+                    : null;
+                if (!$token) return 0;
+
                 $url = config('esi.base_url') . "universe/structures/{$structureId}/";
                 $response = Http::withToken($token)
                     ->timeout(10)
@@ -433,7 +445,7 @@ class BookmarkDataController extends Controller
                         'datasource' => 'serenity',
                         'language' => 'zh'
                     ]);
-                
+
                 if ($response->ok()) {
                     return $response->json('solar_system_id') ?? 0;
                 }

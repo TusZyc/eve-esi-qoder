@@ -247,6 +247,5 @@
         document.getElementById('skill-detail-area').insertAdjacentHTML('beforeend', html);
     }
 
-    setTimeout(function() { location.reload(); }, 60000);
 </script>
 @endpush

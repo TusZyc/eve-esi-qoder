@@ -320,15 +320,6 @@ class CharacterController extends Controller
     }
 
     /**
-     * 刷新角色数据
-     */
-    public function refresh(Request $request, $characterId)
-    {
-        return redirect()->back()
-            ->with('success', '数据已刷新');
-    }
-
-    /**
      * 解绑角色
      */
     public function destroy(Request $request, $characterId)

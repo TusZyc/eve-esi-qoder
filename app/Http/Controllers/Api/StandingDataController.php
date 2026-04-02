@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class StandingDataController extends Controller
 {
@@ -22,17 +23,20 @@ class StandingDataController extends Controller
 
         try {
             // 获取声望数据
-            $standings = Cache::remember("standings_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $standings = Cache::remember("standings_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/standings/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for standings');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($standings)) {

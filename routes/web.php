@@ -120,6 +120,7 @@ Route::middleware(['auth', 'eve.refresh', 'throttle:30,1'])->prefix('api/dashboa
 
     // 提醒 API
     Route::get('/notifications', [NotificationDataController::class, 'index'])->name('api.dashboard.notifications');
+    Route::get('/notifications/summary', [NotificationDataController::class, 'summary'])->name('api.dashboard.notifications.summary');
 
     // 钱包 API
     Route::get('/wallet/balance', [WalletDataController::class, 'balance'])->name('api.dashboard.wallet.balance');
@@ -176,7 +177,6 @@ Route::middleware(['auth', 'eve.refresh'])->group(function () {
     Route::prefix('characters')->group(function () {
         Route::get('/', [CharacterController::class, 'index'])->name('characters.index');
         Route::get('/{character}', [CharacterController::class, 'show'])->name('characters.show');
-        Route::post('/{character}/refresh', [CharacterController::class, 'refresh'])->name('characters.refresh');
         Route::delete('/{character}', [CharacterController::class, 'destroy'])->name('characters.destroy');
     });
     

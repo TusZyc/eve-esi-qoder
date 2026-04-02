@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
+use App\Models\User;
 
 class WalletDataController extends Controller
 {
@@ -153,25 +154,31 @@ class WalletDataController extends Controller
 
         try {
             // 获取钱包余额
-            $balance = Cache::remember("wallet_balance_{$characterId}", 60, function () use ($baseUrl, $characterId, $token) {
+            $balance = Cache::remember("wallet_balance_{$characterId}", 60, function () use ($baseUrl, $characterId) {
+                $token = \App\Models\User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return null;
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/wallet/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed');
                 }
-                return 0;
+                return $response->json();
             });
 
             // 获取30天收支统计
-            $summary30d = Cache::remember("wallet_summary_30d_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $summary30d = Cache::remember("wallet_summary_30d_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return ['income' => 0, 'expense' => 0, 'net' => 0];
+
                 $income = 0;
                 $expense = 0;
                 $thirtyDaysAgo = now()->subDays(30)->toIso8601String();
-                
+
                 // 获取流水数据（最多获取3页，足够覆盖30天）
                 for ($page = 1; $page <= 3; $page++) {
                     $response = Http::withToken($token)
@@ -182,9 +189,9 @@ class WalletDataController extends Controller
                         ]);
                     
                     if (!$response->ok()) {
-                        break;
+                        throw new \Exception('ESI request failed for wallet journal');
                     }
-                    
+
                     $entries = $response->json();
                     if (empty($entries)) {
                         break;
@@ -248,21 +255,24 @@ class WalletDataController extends Controller
 
         try {
             $cacheKey = "wallet_journal_{$characterId}_page_{$page}";
-            $journal = Cache::remember($cacheKey, 300, function () use ($baseUrl, $characterId, $token, $page) {
+            $journal = Cache::remember($cacheKey, 300, function () use ($baseUrl, $characterId, $page) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return ['data' => [], 'total_pages' => 1];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/wallet/journal/", [
                         'datasource' => 'serenity',
                         'page' => $page
                     ]);
-                
-                if ($response->ok()) {
-                    return [
-                        'data' => $response->json(),
-                        'total_pages' => (int) $response->header('X-Pages', 1)
-                    ];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for wallet journal');
                 }
-                return ['data' => [], 'total_pages' => 1];
+                return [
+                    'data' => $response->json(),
+                    'total_pages' => (int) $response->header('X-Pages', 1)
+                ];
             });
 
             // 添加中文类型名称
@@ -289,17 +299,20 @@ class WalletDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
-            $transactions = Cache::remember("wallet_transactions_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $transactions = Cache::remember("wallet_transactions_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/wallet/transactions/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for wallet transactions');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($transactions)) {
@@ -334,17 +347,20 @@ class WalletDataController extends Controller
         $baseUrl = config('esi.base_url');
 
         try {
-            $loyalty = Cache::remember("wallet_loyalty_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $loyalty = Cache::remember("wallet_loyalty_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/loyalty/points/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return $response->json();
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for loyalty points');
                 }
-                return [];
+                return $response->json();
             });
 
             if (empty($loyalty)) {
@@ -398,13 +414,20 @@ class WalletDataController extends Controller
             $corporationId = $characterInfo['corporation_id'];
 
             // 检查角色权限
-            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/roles/", [
                         'datasource' => 'serenity'
                     ]);
-                return $response->ok() ? $response->json() : [];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for character roles');
+                }
+                return $response->json();
             });
 
             $hasAccess = false;
@@ -434,13 +457,20 @@ class WalletDataController extends Controller
             });
 
             // 获取军团钱包余额
-            $wallets = Cache::remember("corp_wallets_{$corporationId}", 60, function () use ($baseUrl, $corporationId, $token) {
+            $wallets = Cache::remember("corp_wallets_{$corporationId}", 60, function () use ($baseUrl, $corporationId, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}corporations/{$corporationId}/wallets/", [
                         'datasource' => 'serenity'
                     ]);
-                return $response->ok() ? $response->json() : [];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for corporation wallets');
+                }
+                return $response->json();
             });
 
             // 部门名称映射
@@ -507,13 +537,20 @@ class WalletDataController extends Controller
             $corporationId = $characterInfo['corporation_id'];
 
             // 检查角色权限
-            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/roles/", [
                         'datasource' => 'serenity'
                     ]);
-                return $response->ok() ? $response->json() : [];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for character roles');
+                }
+                return $response->json();
             });
 
             $hasAccess = false;
@@ -532,20 +569,23 @@ class WalletDataController extends Controller
 
             $cacheKey = "corp_wallet_{$corporationId}_division_{$division}";
             
-            $journal = Cache::remember($cacheKey, 300, function () use ($baseUrl, $corporationId, $division, $token) {
+            $journal = Cache::remember($cacheKey, 300, function () use ($baseUrl, $corporationId, $division, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return ['data' => [], 'total_pages' => 1];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}corporations/{$corporationId}/wallets/{$division}/journal/", [
                         'datasource' => 'serenity'
                     ]);
-                
-                if ($response->ok()) {
-                    return [
-                        'data' => $response->json(),
-                        'total_pages' => (int) $response->header('X-Pages', 1)
-                    ];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for corporation journal');
                 }
-                return ['data' => [], 'total_pages' => 1];
+                return [
+                    'data' => $response->json(),
+                    'total_pages' => (int) $response->header('X-Pages', 1)
+                ];
             });
 
             // 添加中文类型名称
@@ -573,13 +613,20 @@ class WalletDataController extends Controller
 
         try {
             // 检查角色权限
-            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId, $token) {
+            $roles = Cache::remember("character_roles_{$characterId}", 300, function () use ($baseUrl, $characterId) {
+                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                if (!$token) return [];
+
                 $response = Http::withToken($token)
                     ->timeout(15)
                     ->get("{$baseUrl}characters/{$characterId}/roles/", [
                         'datasource' => 'serenity'
                     ]);
-                return $response->ok() ? $response->json() : [];
+
+                if (!$response->ok()) {
+                    throw new \Exception('ESI request failed for character roles');
+                }
+                return $response->json();
             });
 
             $hasAccess = false;
