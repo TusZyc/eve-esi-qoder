@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
 use App\Models\User;
+use App\Services\TokenService;
 
 class SkillDataController extends Controller
 {
@@ -51,8 +52,13 @@ class SkillDataController extends Controller
         $user = $request->user();
         $skillQueue = $this->getSkillQueue($user);
 
+        // 批量获取技能名称（避免 N+1 查询）
+        $skillIds = array_filter(array_column($skillQueue, 'skill_id'));
+        $skillNames = EveHelper::getNamesByIds($skillIds, 'skill');
+
         foreach ($skillQueue as &$item) {
-            $item['skill_name'] = EveHelper::getNameById($item['skill_id'] ?? 0, 'skill');
+            $skillId = $item['skill_id'] ?? 0;
+            $item['skill_name'] = $skillNames[$skillId] ?? EveHelper::getNameById($skillId, 'skill');
         }
 
         return response()->json($skillQueue);
@@ -187,7 +193,7 @@ class SkillDataController extends Controller
     {
         $characterId = $user->eve_character_id;
         return Cache::remember('skills_' . $characterId, 300, function () use ($characterId) {
-            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            $token = TokenService::getToken($characterId);
             if (!$token) return null;
 
             $resp = Http::withToken($token)
@@ -203,7 +209,7 @@ class SkillDataController extends Controller
     {
         $characterId = $user->eve_character_id;
         return Cache::remember('skillqueue_' . $characterId, 60, function () use ($characterId) {
-            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            $token = TokenService::getToken($characterId);
             if (!$token) return [];
 
             $resp = Http::withToken($token)

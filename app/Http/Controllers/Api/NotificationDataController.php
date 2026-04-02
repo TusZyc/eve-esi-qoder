@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Services\TokenService;
 
 class NotificationDataController extends Controller
 {
@@ -187,7 +188,7 @@ class NotificationDataController extends Controller
 
         try {
             $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $response = Http::withToken($token)
@@ -307,7 +308,7 @@ class NotificationDataController extends Controller
 
         try {
             $notifications = Cache::remember("notifications_{$characterId}", 300, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $response = Http::withToken($token)

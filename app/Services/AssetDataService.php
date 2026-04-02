@@ -7,14 +7,22 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
 use App\Services\EveDataService;
+use App\Services\StationNameService;
 
 /**
  * 资产数据服务
  * 
- * 提供角色资产数据获取、位置信息解析、空间站名称翻译等功能
+ * 提供角色资产数据获取、位置信息解析等功能
+ * 空间站名称翻译委托给 StationNameService
  */
 class AssetDataService
 {
+    protected StationNameService $stationNameService;
+    
+    public function __construct(StationNameService $stationNameService)
+    {
+        $this->stationNameService = $stationNameService;
+    }
     /**
      * 获取缓存的原始资产数据，未缓存则重新拉取
      */
@@ -157,106 +165,29 @@ class AssetDataService
     }
 
     /**
-     * 获取并翻译空间站名称
+     * 获取并翻译空间站名称（委托给 StationNameService）
      */
     protected function fetchAndTranslateStations(array $stationIds, array &$info): void
     {
-        $baseUrl = config('esi.base_url');
-
-        // 1) 获取空间站详情
-        $stationData = [];
-        $batches = array_chunk($stationIds, 5);
-        foreach ($batches as $batch) {
-            $responses = Http::pool(function ($pool) use ($batch, $baseUrl) {
-                foreach ($batch as $stationId) {
-                    $pool->as("station_{$stationId}")
-                        ->timeout(5)
-                        ->get($baseUrl . "universe/stations/{$stationId}/", ['datasource' => 'serenity']);
-                }
-            });
-            foreach ($batch as $stationId) {
-                $key = "station_{$stationId}";
-                try {
-                    $response = $responses[$key] ?? null;
-                    if ($response instanceof \Illuminate\Http\Client\Response && $response->ok()) {
-                        $data = $response->json();
-                        $stationData[$stationId] = [
-                            'name' => $data['name'] ?? "空间站 {$stationId}",
-                            'system_id' => $data['system_id'] ?? 0,
-                            'owner' => $data['owner'] ?? 0,
-                        ];
-                    } else {
-                        $status = $response instanceof \Illuminate\Http\Client\Response ? $response->status() : 0;
-                        Log::warning('[Assets] NPC空间站查询失败', [
-                            'station_id' => $stationId,
-                            'status' => $status,
-                        ]);
-                        $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('[Assets] NPC空间站查询异常', [
-                        'station_id' => $stationId,
-                        'error' => $e->getMessage(),
-                    ]);
-                    $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
-                }
+        foreach ($stationIds as $stationId) {
+            // 使用 StationNameService 获取空间站信息
+            $stationInfo = $this->stationNameService->getStationInfo($stationId);
+            
+            if ($stationInfo) {
+                $locInfo = [
+                    'name' => $stationInfo['name'],
+                    'system_id' => $stationInfo['system_id'],
+                ];
+            } else {
+                $locInfo = [
+                    'name' => "空间站 #{$stationId}",
+                    'system_id' => 0,
+                ];
             }
-        }
-
-        // 2) 获取中英文星系名
-        $sysIds = array_values(array_unique(array_filter(array_column($stationData, 'system_id'))));
-        $zhSysNames = [];
-        $enSysNames = [];
-        if (!empty($sysIds)) {
-            $this->fetchSystemNames($sysIds, $zhSysNames, $enSysNames);
-        }
-
-        // 3) 获取中英文军团名
-        $ownerIds = array_values(array_unique(array_filter(array_column($stationData, 'owner'))));
-        $zhCorpNames = [];
-        $enCorpNames = [];
-        if (!empty($ownerIds)) {
-            $this->fetchCorpNames($ownerIds, $zhCorpNames, $enCorpNames);
-        }
-
-        // 4) 设施类型中英文映射
-        $facilityMap = $this->getFacilityMap();
-
-        // 5) 逐段翻译站名
-        foreach ($stationData as $stationId => $data) {
-            $name = $data['name'];
-            $sysId = $data['system_id'];
-            $ownerId = $data['owner'];
-
-            // 替换星系名
-            $enSys = $enSysNames[$sysId] ?? '';
-            $zhSys = $zhSysNames[$sysId] ?? '';
-            if ($enSys && $zhSys && str_starts_with($name, $enSys)) {
-                $name = $zhSys . substr($name, strlen($enSys));
-            }
-
-            // Moon -> 卫星
-            $name = preg_replace('/\bMoon\b/', '卫星', $name);
-
-            // 替换军团名
-            $enCorp = $enCorpNames[$ownerId] ?? '';
-            $zhCorp = $zhCorpNames[$ownerId] ?? '';
-            if ($enCorp && $zhCorp) {
-                $name = str_replace($enCorp, $zhCorp, $name);
-            }
-
-            // 替换设施类型
-            foreach ($facilityMap as $en => $zh) {
-                if (str_contains($name, $en)) {
-                    $name = str_replace($en, $zh, $name);
-                    break;
-                }
-            }
-
-            $locInfo = ['name' => $name, 'system_id' => $sysId];
+            
             $info[$stationId] = $locInfo;
-            // 失败结果（包含"未知"）仅缓存5分钟，成功结果缓存1天
-            $cacheTtl = str_contains($name, '未知') ? 300 : 86400;
+            // 失败结果（包含"#"）仅缓存5分钟，成功结果缓存1天
+            $cacheTtl = str_contains($locInfo['name'], '#') ? 300 : 86400;
             Cache::put("eve_locinfo_{$stationId}", $locInfo, $cacheTtl);
         }
     }

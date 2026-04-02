@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
 use App\Services\EveDataService;
 use App\Models\User;
+use App\Services\TokenService;
 
 class BookmarkDataController extends Controller
 {
@@ -49,7 +50,7 @@ class BookmarkDataController extends Controller
             
             // 获取书签列表（使用 v3 缓存键确保获取最新数据）
             $bookmarks = Cache::remember("bookmarks_v3_{$characterId}", 300, function () use ($characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 return $this->fetchAllBookmarks($characterId, $token);
@@ -278,7 +279,7 @@ class BookmarkDataController extends Controller
     private function getFolders(int $characterId, string $token): array
     {
         return Cache::remember("bookmark_folders_v3_{$characterId}", 300, function () use ($characterId) {
-            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            $token = TokenService::getToken($characterId);
             if (!$token) return [];
 
             $url = self::ESI_V1_BASE_URL . "characters/{$characterId}/bookmarks/folders/";
@@ -434,7 +435,7 @@ class BookmarkDataController extends Controller
             // 本地没有，调用 ESI API 兜底
             try {
                 $token = $characterId > 0
-                    ? User::where('eve_character_id', $characterId)->value('access_token')
+                    ? TokenService::getToken($characterId)
                     : null;
                 if (!$token) return 0;
 

@@ -11,12 +11,14 @@ class MarketService
     private string $baseUrl;
     private string $datasource;
     private EveDataService $eveDataService;
+    private StationNameService $stationNameService;
 
-    public function __construct(EveDataService $eveDataService)
+    public function __construct(EveDataService $eveDataService, StationNameService $stationNameService)
     {
         $this->baseUrl = config('esi.base_url');
         $this->datasource = config('esi.datasource', 'serenity');
         $this->eveDataService = $eveDataService;
+        $this->stationNameService = $stationNameService;
     }
 
     /**
@@ -596,153 +598,22 @@ class MarketService
      */
     private function translateStationNames(array $stationIds, array &$info): void
     {
-        // 1) 获取空间站详情（name, system_id, owner）
-        $stationData = [];
-        $batches = array_chunk($stationIds, 5);
-        foreach ($batches as $batch) {
-            $responses = Http::pool(function ($pool) use ($batch) {
-                foreach ($batch as $stationId) {
-                    $pool->as("station_{$stationId}")
-                        ->timeout(5)
-                        ->get($this->baseUrl . "universe/stations/{$stationId}/", [
-                            'datasource' => $this->datasource,
-                        ]);
-                }
-            });
-            foreach ($batch as $stationId) {
-                try {
-                    $response = $responses["station_{$stationId}"] ?? null;
-                    if ($response instanceof \Illuminate\Http\Client\Response && $response->ok()) {
-                        $data = $response->json();
-                        $stationData[$stationId] = [
-                            'name' => $data['name'] ?? "空间站 {$stationId}",
-                            'system_id' => $data['system_id'] ?? 0,
-                            'owner' => $data['owner'] ?? 0,
-                        ];
-                    } else {
-                        $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
-                    }
-                } catch (\Exception $e) {
-                    $stationData[$stationId] = ['name' => "未知位置 ({$stationId})", 'system_id' => 0, 'owner' => 0];
-                }
+        // 使用 StationNameService 获取空间站名称
+        foreach ($stationIds as $stationId) {
+            $stationInfo = $this->stationNameService->getStationInfo($stationId);
+            
+            if ($stationInfo) {
+                $locInfo = [
+                    'name' => $stationInfo['name'],
+                    'system_id' => $stationInfo['system_id'],
+                ];
+            } else {
+                $locInfo = [
+                    'name' => "空间站 #{$stationId}",
+                    'system_id' => 0,
+                ];
             }
-        }
-
-        // 2) 获取中英文星系名
-        $sysIds = array_values(array_unique(array_filter(array_column($stationData, 'system_id'))));
-        $zhSysNames = [];
-        $enSysNames = [];
-        if (!empty($sysIds)) {
-            $sysBatches = array_chunk($sysIds, 5);
-            foreach ($sysBatches as $batch) {
-                $responses = Http::pool(function ($pool) use ($batch) {
-                    foreach ($batch as $sysId) {
-                        $pool->as("zh_{$sysId}")->timeout(5)
-                            ->get($this->baseUrl . "universe/systems/{$sysId}/", ['datasource' => $this->datasource, 'language' => 'zh']);
-                        $pool->as("en_{$sysId}")->timeout(5)
-                            ->get($this->baseUrl . "universe/systems/{$sysId}/", ['datasource' => $this->datasource, 'language' => 'en']);
-                    }
-                });
-                foreach ($batch as $sysId) {
-                    try {
-                        $r = $responses["zh_{$sysId}"] ?? null;
-                        if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
-                            $zhSysNames[$sysId] = $r->json()['name'] ?? '';
-                        }
-                        $r = $responses["en_{$sysId}"] ?? null;
-                        if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
-                            $enSysNames[$sysId] = $r->json()['name'] ?? '';
-                        }
-                    } catch (\Exception $e) {}
-                }
-            }
-        }
-
-        // 3) 获取中英文军团名
-        $ownerIds = array_values(array_unique(array_filter(array_column($stationData, 'owner'))));
-        $zhCorpNames = [];
-        $enCorpNames = [];
-        if (!empty($ownerIds)) {
-            try {
-                $resp = Http::timeout(10)->post($this->baseUrl . 'universe/names/', $ownerIds);
-                if ($resp->ok()) {
-                    foreach ($resp->json() as $item) {
-                        $zhCorpNames[$item['id']] = $item['name'];
-                    }
-                }
-            } catch (\Exception $e) {}
-
-            $corpBatches = array_chunk($ownerIds, 5);
-            foreach ($corpBatches as $batch) {
-                $responses = Http::pool(function ($pool) use ($batch) {
-                    foreach ($batch as $corpId) {
-                        $pool->as("corp_{$corpId}")->timeout(5)
-                            ->get($this->baseUrl . "corporations/{$corpId}/", ['datasource' => $this->datasource]);
-                    }
-                });
-                foreach ($batch as $corpId) {
-                    try {
-                        $r = $responses["corp_{$corpId}"] ?? null;
-                        if ($r instanceof \Illuminate\Http\Client\Response && $r->ok()) {
-                            $enCorpNames[$corpId] = $r->json()['name'] ?? '';
-                        }
-                    } catch (\Exception $e) {}
-                }
-            }
-        }
-
-        // 4) 设施类型中英文映射
-        $facilityMap = [
-            'Assembly Plant' => '组装工厂', 'Refinery' => '精炼厂',
-            'Warehouse' => '仓库', 'Storage' => '储藏设施',
-            'Factory' => '工厂', 'Trading Post' => '贸易站',
-            'Hub' => '集散中心', 'Academy' => '学院',
-            'Logistic Support' => '后勤支援', 'Testing Facilities' => '测试设施',
-            'Cloning Facility' => '克隆设施', 'Foundry' => '铸造厂',
-            'Biotech Research Center' => '生物科技研究中心',
-            'Research Center' => '研究中心', 'School' => '学校',
-            'Treasury' => '金库', 'Bureau' => '事务局',
-            'Tribunal' => '法庭', 'Mining Station' => '采矿站',
-            'Accounting' => '会计处', 'Mint' => '铸币厂',
-            'Shipyard' => '船坞', 'Military School' => '军事学校',
-            'Station' => '空间站', 'Headquarters' => '总部',
-            'Law School' => '法学院', 'Plantation' => '种植园',
-            'Surveillance' => '监控站', 'Commerce' => '商务站',
-            'Food Packaging' => '食品包装厂',
-        ];
-
-        // 5) 逐段翻译站名
-        foreach ($stationData as $stationId => $data) {
-            $name = $data['name'];
-            $sysId = $data['system_id'];
-            $ownerId = $data['owner'];
-
-            // 替换星系名（英->中）
-            $enSys = $enSysNames[$sysId] ?? '';
-            $zhSys = $zhSysNames[$sysId] ?? '';
-            if ($enSys && $zhSys && str_starts_with($name, $enSys)) {
-                $name = $zhSys . substr($name, strlen($enSys));
-            }
-
-            // Moon -> 卫星
-            $name = preg_replace('/\bMoon\b/', '卫星', $name);
-
-            // 替换军团名（英->中）
-            $enCorp = $enCorpNames[$ownerId] ?? '';
-            $zhCorp = $zhCorpNames[$ownerId] ?? '';
-            if ($enCorp && $zhCorp) {
-                $name = str_replace($enCorp, $zhCorp, $name);
-            }
-
-            // 替换设施类型（英->中）
-            foreach ($facilityMap as $en => $zh) {
-                if (str_contains($name, $en)) {
-                    $name = str_replace($en, $zh, $name);
-                    break;
-                }
-            }
-
-            $locInfo = ['name' => $name, 'system_id' => $sysId];
+            
             $info[$stationId] = $locInfo;
             Cache::put("eve_locinfo_{$stationId}", $locInfo, 86400);
         }

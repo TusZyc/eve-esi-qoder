@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Helpers\EveHelper;
 use App\Models\User;
+use App\Services\TokenService;
 
 class ContractDataController extends Controller
 {
@@ -239,7 +240,7 @@ class ContractDataController extends Controller
 
         try {
             $items = Cache::remember("contract_items_{$characterId}_{$contractId}", 300, function () use ($baseUrl, $characterId, $contractId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $response = Http::withToken($token)

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
 use App\Models\User;
+use App\Services\TokenService;
 
 class ContactDataController extends Controller
 {
@@ -28,7 +29,7 @@ class ContactDataController extends Controller
         try {
             // 获取联系人数据（支持分页）
             $contacts = Cache::remember("contacts_{$characterId}", 300, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $allContacts = [];

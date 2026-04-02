@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Services\TokenService;
 
 class MailDataController extends Controller
 {
@@ -40,7 +41,7 @@ class MailDataController extends Controller
             $cacheKey = "mail_list_{$characterId}_" . md5(json_encode([$labels, $lastMailId]));
             
             $mails = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $labels, $lastMailId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $params = ['datasource' => 'serenity'];
@@ -170,7 +171,7 @@ class MailDataController extends Controller
             $cacheKey = "mail_detail_{$characterId}_{$mailId}";
 
             $mail = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId, $mailId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return null;
 
                 $response = Http::withToken($token)
@@ -277,7 +278,7 @@ class MailDataController extends Controller
             $cacheKey = "mail_labels_{$characterId}";
 
             $labels = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return null;
 
                 $response = Http::withToken($token)
@@ -351,7 +352,7 @@ class MailDataController extends Controller
             $cacheKey = "mail_lists_{$characterId}";
 
             $lists = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $response = Http::withToken($token)
@@ -544,7 +545,7 @@ class MailDataController extends Controller
         $cacheKey = "mail_lists_map_{$characterId}";
         
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($characterId, $baseUrl) {
-            $token = User::where('eve_character_id', $characterId)->value('access_token');
+            $token = TokenService::getToken($characterId);
             if (!$token) return [];
 
             $response = Http::withToken($token)

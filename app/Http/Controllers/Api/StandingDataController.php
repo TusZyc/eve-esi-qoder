@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\EveHelper;
 use App\Models\User;
+use App\Services\TokenService;
 
 class StandingDataController extends Controller
 {
@@ -24,7 +25,7 @@ class StandingDataController extends Controller
         try {
             // 获取声望数据
             $standings = Cache::remember("standings_{$characterId}", 300, function () use ($baseUrl, $characterId) {
-                $token = User::where('eve_character_id', $characterId)->value('access_token');
+                $token = TokenService::getToken($characterId);
                 if (!$token) return [];
 
                 $response = Http::withToken($token)
