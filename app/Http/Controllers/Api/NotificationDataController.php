@@ -219,10 +219,11 @@ class NotificationDataController extends Controller
             $typeIds = [];
             $parsedTexts = [];
 
-            // sender_id 也需要解析
+            // sender_id 也需要解析（仅限可解析的 sender_type）
             foreach ($notifications as $notification) {
                 $senderId = $notification['sender_id'] ?? 0;
-                if ($senderId > 0) {
+                $senderType = $notification['sender_type'] ?? '';
+                if ($senderId > 0 && in_array($senderType, ['character', 'corporation', 'alliance', 'faction'])) {
                     $nameIds[] = $senderId;
                 }
             }
@@ -396,8 +397,8 @@ class NotificationDataController extends Controller
     {
         if (empty($ids)) return [];
 
-        // 过滤有效 ID
-        $ids = array_filter($ids, fn($id) => is_numeric($id) && $id > 0);
+        // 过滤有效 ID（ESI 限制 int32 范围，排除超大的建筑 ID 等）
+        $ids = array_filter($ids, fn($id) => is_numeric($id) && $id > 0 && $id < 2147483647);
         $ids = array_values(array_unique($ids));
         if (empty($ids)) return [];
 
@@ -411,29 +412,8 @@ class NotificationDataController extends Controller
                 $chunks = array_chunk($ids, 1000);
 
                 foreach ($chunks as $chunk) {
-                    try {
-                        // universe/names 是公共端点，不需要认证
-                        $response = Http::timeout(15)
-                            ->post("{$baseUrl}/universe/names/?datasource=serenity", $chunk);
-
-                        if (!$response->successful()) {
-                            Log::warning('ESI names 请求失败', [
-                                'status' => $response->status(),
-                                'body' => mb_substr($response->body(), 0, 500),
-                                'ids_count' => count($chunk)
-                            ]);
-                            continue; // 跳过失败的批次，继续处理其他批次
-                        }
-
-                        foreach ($response->json() as $item) {
-                            if (isset($item['id'], $item['name'])) {
-                                $map[$item['id']] = $item['name'];
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        Log::warning('ESI names 批次解析异常: ' . $e->getMessage());
-                        continue; // 跳过异常批次
-                    }
+                    $resolved = $this->esiResolveNamesBatch($chunk, $baseUrl);
+                    $map = array_replace($map, $resolved);
                 }
 
                 return $map;
@@ -442,6 +422,51 @@ class NotificationDataController extends Controller
             Log::warning('ESI names 缓存操作失败: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * 批量请求 ESI universe/names，失败时自动拆分重试
+     */
+    private function esiResolveNamesBatch(array $ids, string $baseUrl, int $depth = 0): array
+    {
+        if (empty($ids) || $depth > 3) return [];
+
+        try {
+            // universe/names 是公共端点，不需要认证
+            $response = Http::timeout(15)
+                ->post("{$baseUrl}/universe/names/?datasource=serenity", array_values($ids));
+
+            if ($response->successful()) {
+                $map = [];
+                foreach ($response->json() as $item) {
+                    if (isset($item['id'], $item['name'])) {
+                        $map[$item['id']] = $item['name'];
+                    }
+                }
+                return $map;
+            }
+
+            // 404 = 包含无效 ID，拆分后重试
+            if ($response->status() === 404 && count($ids) > 1) {
+                $mid = (int) ceil(count($ids) / 2);
+                $left = array_slice($ids, 0, $mid);
+                $right = array_slice($ids, $mid);
+                return array_replace(
+                    $this->esiResolveNamesBatch($left, $baseUrl, $depth + 1),
+                    $this->esiResolveNamesBatch($right, $baseUrl, $depth + 1)
+                );
+            }
+
+            Log::warning('ESI names 请求失败', [
+                'status' => $response->status(),
+                'body' => mb_substr($response->body(), 0, 300),
+                'ids_count' => count($ids)
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('ESI names 批次解析异常: ' . $e->getMessage());
+        }
+
+        return [];
     }
 
     /**
