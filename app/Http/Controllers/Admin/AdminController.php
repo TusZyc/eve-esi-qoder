@@ -332,6 +332,9 @@ class AdminController extends Controller
         // 从日志中解析 API 调用统计
         $apiStats = $this->parseApiStatsFromLogs();
         
+        // 清理 UTF-8 编码问题（日志可能包含非 UTF-8 字符）
+        $apiStats = $this->sanitizeUtf8Recursive($apiStats);
+        
         return response()->json([
             'success' => true,
             'data' => $apiStats,
@@ -471,6 +474,30 @@ class AdminController extends Controller
         }
         
         return $logs;
+    }
+
+    /**
+     * 递归清理数组中的 UTF-8 编码问题
+     */
+    private function sanitizeUtf8Recursive($data)
+    {
+        if (is_array($data)) {
+            return array_map([$this, 'sanitizeUtf8Recursive'], $data);
+        }
+        
+        if (is_string($data)) {
+            // 尝试检测并修复编码问题
+            if (!mb_check_encoding($data, 'UTF-8')) {
+                // 尝试从 GBK/GB2312 转换（常见于中文 Windows 环境）
+                $data = mb_convert_encoding($data, 'UTF-8', 'GBK');
+            }
+            // 确保字符串是有效的 UTF-8
+            $data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+            // 移除任何剩余的无效字符
+            $data = preg_replace('/[\x00-\x1F\x7F-\x9F]/u', '', $data);
+        }
+        
+        return $data;
     }
 
     /**
