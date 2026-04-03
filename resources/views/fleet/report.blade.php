@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $operation->operation_name . ' - 出勤报告')
+@section('page-title', '出勤报告')
 
 @section('content')
 <div class="p-6">

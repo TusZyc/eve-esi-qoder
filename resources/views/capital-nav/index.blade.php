@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', '旗舰导航 - Tus Esi System')
+@section('page-title', '旗舰导航')
 
 @push('styles')
 <style>

@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '仪表盘')
+
 @push('styles')
 <style>
     @keyframes spin {

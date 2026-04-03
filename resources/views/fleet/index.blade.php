@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', '舰队行动')
+@section('page-title', '舰队行动')
 
 @section('content')
 <div class="p-6">

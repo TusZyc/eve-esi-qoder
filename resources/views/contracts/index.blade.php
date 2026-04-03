@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '合同')
+
 @push('styles')
 <style>
     .eve-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
@@ -348,12 +350,13 @@
                 area.innerHTML = '<div class="text-center py-8 text-red-400">' + escapeHtml(data.error) + '</div>';
                 return;
             }
-            if (!data || data.length === 0) {
+            var contracts = Array.isArray(data) ? data : (data.data || []);
+            if (contracts.length === 0) {
                 area.innerHTML = '<div class="text-center py-12"><div class="text-6xl mb-4">📭</div><p class="text-xl text-blue-200">暂无合同</p></div>';
                 return;
             }
 
-            allContracts = data;
+            allContracts = contracts;
             renderContracts(allContracts);
         })
         .catch(function() {

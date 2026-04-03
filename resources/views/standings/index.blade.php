@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '声望')
+
 @push('styles')
 <style>
     .eve-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }

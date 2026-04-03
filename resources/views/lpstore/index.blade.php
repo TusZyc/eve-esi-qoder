@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'LP 商店 - Tus Esi System')
+@section('page-title', 'LP 商店')
 
 @push('styles')
     /* 下拉框选项样式 - 修复暗色主题下选项不可见问题 */

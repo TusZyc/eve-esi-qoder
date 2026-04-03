@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '虫洞查询')
+
 @push('styles')
     /* 下拉框选项样式 - 修复暗色主题下选项不可见问题 */
     select option {

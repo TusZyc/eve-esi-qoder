@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '装配')
+
 @push('styles')
 <style>
     @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
@@ -83,6 +85,15 @@
     <div class="max-w-5xl mx-auto px-4 py-8">
         <h2 class="text-2xl font-semibold mb-6">🔧 装配方案</h2>
         
+        <div class="stat-card rounded-xl p-6 mb-4">
+            <div class="flex items-center gap-3">
+                <span class="text-blue-300">🔍</span>
+                <input type="text" id="fitting-search" placeholder="搜索舰船或配装名..."
+                    class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-blue-400"
+                    oninput="onSearchChange(this.value)">
+                <span id="fitting-count" class="text-sm text-blue-300/70 whitespace-nowrap"></span>
+            </div>
+        </div>
         <div class="stat-card rounded-xl p-6">
             <div id="fittings-area">
                 <div class="space-y-3">
@@ -101,6 +112,7 @@
     var shipGroups = {};
     var expandedShips = {};
     var expandedFitting = null;
+    var searchKeyword = '';
 
     function escapeHtml(s) { 
         var div = document.createElement('div'); 
@@ -141,6 +153,19 @@
         return html;
     }
 
+    function onSearchChange(val) {
+        searchKeyword = val.trim().toLowerCase();
+        // 搜索时展开所有匹配组
+        if (searchKeyword) {
+            Object.keys(shipGroups).forEach(function(shipName) {
+                var matches = shipName.toLowerCase().indexOf(searchKeyword) >= 0 ||
+                    shipGroups[shipName].some(function(f) { return (f.name || '').toLowerCase().indexOf(searchKeyword) >= 0; });
+                if (matches) expandedShips[shipName] = true;
+            });
+        }
+        renderFittings();
+    }
+
     function buildShipGroups() {
         shipGroups = {};
         fittingsData.forEach(function(fitting) {
@@ -152,19 +177,41 @@
 
     function renderFittings() {
         var area = document.getElementById('fittings-area');
-        
+
         if (!fittingsData || fittingsData.length === 0) {
             area.innerHTML = '<div class="text-center py-12"><div class="text-5xl mb-4">📭</div><p class="text-lg text-blue-200/70">暂无保存的装配</p></div>';
             return;
         }
 
-        // 按舰船名称排序
-        var sortedShipNames = Object.keys(shipGroups).sort();
+        // 按舰船名称排序，搜索过滤
+        var sortedShipNames = Object.keys(shipGroups).sort().filter(function(shipName) {
+            if (!searchKeyword) return true;
+            if (shipName.toLowerCase().indexOf(searchKeyword) >= 0) return true;
+            return shipGroups[shipName].some(function(f) { return (f.name || '').toLowerCase().indexOf(searchKeyword) >= 0; });
+        });
+
+        // 更新计数
+        var totalFittings = sortedShipNames.reduce(function(n, s) { return n + shipGroups[s].length; }, 0);
+        var countEl = document.getElementById('fitting-count');
+        if (countEl) {
+            countEl.textContent = searchKeyword
+                ? ('找到 ' + sortedShipNames.length + ' 型舰船 / ' + totalFittings + ' 个配装')
+                : (Object.keys(shipGroups).length + ' 型舰船 / ' + fittingsData.length + ' 个配装');
+        }
         
+        if (sortedShipNames.length === 0) {
+            area.innerHTML = '<div class="text-center py-12"><p class="text-blue-200/70">没有找到匹配的装配</p></div>';
+            return;
+        }
+
         var html = '<div class="space-y-2">';
-        
+
         sortedShipNames.forEach(function(shipName) {
-            var fittings = shipGroups[shipName];
+            var fittings = searchKeyword
+                ? shipGroups[shipName].filter(function(f) {
+                    return shipName.toLowerCase().indexOf(searchKeyword) >= 0 || (f.name || '').toLowerCase().indexOf(searchKeyword) >= 0;
+                })
+                : shipGroups[shipName];
             var isShipExpanded = expandedShips[shipName];
             
             // 舰船类型行

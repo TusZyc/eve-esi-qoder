@@ -451,7 +451,7 @@
                         if (srv.is_online) {
                             // 根据 is_maintenance 显示不同状态
                             var statusText = '在线';
-                            if (srv.is_maintenance && srv.players === 0) {
+                            if (srv.is_maintenance) {
                                 statusText = '调试中';
                                 statusEl.innerHTML = '<span class="status-dot status-maintenance"></span><span class="text-xs text-green-400">' + statusText + '</span>';
                             } else {

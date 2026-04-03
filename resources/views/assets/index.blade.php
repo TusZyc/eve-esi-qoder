@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '资产')
+
 @push('styles')
 <style>
     .eve-glow {

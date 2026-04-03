@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('page-title', '联系人')
+
 @push('styles')
 <style>
     @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $operation->operation_name . ' - 实时监控')
+@section('page-title', '实时监控')
 
 @section('content')
 <div class="p-6">

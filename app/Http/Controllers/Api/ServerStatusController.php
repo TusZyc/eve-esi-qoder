@@ -54,7 +54,7 @@ class ServerStatusController extends Controller
                             'server_version' => $json['server_version'] ?? '',
                             'start_time' => $startTime,
                             'uptime_seconds' => $uptimeSeconds,
-                            'is_maintenance' => ($json['players'] ?? 0) === 0,
+                            'is_maintenance' => ($json['vip'] ?? false) || ($json['players'] ?? 0) === 0,
                         ];
                     } else {
                         $result[] = self::offlineEntry($server);

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', '市场中心 - ' . config('app.name'))
+@section('page-title', '市场中心')
 
 @push('head-scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
