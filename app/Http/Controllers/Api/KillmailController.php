@@ -266,8 +266,9 @@ class KillmailController extends Controller
                 $detail = $this->killmailService->getKillDetails((int) $killId);
             }
 
-            // 生成图片
-            $imagePath = $this->imageService->generate($detail);
+            // 生成图片 (?force=1 强制重新生成)
+            $force = $request->boolean('force', false);
+            $imagePath = $this->imageService->generate($detail, $force);
 
             // 返回图片
             return response()->file($imagePath, [
