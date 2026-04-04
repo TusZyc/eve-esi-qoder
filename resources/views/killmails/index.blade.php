@@ -139,6 +139,52 @@
                         - KM ID: 如 22395435<br>
                         - ESI 链接: 包含 killmails/ID/hash 的链接
                     </div>
+
+                    <!-- KM 图片获取 [Claude Code] 2026-04-04 -->
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <label class="text-sm text-purple-300 font-bold">生成 KM 图片</label>
+                        </div>
+                        <div class="flex gap-2">
+                            <input id="imageKmId" type="text" placeholder="输入 KM ID..." class="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400">
+                            <button id="generateImageBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-all text-sm whitespace-nowrap flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                生成
+                            </button>
+                        </div>
+
+                        <!-- 生成状态 -->
+                        <div id="imageGenLoading" class="hidden mt-3 text-center">
+                            <div class="spinner mx-auto mb-2"></div>
+                            <p class="text-purple-300 text-xs">正在生成图片，首次生成需下载头像资源...</p>
+                        </div>
+
+                        <!-- 图片预览区 -->
+                        <div id="imagePreviewArea" class="hidden mt-3">
+                            <div class="rounded-lg overflow-hidden border border-purple-500/30 bg-black/20">
+                                <img id="kmImagePreview" src="" alt="KM图片" class="w-full block">
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <a id="kmImageDownload" href="#" download class="flex-1 text-center py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/30 rounded-lg text-purple-200 text-xs font-bold transition-all">
+                                    ⬇️ 下载图片
+                                </a>
+                                <button onclick="openKmImageInTab()" class="flex-1 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/70 text-xs font-bold transition-all">
+                                    🔗 新窗口打开
+                                </button>
+                            </div>
+                            <p id="kmImageKillId" class="text-xs text-white/30 mt-1 text-center"></p>
+                        </div>
+
+                        <!-- 错误提示 -->
+                        <div id="imageGenError" class="hidden mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                            <p id="imageGenErrorText" class="text-red-400 text-xs"></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -658,5 +704,112 @@ function hideLoading() {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDetail();
 });
+
+// ========== KM 图片生成 [Claude Code] 2026-04-04 ==========
+
+var currentImageUrl = null;
+var currentImageKmId = null;
+
+document.getElementById('generateImageBtn').addEventListener('click', doGenerateImage);
+document.getElementById('imageKmId').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doGenerateImage();
+});
+
+function doGenerateImage() {
+    var input = document.getElementById('imageKmId').value.trim();
+    if (!input) { showImageError('请输入 KM ID'); return; }
+
+    // 支持输入KM ID 或 ESI链接
+    var killId = null, hash = null;
+    var esiMatch = input.match(/killmails\/(\d+)\/([a-f0-9]+)/i);
+    if (esiMatch) {
+        killId = esiMatch[1];
+        hash = esiMatch[2];
+    } else if (/^\d+$/.test(input)) {
+        killId = input;
+    } else {
+        showImageError('无法识别的格式，请输入纯数字KM ID');
+        return;
+    }
+
+    hideImageResult();
+    showImageLoading();
+
+    var url = '/api/killmails/kill/' + killId + '/image';
+    if (hash) url += '?hash=' + hash;
+
+    // 先构建图片URL，通过img标签加载检测结果
+    var testImg = new Image();
+    var imgUrl = url;
+    currentImageUrl = imgUrl;
+    currentImageKmId = killId;
+
+    testImg.onload = function() {
+        hideImageLoading();
+        showImageResult(imgUrl, killId);
+    };
+
+    testImg.onerror = function() {
+        // 图片加载失败，尝试获取错误信息
+        hideImageLoading();
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                showImageError(data.message || '图片生成失败，请检查 KM ID 是否正确');
+            })
+            .catch(function() {
+                showImageError('生成失败，可能是 KM ID 无效或服务暂时不可用');
+            });
+    };
+
+    testImg.src = imgUrl + (hash ? '' : '') + '&t=' + Date.now();
+    // 实际设置（避免缓存干扰测试）
+    testImg.src = imgUrl;
+}
+
+function showImageLoading() {
+    document.getElementById('imageGenLoading').classList.remove('hidden');
+    document.getElementById('imagePreviewArea').classList.add('hidden');
+    document.getElementById('imageGenError').classList.add('hidden');
+    document.getElementById('generateImageBtn').disabled = true;
+    document.getElementById('generateImageBtn').classList.add('opacity-60');
+}
+
+function hideImageLoading() {
+    document.getElementById('imageGenLoading').classList.add('hidden');
+    document.getElementById('generateImageBtn').disabled = false;
+    document.getElementById('generateImageBtn').classList.remove('opacity-60');
+}
+
+function showImageResult(imgUrl, killId) {
+    var preview = document.getElementById('kmImagePreview');
+    var downloadLink = document.getElementById('kmImageDownload');
+    var killIdText = document.getElementById('kmImageKillId');
+
+    preview.src = imgUrl;
+    downloadLink.href = imgUrl;
+    downloadLink.download = 'km_' + killId + '.png';
+    killIdText.textContent = 'Kill ID: ' + killId;
+
+    document.getElementById('imagePreviewArea').classList.remove('hidden');
+}
+
+function hideImageResult() {
+    document.getElementById('imagePreviewArea').classList.add('hidden');
+    document.getElementById('imageGenError').classList.add('hidden');
+}
+
+function showImageError(msg) {
+    hideImageLoading();
+    document.getElementById('imageGenErrorText').textContent = msg;
+    document.getElementById('imageGenError').classList.remove('hidden');
+    document.getElementById('imagePreviewArea').classList.add('hidden');
+}
+
+function openKmImageInTab() {
+    if (currentImageUrl) {
+        window.open(currentImageUrl, '_blank');
+    }
+}
 </script>
 @endpush

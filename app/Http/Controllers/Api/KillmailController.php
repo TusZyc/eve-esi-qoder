@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\KillmailService;
+use App\Services\Killmail\KillmailImageService;
 use Illuminate\Http\Request;
 
 class KillmailController extends Controller
 {
     protected $killmailService;
+    protected $imageService;
 
-    public function __construct(KillmailService $killmailService)
+    public function __construct(KillmailService $killmailService, KillmailImageService $imageService)
     {
         $this->killmailService = $killmailService;
+        $this->imageService = $imageService;
     }
 
     /**
@@ -232,6 +235,49 @@ class KillmailController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'fetch_failed',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 生成 KM 图片 (仿游戏内击毁报告 UI)
+     * [Claude Code] 2026-04-04
+     *
+     * GET /api/killmails/kill/{killId}/image?hash=xxx
+     */
+    public function killImage($killId, Request $request)
+    {
+        if (!is_numeric($killId) || $killId <= 0) {
+            return response()->json([
+                'success' => false,
+                'error' => 'invalid_kill_id',
+                'message' => '无效的 KM ID',
+            ], 400);
+        }
+
+        $hash = $request->input('hash');
+
+        try {
+            // 获取 KM 详情数据
+            if (!empty($hash) && preg_match('/^[a-f0-9]{20,}$/i', $hash)) {
+                $detail = $this->killmailService->getKillDetailsByHash((int) $killId, $hash);
+            } else {
+                $detail = $this->killmailService->getKillDetails((int) $killId);
+            }
+
+            // 生成图片
+            $imagePath = $this->imageService->generate($detail);
+
+            // 返回图片
+            return response()->file($imagePath, [
+                'Content-Type' => 'image/png',
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'image_generation_failed',
                 'message' => $e->getMessage(),
             ], 500);
         }

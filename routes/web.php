@@ -247,6 +247,7 @@ Route::middleware('throttle:30,1')->group(function () {
     Route::get('/api/killmails/search', [\App\Http\Controllers\Api\KillmailController::class, 'search']);
     Route::get('/api/killmails/pilot/{pilotId}/kills', [\App\Http\Controllers\Api\KillmailController::class, 'pilotKills']);
     Route::get('/api/killmails/kill/{killId}', [\App\Http\Controllers\Api\KillmailController::class, 'killDetail']);
+    Route::get('/api/killmails/kill/{killId}/image', [\App\Http\Controllers\Api\KillmailController::class, 'killImage']);
 });
 
 // 旗舰导航（公开访问）
