@@ -211,9 +211,9 @@
                     <div class="spinner mx-auto mb-3"></div>
                     <p class="text-purple-300 text-sm">正在生成图片，首次生成需下载头像资源...</p>
                 </div>
-                <div id="imageModalContent" class="hidden w-full">
-                    <img id="imageModalImg" src="" alt="KM图片" class="w-full block rounded-lg shadow-2xl">
-                    <div class="flex gap-3 mt-3 justify-center">
+                <div id="imageModalContent" class="hidden flex flex-col items-center" style="max-height:90vh">
+                    <img id="imageModalImg" src="" alt="KM图片" class="block rounded-lg shadow-2xl" style="max-height:calc(90vh - 72px); max-width:100%; width:auto; height:auto;">
+                    <div class="flex gap-3 mt-3 justify-center shrink-0">
                         <a id="imageModalDownload" href="#" download class="px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm text-white font-bold transition-all">⬇️ 下载图片</a>
                         <button onclick="openKmImageInTab()" class="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 transition-all">🔗 新窗口打开</button>
                         <button onclick="closeImageModal()" class="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 transition-all">关闭</button>
