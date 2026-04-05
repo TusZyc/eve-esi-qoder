@@ -815,6 +815,14 @@ class KillmailService
             }
         }
 
+        foreach ($esiData['supporters'] ?? [] as $sup) {
+            foreach (['character_id', 'corporation_id', 'alliance_id', 'ship_type_id', 'repairer_type_id'] as $field) {
+                if (!empty($sup[$field])) {
+                    $ids[] = (int) $sup[$field];
+                }
+            }
+        }
+
         return array_values(array_unique(array_filter($ids)));
     }
 
@@ -1079,6 +1087,25 @@ class KillmailService
             return $b['damage_done'] <=> $a['damage_done'];
         });
 
+        // 处理支援者（独立于 attackers）
+        $supporters = [];
+        foreach ($esiData['supporters'] ?? [] as $sup) {
+            $supporters[] = [
+                'character_id'    => $sup['character_id'] ?? null,
+                'character_name'  => isset($sup['character_id']) ? ($names[$sup['character_id']] ?? "未知#{$sup['character_id']}") : null,
+                'corporation_id'  => $sup['corporation_id'] ?? null,
+                'corporation_name'=> isset($sup['corporation_id']) ? ($names[$sup['corporation_id']] ?? null) : null,
+                'alliance_id'     => $sup['alliance_id'] ?? null,
+                'alliance_name'   => isset($sup['alliance_id']) ? ($names[$sup['alliance_id']] ?? null) : null,
+                'ship_type_id'    => $sup['ship_type_id'] ?? null,
+                'ship_name'       => isset($sup['ship_type_id']) ? ($names[$sup['ship_type_id']] ?? null) : null,
+                'repairer_type_id'=> $sup['repairer_type_id'] ?? null,
+                'repairer_name'   => isset($sup['repairer_type_id']) ? ($names[$sup['repairer_type_id']] ?? null) : null,
+                'repair_done'     => (int)($sup['repair_done'] ?? 0),
+                'is_regen'        => (bool)($sup['is_regen'] ?? false),
+            ];
+        }
+
         $solarSystemId = $esiData['solar_system_id'] ?? null;
         $systemSec = null;
         $regionName = null;
@@ -1110,11 +1137,14 @@ class KillmailService
                 'ship_type_id' => $victim['ship_type_id'] ?? null,
                 'ship_name' => isset($victim['ship_type_id']) ? ($names[$victim['ship_type_id']] ?? "未知#{$victim['ship_type_id']}") : null,
                 'damage_taken' => $victim['damage_taken'] ?? 0,
+                'position' => $victim['position'] ?? null,
                 'items' => $items,
             ],
             'items_by_slot' => $orderedItemsBySlot,
             'attackers' => $attackers,
             'attacker_count' => count($attackers),
+            'supporters' => $supporters,
+            'supporter_count' => count($supporters),
         ];
     }
 }

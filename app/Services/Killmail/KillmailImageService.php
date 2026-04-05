@@ -352,16 +352,18 @@ class KillmailImageService
         $divX = self::LEFT_COL_WIDTH;
         imageline($img, $divX, $y, $divX, $y + $h - 1, $border);
 
-        $attackers     = $data['attackers'] ?? [];
-        $attackerCount = count($attackers);
+        $attackerCount = count($data['attackers'] ?? []);
         $damageTaken   = (int)($data['victim']['damage_taken'] ?? 0);
-        $supportCount  = count(array_filter($attackers, fn($a) => ($a['damage_done'] ?? 0) == 0));
+        $supporters    = $data['supporters'] ?? [];
+        $supportCount  = count($supporters);
+        $repairDone    = (int)array_sum(array_column($supporters, 'repair_done'));
 
         // 左侧: 参与者数 (第一行) + 伤害 (第二行) + 支援 (第三行)
         $this->txt($img, "参与者 ({$attackerCount})", $p, $y + 4, self::FS_NORMAL, self::C_WHITE, true);
         $this->txt($img, '共受到伤害：' . number_format($damageTaken), $p, $y + 24, self::FS_SMALL, self::C_RED);
         if ($supportCount > 0) {
-            $this->txt($img, "支援：{$supportCount} 人", $p, $y + 44, self::FS_SMALL, self::C_GREEN);
+            $repairText = $repairDone > 0 ? "支援：{$supportCount} 人（修复 " . number_format($repairDone) . " HP）" : "支援：{$supportCount} 人";
+            $this->txt($img, $repairText, $p, $y + 44, self::FS_SMALL, self::C_GREEN);
         }
 
         // 右侧: 装备与明细
