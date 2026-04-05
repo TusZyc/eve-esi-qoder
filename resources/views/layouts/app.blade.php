@@ -381,6 +381,16 @@
                     </div>
                     <span class="text-sm text-slate-500">{{ now()->format('Y-m-d H:i') }}</span>
                     
+                    <!-- 势力地图按钮 -->
+                    <button onclick="openInfluenceMap()" title="EVE 势力地图"
+                        class="text-slate-400 hover:text-white transition-colors p-1 flex items-center space-x-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="text-xs hidden sm:inline">势力地图</span>
+                    </button>
+
                     <!-- 提醒图标 -->
                     @if($isLoggedIn ?? false)
                     <div class="relative" id="notification-bell">
@@ -645,5 +655,151 @@
     @endif
 
     @stack('scripts')
+
+<!-- ── 势力地图弹窗 ─────────────────────────────────────────── -->
+<div id="influenceMapModal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center p-4">
+    <!-- 背景遮罩 -->
+    <div class="fixed inset-0 bg-black/80" onclick="closeInfluenceMap()"></div>
+
+    <!-- 弹窗主体 -->
+    <div class="relative bg-slate-900 border border-slate-700/60 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col"
+         style="max-height:92vh">
+
+        <!-- 标题栏 -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/60 shrink-0">
+            <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="font-semibold text-white">EVE 势力地图</span>
+                <span id="imDateLabel" class="text-sm text-slate-400 ml-1"></span>
+            </div>
+            <button onclick="closeInfluenceMap()" class="text-slate-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-slate-700/40 shrink-0 bg-slate-800/40">
+            <button onclick="loadInfluenceToday()"
+                class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">
+                今日最新
+            </button>
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-slate-400">历史日期：</label>
+                <input type="date" id="imDatePicker"
+                    min="2014-12-13" max="{{ date('Y-m-d') }}"
+                    class="px-2 py-1 text-sm bg-slate-700 border border-slate-600 rounded-lg text-white
+                           focus:outline-none focus:border-blue-500"
+                    onchange="loadInfluenceByDate(this.value)">
+            </div>
+            <a id="imDownloadLink" href="#" target="_blank"
+                class="ml-auto px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 rounded-lg transition-colors">
+                在新标签页打开
+            </a>
+        </div>
+
+        <!-- 图片区域 -->
+        <div class="flex-1 overflow-auto flex items-start justify-center p-4 min-h-0">
+            <div id="imLoading" class="hidden flex-col items-center justify-center py-20 text-slate-400 w-full">
+                <svg class="w-8 h-8 animate-spin mb-3" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span>加载中...</span>
+            </div>
+            <div id="imError" class="hidden flex-col items-center justify-center py-20 text-slate-400 w-full">
+                <svg class="w-10 h-10 mb-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-sm">该日期暂无势力地图数据</p>
+                <p class="text-xs text-slate-500 mt-1">历史存档自 2014-12-13 起，部分日期可能缺失</p>
+            </div>
+            <img id="imImg" src="" alt="EVE势力地图"
+                class="hidden max-w-full rounded-lg shadow-lg"
+                onload="onImgLoad()" onerror="onImgError()">
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const TODAY_URL    = 'https://www.ceve-market.org/app/influence.png';
+    const ARCHIVE_BASE = 'https://www.ceve-market.org/dumps/archive/';
+
+    window.openInfluenceMap = function () {
+        document.getElementById('influenceMapModal').classList.remove('hidden');
+        // 若从未加载过，默认加载今日图
+        if (!document.getElementById('imImg').dataset.loaded) {
+            loadInfluenceToday();
+        }
+    };
+
+    window.closeInfluenceMap = function () {
+        document.getElementById('influenceMapModal').classList.add('hidden');
+    };
+
+    window.loadInfluenceToday = function () {
+        const today = new Date().toISOString().slice(0, 10);
+        document.getElementById('imDatePicker').value = today;
+        loadImg(TODAY_URL, '今日最新（' + today + '）');
+    };
+
+    window.loadInfluenceByDate = function (dateStr) {
+        if (!dateStr) return;
+        // 今日或未来 → 用最新图
+        const today = new Date().toISOString().slice(0, 10);
+        if (dateStr >= today) {
+            loadImg(TODAY_URL, '今日最新（' + today + '）');
+            return;
+        }
+        // 历史 → 存档目录
+        const url = ARCHIVE_BASE + dateStr + '.png';
+        loadImg(url, dateStr);
+    };
+
+    function loadImg(url, label) {
+        const img   = document.getElementById('imImg');
+        const load  = document.getElementById('imLoading');
+        const err   = document.getElementById('imError');
+        const lbl   = document.getElementById('imDateLabel');
+        const dl    = document.getElementById('imDownloadLink');
+
+        img.classList.add('hidden');
+        err.classList.add('hidden');
+        load.classList.remove('hidden');
+        load.classList.add('flex');
+
+        lbl.textContent = label ? '— ' + label : '';
+        dl.href = url;
+
+        // 添加时间戳避免浏览器缓存（对今日图有效）
+        img.src = url + '?t=' + Date.now();
+        img.dataset.loaded = '1';
+    }
+
+    window.onImgLoad = function () {
+        document.getElementById('imLoading').classList.add('hidden');
+        document.getElementById('imLoading').classList.remove('flex');
+        document.getElementById('imImg').classList.remove('hidden');
+    };
+
+    window.onImgError = function () {
+        document.getElementById('imLoading').classList.add('hidden');
+        document.getElementById('imLoading').classList.remove('flex');
+        document.getElementById('imError').classList.remove('hidden');
+        document.getElementById('imError').classList.add('flex');
+    };
+
+    // ESC 关闭
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeInfluenceMap();
+    });
+})();
+</script>
 </body>
 </html>
