@@ -665,13 +665,19 @@ class KillmailService
         $cacheKey = "eve_system_info:{$systemId}";
 
         return Cache::remember($cacheKey, 86400, function () use ($systemId) {
-            $info = ['security_status' => null, 'region_name' => null];
+            $info = ['security_status' => null, 'region_name' => null, 'constellation_name' => null];
 
             // 1. 优先从本地数据获取
             $localSystem = EveDataService::getLocalSystemInfo($systemId);
             if ($localSystem) {
                 $info['security_status'] = isset($localSystem['security']) ? round($localSystem['security'], 1) : null;
-                
+
+                // 获取星座名称
+                if (!empty($localSystem['constellation_id'])) {
+                    $localConst = EveDataService::getLocalConstellationInfo((int)$localSystem['constellation_id']);
+                    $info['constellation_name'] = $localConst['name'] ?? null;
+                }
+
                 // 获取星域名称
                 if (!empty($localSystem['region_id'])) {
                     $regionName = EveDataService::getLocalRegionName($localSystem['region_id']);
@@ -700,6 +706,7 @@ class KillmailService
                 // 尝试从本地获取星座和星域信息
                 $localConst = EveDataService::getLocalConstellationInfo($constellationId);
                 if ($localConst && !empty($localConst['region_id'])) {
+                    $info['constellation_name'] = $localConst['name'] ?? null;
                     $regionName = EveDataService::getLocalRegionName($localConst['region_id']);
                     if ($regionName) {
                         $info['region_name'] = $regionName;
@@ -1075,10 +1082,12 @@ class KillmailService
         $solarSystemId = $esiData['solar_system_id'] ?? null;
         $systemSec = null;
         $regionName = null;
+        $constellationName = null;
         if ($solarSystemId) {
             $sysInfo = $this->getSystemInfo((int) $solarSystemId);
             $systemSec = $sysInfo['security_status'];
             $regionName = $sysInfo['region_name'];
+            $constellationName = $sysInfo['constellation_name'] ?? null;
         }
 
         return [
@@ -1088,6 +1097,7 @@ class KillmailService
             'solar_system_id' => $solarSystemId,
             'solar_system_name' => $solarSystemId ? ($names[$solarSystemId] ?? "未知#{$solarSystemId}") : null,
             'system_sec' => $systemSec,
+            'constellation_name' => $constellationName,
             'region_name' => $regionName,
             'esi_verified' => true,
             'victim' => [

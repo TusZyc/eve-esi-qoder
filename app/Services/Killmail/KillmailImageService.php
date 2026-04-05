@@ -52,16 +52,16 @@ class KillmailImageService
     const CANVAS_WIDTH     = 900;
     const PADDING          = 14;
     const TITLE_BAR_HEIGHT = 32;
-    const HEADER_HEIGHT    = 176;
-    const STATS_BAR_HEIGHT = 48;
-    const FOOTER_HEIGHT    = 50;
+    const HEADER_HEIGHT    = 192;
+    const STATS_BAR_HEIGHT = 68;
+    const FOOTER_HEIGHT    = 70;
 
     // 左栏（参与者）比右栏（装备）窄
-    const LEFT_COL_WIDTH   = 310;
+    const LEFT_COL_WIDTH   = 360;
     // RIGHT_COL = CANVAS_WIDTH - LEFT_COL_WIDTH - 1
 
     // 图标尺寸
-    const PORTRAIT_SIZE    = 128;   // 头部受害者头像
+    const PORTRAIT_SIZE    = 160;   // 头部受害者头像（与舰船渲染同尺寸）
     const SHIP_RENDER_W    = 160;   // 头部舰船渲染宽
     const ATK_PORTRAIT     = 38;    // 攻击者头像
     const ATK_ICON         = 22;    // 攻击者舰船/武器图标
@@ -82,6 +82,7 @@ class KillmailImageService
     const C_RED         = [210,  55,  55];   // 伤害红
     const C_GREEN       = [ 55, 190,  90];   // 坠落绿
     const C_FINAL_BLOW  = [200, 160,  50];   // 最后一击金
+    const C_LIGHT_BLUE  = [140, 200, 255];   // 总掉落淡蓝
     const C_DROPPED_BG  = [  8,  35,  12];   // 坠落物品行背景
     const C_DESTROYED_BG= [ 25,  10,  10];   // 已销毁物品行背景
 
@@ -182,12 +183,11 @@ class KillmailImageService
 
         $this->txt($img, '击毁报告', 32, 6, self::FS_LARGE, self::C_WHITE, true);
 
-        // 右侧 kill 时间
-        $killTime = $data['kill_time'] ?? '';
-        if ($killTime) {
-            $w = $this->tw($killTime, self::FS_SMALL);
-            $this->txt($img, $killTime, self::CANVAS_WIDTH - self::PADDING - $w, 8, self::FS_SMALL, self::C_GREY);
-        }
+        // 右侧归属与 Kill ID
+        $killId = $data['kill_id'] ?? '';
+        $attribution = "由 Tus Esi System生成  Kill ID：{$killId}";
+        $w = $this->tw($attribution, self::FS_SMALL);
+        $this->txt($img, $attribution, self::CANVAS_WIDTH - self::PADDING - $w, 8, self::FS_SMALL, self::C_GREY);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ class KillmailImageService
 
         // ── 2. 舰船渲染图 (紧接头像右侧) ────────────────────────────
         $shipW = self::SHIP_RENDER_W;
-        $shipH = self::HEADER_HEIGHT - 16;
+        $shipH = self::PORTRAIT_SIZE;  // 与头像等高
         $shipX = $portraitX + self::PORTRAIT_SIZE + 8;
         $shipY = (int)($y0 + (self::HEADER_HEIGHT - $shipH) / 2);
 
@@ -239,59 +239,95 @@ class KillmailImageService
         $textX = $shipX + $shipW + 14;
         $textY = $portraitY + 2;
 
-        // 角色名 (大号金色)
+        // 角色名 (大号白色)
         $charName = $victim['character_name'] ?? '未知';
-        $this->txt($img, $charName, $textX, $textY, self::FS_TITLE, self::C_GOLD, true);
+        $this->txt($img, $charName, $textX, $textY, self::FS_TITLE, self::C_WHITE, true);
 
-        // 军团 + 联盟 上下排列
-        // 行1: [军团图标] 军团名
-        // 行2: [联盟图标] 联盟名
-        $row1Y = $textY + 24;
-        $row2Y = $row1Y + 22;
+        // 军团 + 联盟 左右排列: [军团图标40] [联盟图标40]  军团名\n联盟名
+        $orgY     = $textY + 24;
+        $corpId   = (int)($victim['corporation_id'] ?? 0);
+        $corpNm   = $victim['corporation_name'] ?? '';
+        $aliId    = (int)($victim['alliance_id'] ?? 0);
+        $aliNm    = $victim['alliance_name'] ?? '';
+        $icoSize  = 40;
+        $icoGap   = 6;
 
-        $corpId  = (int)($victim['corporation_id'] ?? 0);
-        $corpNm  = $victim['corporation_name'] ?? '';
-        if ($corpId > 0 && $corpNm) {
-            $corpIco = $this->fetchImg('corporations', $corpId, 'logo', 32);
+        // 军团图标
+        if ($corpId > 0) {
+            $corpIco = $this->fetchImg('corporations', $corpId, 'logo', 64);
             if ($corpIco) {
-                $this->scaled($img, $corpIco, $textX, $row1Y, 20, 20);
+                $this->scaled($img, $corpIco, $textX, $orgY, $icoSize, $icoSize);
                 imagedestroy($corpIco);
+            } else {
+                $this->placeholder($img, $textX, $orgY, $icoSize, $icoSize);
             }
-            $this->txt($img, $corpNm, $textX + 24, $row1Y + 3, self::FS_SMALL, self::C_GREY);
         }
 
-        $aliId = (int)($victim['alliance_id'] ?? 0);
-        $aliNm = $victim['alliance_name'] ?? '';
-        if ($aliId > 0 && $aliNm) {
-            $aliIco = $this->fetchImg('alliances', $aliId, 'logo', 32);
+        // 联盟图标 (紧接军团图标右边)
+        $aliIcoX = $corpId > 0 ? $textX + $icoSize + $icoGap : $textX;
+        if ($aliId > 0) {
+            $aliIco = $this->fetchImg('alliances', $aliId, 'logo', 64);
             if ($aliIco) {
-                $this->scaled($img, $aliIco, $textX, $row2Y, 20, 20);
+                $this->scaled($img, $aliIco, $aliIcoX, $orgY, $icoSize, $icoSize);
                 imagedestroy($aliIco);
+            } else {
+                $this->placeholder($img, $aliIcoX, $orgY, $icoSize, $icoSize);
             }
-            $this->txt($img, $aliNm, $textX + 24, $row2Y + 3, self::FS_SMALL, self::C_GREY);
         }
 
-        // 舰船名称 + "(舰船类型)"，在军团/联盟行下方
-        $shipRowY  = $aliId > 0 ? $row2Y + 24 : $row1Y + 24;
+        // 名字列: 图标右侧，上下排列
+        $nameColX = $aliId > 0 ? $aliIcoX + $icoSize + 8 : ($corpId > 0 ? $textX + $icoSize + 8 : $textX);
+        $maxNameW = self::CANVAS_WIDTH - $nameColX - self::PADDING;
+        if ($corpNm) {
+            $this->txtTrunc($img, $corpNm, $nameColX, $orgY + 2, self::FS_SMALL, self::C_WHITE, $maxNameW);
+        }
+        if ($aliNm) {
+            $this->txtTrunc($img, $aliNm, $nameColX, $orgY + 18, self::FS_SMALL, self::C_GREY, $maxNameW);
+        }
+
+        // 舰船名称 + "(船体：XXX ISK)" + "(舰船类型)"
+        $shipRowY  = $orgY + $icoSize + 6;
         $shipName  = $victim['ship_name'] ?? '未知舰船';
         $shipGroup = $this->getItemGroup((int)($victim['ship_type_id'] ?? 0));
-        $shipLabel = $shipGroup ? "{$shipName}（{$shipGroup}）" : $shipName;
+        $hullPrice = $this->getHullLowestSellPrice((int)($victim['ship_type_id'] ?? 0));
+
+        $shipLabel = $shipName;
+        if ($shipGroup) $shipLabel .= "（{$shipGroup}）";
+        if ($hullPrice !== null) $shipLabel .= '（船体：' . number_format($hullPrice, 0) . ' ISK）';
         $this->txt($img, $shipLabel, $textX, $shipRowY, self::FS_LARGE, self::C_WHITE, true);
 
-        // 位置: 星系 安等 < 星域
-        $locY      = $shipRowY + 22;
-        $sysName   = $data['solar_system_name'] ?? '未知';
-        $secStatus = (float)($data['system_sec'] ?? 0);
-        $secText   = number_format($secStatus, 1);
-        $region    = $data['region_name'] ?? '';
-        $secColor  = $this->secColor($secStatus);
+        // 时间 (舰船名与位置之间)
+        $timeY    = $shipRowY + 22;
+        $killTime = $data['kill_time'] ?? '';
+        if ($killTime) {
+            $this->txt($img, $killTime, $textX, $timeY, self::FS_NORMAL, self::C_GREY);
+        }
 
-        $this->txt($img, $sysName, $textX, $locY, self::FS_NORMAL, self::C_BLUE);
-        $sysW = $this->tw($sysName, self::FS_NORMAL);
-        $this->txt($img, " {$secText}", $textX + $sysW, $locY, self::FS_NORMAL, $secColor);
+        // 位置: 星系（安等）< 星座 < 星域，全白，安等着色
+        $locY          = $timeY + 20;
+        $sysName       = $data['solar_system_name'] ?? '未知';
+        $secStatus     = (float)($data['system_sec'] ?? 0);
+        $secText       = number_format($secStatus, 1);
+        $constellation = $data['constellation_name'] ?? '';
+        $region        = $data['region_name'] ?? '';
+        $secColor      = $this->secColor($secStatus);
+        $maxLocW       = self::CANVAS_WIDTH - $textX - self::PADDING;
+
+        $curX = $textX;
+        $this->txt($img, $sysName, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
+        $curX += $this->tw($sysName, self::FS_NORMAL);
+        $this->txt($img, '（', $curX, $locY, self::FS_NORMAL, self::C_WHITE);
+        $curX += $this->tw('（', self::FS_NORMAL);
+        $this->txt($img, $secText, $curX, $locY, self::FS_NORMAL, $secColor);
+        $curX += $this->tw($secText, self::FS_NORMAL);
+        $this->txt($img, '）', $curX, $locY, self::FS_NORMAL, self::C_WHITE);
+        $curX += $this->tw('）', self::FS_NORMAL);
+        if ($constellation) {
+            $this->txt($img, ' < ' . $constellation, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
+            $curX += $this->tw(' < ' . $constellation, self::FS_NORMAL);
+        }
         if ($region) {
-            $secW = $this->tw(" {$secText}", self::FS_NORMAL);
-            $this->txt($img, " < {$region}", $textX + $sysW + $secW, $locY, self::FS_NORMAL, self::C_GREY);
+            $this->txt($img, ' < ' . $region, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
         }
     }
 
@@ -316,16 +352,21 @@ class KillmailImageService
         $divX = self::LEFT_COL_WIDTH;
         imageline($img, $divX, $y, $divX, $y + $h - 1, $border);
 
-        $attackerCount = count($data['attackers'] ?? []);
+        $attackers     = $data['attackers'] ?? [];
+        $attackerCount = count($attackers);
         $damageTaken   = (int)($data['victim']['damage_taken'] ?? 0);
+        $supportCount  = count(array_filter($attackers, fn($a) => ($a['damage_done'] ?? 0) == 0));
 
-        // 左侧: 参与者数 (第一行) + 伤害 (第二行)
+        // 左侧: 参与者数 (第一行) + 伤害 (第二行) + 支援 (第三行)
         $this->txt($img, "参与者 ({$attackerCount})", $p, $y + 4, self::FS_NORMAL, self::C_WHITE, true);
         $this->txt($img, '共受到伤害：' . number_format($damageTaken), $p, $y + 24, self::FS_SMALL, self::C_RED);
+        if ($supportCount > 0) {
+            $this->txt($img, "支援：{$supportCount} 人", $p, $y + 44, self::FS_SMALL, self::C_GREEN);
+        }
 
         // 右侧: 装备与明细
         $rightX = self::LEFT_COL_WIDTH + $p;
-        $this->txt($img, '装备与明细', $rightX, $y + 12, self::FS_LARGE, self::C_WHITE, true);
+        $this->txt($img, '装备与明细', $rightX, $y + 24, self::FS_LARGE, self::C_WHITE, true);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -361,7 +402,7 @@ class KillmailImageService
 
         // ── 特殊项: 最后一击 ────────────────────────────────────────
         if ($finalIdx >= 0) {
-            $this->txt($img, '─── 最后一击 ───', $p, $y, self::FS_TINY, self::C_FINAL_BLOW, true);
+            $this->txt($img, '最后一击', $p, $y, self::FS_TINY, self::C_FINAL_BLOW, true);
             $y += 15;
             $this->drawAtkRow($img, $attackers[$finalIdx], $y, $totalDamage, true, false);
             $y += self::ATK_ROW_H;
@@ -369,31 +410,18 @@ class KillmailImageService
 
         // ── 特殊项: 造成伤害最多 (若与最后一击不同) ──────────────
         if ($maxIdx >= 0 && $maxIdx !== $finalIdx) {
-            $this->txt($img, '─── 造成伤害最多 ───', $p, $y, self::FS_TINY, self::C_GOLD, true);
+            $this->txt($img, '造成伤害最多', $p, $y, self::FS_TINY, self::C_GOLD, true);
             $y += 15;
             $this->drawAtkRow($img, $attackers[$maxIdx], $y, $totalDamage, false, true);
             $y += self::ATK_ROW_H;
         }
 
-        // 分隔线
-        if ($finalIdx >= 0 || $maxIdx >= 0) {
-            $div = $this->c($img, self::C_BORDER);
-            imageline($img, $p, $y, self::LEFT_COL_WIDTH - $p, $y, $div);
-            $y += 8;
-        }
-
         // ── 其余参与者 ───────────────────────────────────────────────
-        $count = 0;
         foreach ($attackers as $i => $atk) {
             if ($i === $finalIdx || $i === $maxIdx) continue;
 
             $this->drawAtkRow($img, $atk, $y, $totalDamage, false, false);
             $y += self::ATK_ROW_H;
-
-            // 行分隔线
-            $div = $this->c($img, self::C_DIVIDER);
-            imageline($img, $p, $y - 4, self::LEFT_COL_WIDTH - $p, $y - 4, $div);
-            $count++;
         }
     }
 
@@ -468,14 +496,14 @@ class KillmailImageService
         // 军团名
         $corpNm = $atk['corporation_name'] ?? '';
         if ($corpNm) {
-            $this->txtTrunc($img, $corpNm, $tx, $py + 15, self::FS_SMALL, self::C_GREY, $maxTW);
+            $this->txtTrunc($img, $corpNm, $tx, $py + 15, self::FS_SMALL, self::C_WHITE, $maxTW);
         }
 
         // 联盟名
         $aliNm    = $atk['alliance_name'] ?? '';
         $dmgLineY = $py + 28;
         if ($aliNm) {
-            $this->txtTrunc($img, $aliNm, $tx, $py + 27, self::FS_SMALL, [105, 118, 138], $maxTW);
+            $this->txtTrunc($img, $aliNm, $tx, $py + 27, self::FS_SMALL, self::C_WHITE, $maxTW);
             $dmgLineY = $py + 40;
         }
 
@@ -483,7 +511,7 @@ class KillmailImageService
         $dmg     = (int)($atk['damage_done'] ?? 0);
         $pct     = $totalDamage > 0 ? round($dmg / $totalDamage * 100, 1) : 0;
         $dmgText = number_format($dmg) . " ({$pct}%)";
-        $this->txt($img, $dmgText, $tx, $dmgLineY, self::FS_TINY, self::C_GREY);
+        $this->txt($img, $dmgText, $tx, $dmgLineY, self::FS_TINY, self::C_WHITE);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -550,23 +578,28 @@ class KillmailImageService
                 }
 
                 // 物品名称 (优先本地数据)
-                $nameX     = $baseX + 4 + self::ITEM_ICON + 6;
-                $nameColor = self::C_WHITE; // 物品名称统一白色，状态由背景色区分
-                $itemName  = $this->resolveItemName($typeId, $item['item_name'] ?? '');
-                $nameMaxW  = $colW - self::ITEM_ICON - 16 - 55; // 保留右侧数量空间
-                $this->txtTrunc($img, $itemName, $nameX, $y + 4, self::FS_SMALL, $nameColor, $nameMaxW);
-
-                // 价格 (第二行)
-                if (!empty($item['total_price']) && (float)$item['total_price'] > 0) {
-                    $priceStr = $this->formatIsk((float)$item['total_price']);
-                    $this->txt($img, $priceStr, $nameX, $y + 19, self::FS_TINY, self::C_GREY);
-                }
+                $nameX    = $baseX + 4 + self::ITEM_ICON + 6;
+                $itemName = $this->resolveItemName($typeId, $item['item_name'] ?? '');
 
                 // 数量 (右对齐)
                 $qty     = (int)($item['quantity'] ?? 1);
                 $qtyText = 'x' . number_format($qty);
                 $qtyW    = $this->tw($qtyText, self::FS_SMALL);
-                $this->txt($img, $qtyText, $baseX + $colW - $qtyW - 2, $y + 12, self::FS_SMALL, self::C_GOLD);
+                $qtyX    = $baseX + $colW - $qtyW - 4;
+                $this->txt($img, $qtyText, $qtyX, $y + 12, self::FS_SMALL, self::C_WHITE);
+
+                // 价格 (数量左边，右对齐)
+                $priceRightX = $qtyX - 6;
+                if (!empty($item['total_price']) && (float)$item['total_price'] > 0) {
+                    $priceStr = number_format((float)$item['total_price'], 0) . ' ISK';
+                    $priceW   = $this->tw($priceStr, self::FS_TINY);
+                    $this->txt($img, $priceStr, $priceRightX - $priceW, $y + 14, self::FS_TINY, self::C_WHITE);
+                    $nameMaxW = $priceRightX - $priceW - $nameX - 4;
+                } else {
+                    $nameMaxW = $priceRightX - $nameX - 4;
+                }
+
+                $this->txtTrunc($img, $itemName, $nameX, $y + 12, self::FS_SMALL, self::C_WHITE, $nameMaxW);
 
                 $y += $rowH;
             }
@@ -589,21 +622,28 @@ class KillmailImageService
         $border = $this->c($img, self::C_BORDER);
         imageline($img, 0, $y, self::CANVAS_WIDTH - 1, $y, $border);
 
-        $totalVal = $this->calcTotalValue($data['items_by_slot'] ?? []);
-        $label    = '总价值：';
-        $valText  = number_format($totalVal, 0) . ' 星币';
+        $totalVal   = $this->calcTotalValue($data['items_by_slot'] ?? []);
+        $droppedVal = $this->calcDroppedValue($data['items_by_slot'] ?? []);
 
-        $lw = $this->tw($label, self::FS_LARGE);
-        $vw = $this->tw($valText, self::FS_LARGE);
-        $sx = (int)((self::CANVAS_WIDTH - $lw - $vw) / 2);
+        // 总价值: 右对齐绿色
+        $totalLabel = '总价值：';
+        $totalText  = number_format($totalVal, 0) . ' ISK';
+        $tlw  = $this->tw($totalLabel, self::FS_LARGE, true);
+        $tvw  = $this->tw($totalText,  self::FS_LARGE, true);
+        $trX  = self::CANVAS_WIDTH - $p - $tlw - $tvw;
+        $this->txt($img, $totalLabel, $trX,        $y + 14, self::FS_LARGE, self::C_WHITE, true);
+        $this->txt($img, $totalText,  $trX + $tlw, $y + 14, self::FS_LARGE, self::C_GREEN, true);
 
-        $this->txt($img, $label,   $sx,       $y + 14, self::FS_LARGE, self::C_GREY, true);
-        $this->txt($img, $valText, $sx + $lw, $y + 14, self::FS_LARGE, self::C_GOLD, true);
-
-        // 右下角: Kill ID
-        $idText = 'Kill #' . ($data['kill_id'] ?? '');
-        $idW    = $this->tw($idText, self::FS_TINY);
-        $this->txt($img, $idText, self::CANVAS_WIDTH - $p - $idW, $y + 30, self::FS_TINY, [55, 68, 92]);
+        // 总掉落: 右对齐淡蓝色
+        if ($droppedVal > 0) {
+            $dropLabel = '总掉落：';
+            $dropText  = number_format($droppedVal, 0) . ' ISK';
+            $dlw  = $this->tw($dropLabel, self::FS_NORMAL);
+            $dvw  = $this->tw($dropText,  self::FS_NORMAL);
+            $drX  = self::CANVAS_WIDTH - $p - $dlw - $dvw;
+            $this->txt($img, $dropLabel, $drX,        $y + 38, self::FS_NORMAL, self::C_WHITE);
+            $this->txt($img, $dropText,  $drX + $dlw, $y + 38, self::FS_NORMAL, self::C_LIGHT_BLUE);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -628,9 +668,8 @@ class KillmailImageService
 
         $featCount = ($finalIdx >= 0 ? 1 : 0) + ($maxIdx >= 0 && $maxIdx !== $finalIdx ? 1 : 0);
         $regCount  = $n - $featCount;
-        $hasDivider = $featCount > 0 ? 12 : 0;
 
-        return 8 + $featCount * (15 + self::ATK_ROW_H) + $hasDivider + $regCount * self::ATK_ROW_H;
+        return 8 + $featCount * (15 + self::ATK_ROW_H) + $regCount * self::ATK_ROW_H;
     }
 
     protected function calcItemH(array $itemsBySlot): int
@@ -860,6 +899,60 @@ class KillmailImageService
         foreach ($itemsBySlot as $items) {
             foreach ($items as $item) {
                 $t += (float)($item['total_price'] ?? 0);
+            }
+        }
+        return $t;
+    }
+
+    /**
+     * 获取舰船在吉他区域最低卖单价格 (国服 Serenity)
+     * 有缓存；找不到订单返回 null
+     */
+    protected function getHullLowestSellPrice(int $typeId): ?float
+    {
+        if ($typeId <= 0) return null;
+        $cacheKey  = "km_hull_price_{$typeId}";
+        $cachePath = $this->cachePath . "/{$cacheKey}.json";
+
+        // 24h 本地缓存
+        if (file_exists($cachePath) && (time() - filemtime($cachePath)) < 86400) {
+            $cached = json_decode(file_get_contents($cachePath), true);
+            return isset($cached['price']) ? (float)$cached['price'] : null;
+        }
+
+        try {
+            $url  = 'https://esi.evetech.net/latest/markets/10000002/orders/';
+            $resp = Http::timeout(6)->get($url, [
+                'datasource' => 'serenity',
+                'order_type' => 'sell',
+                'type_id'    => $typeId,
+            ]);
+            if ($resp->successful()) {
+                $orders = $resp->json();
+                $sellPrices = array_filter(array_column($orders, 'price'), fn($p) => $p > 0);
+                if (!empty($sellPrices)) {
+                    $minPrice = min($sellPrices);
+                    file_put_contents($cachePath, json_encode(['price' => $minPrice]));
+                    return (float)$minPrice;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("KM hull price fetch fail: {$typeId}", ['err' => $e->getMessage()]);
+        }
+
+        file_put_contents($cachePath, json_encode(['price' => null]));
+        return null;
+    }
+
+    /** 计算掉落物品总价值 */
+    protected function calcDroppedValue(array $itemsBySlot): float
+    {
+        $t = 0.0;
+        foreach ($itemsBySlot as $items) {
+            foreach ($items as $item) {
+                if (($item['status'] ?? '') === 'dropped') {
+                    $t += (float)($item['total_price'] ?? 0);
+                }
             }
         }
         return $t;
