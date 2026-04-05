@@ -159,31 +159,7 @@
                         </div>
 
                         <!-- 生成状态 -->
-                        <div id="imageGenLoading" class="hidden mt-3 text-center">
-                            <div class="spinner mx-auto mb-2"></div>
-                            <p class="text-purple-300 text-xs">正在生成图片，首次生成需下载头像资源...</p>
-                        </div>
-
-                        <!-- 图片预览区 -->
-                        <div id="imagePreviewArea" class="hidden mt-3">
-                            <div class="rounded-lg overflow-hidden border border-purple-500/30 bg-black/20">
-                                <img id="kmImagePreview" src="" alt="KM图片" class="w-full block">
-                            </div>
-                            <div class="flex gap-2 mt-2">
-                                <a id="kmImageDownload" href="#" download class="flex-1 text-center py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/30 rounded-lg text-purple-200 text-xs font-bold transition-all">
-                                    ⬇️ 下载图片
-                                </a>
-                                <button onclick="openKmImageInTab()" class="flex-1 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/70 text-xs font-bold transition-all">
-                                    🔗 新窗口打开
-                                </button>
-                            </div>
-                            <p id="kmImageKillId" class="text-xs text-white/30 mt-1 text-center"></p>
-                        </div>
-
-                        <!-- 错误提示 -->
-                        <div id="imageGenError" class="hidden mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
-                            <p id="imageGenErrorText" class="text-red-400 text-xs"></p>
-                        </div>
+                        <div id="imageGenStatus" class="hidden mt-2 text-xs text-purple-300/70"></div>
                     </div>
                 </div>
             </div>
@@ -227,8 +203,31 @@
             </div>
         </div>
 
+        <!-- KM 图片模态框 -->
+        <div id="imageModal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/85" onclick="closeImageModal()"></div>
+            <div class="relative flex flex-col items-center max-w-5xl w-full">
+                <div id="imageModalLoading" class="hidden text-center py-16">
+                    <div class="spinner mx-auto mb-3"></div>
+                    <p class="text-purple-300 text-sm">正在生成图片，首次生成需下载头像资源...</p>
+                </div>
+                <div id="imageModalContent" class="hidden w-full">
+                    <img id="imageModalImg" src="" alt="KM图片" class="w-full block rounded-lg shadow-2xl">
+                    <div class="flex gap-3 mt-3 justify-center">
+                        <a id="imageModalDownload" href="#" download class="px-5 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm text-white font-bold transition-all">⬇️ 下载图片</a>
+                        <button onclick="openKmImageInTab()" class="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 transition-all">🔗 新窗口打开</button>
+                        <button onclick="closeImageModal()" class="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white/80 transition-all">关闭</button>
+                    </div>
+                </div>
+                <div id="imageModalError" class="hidden bg-red-500/20 border border-red-500/30 rounded-xl p-6 text-center">
+                    <p id="imageModalErrorText" class="text-red-300 text-sm mb-4"></p>
+                    <button onclick="closeImageModal()" class="px-4 py-2 bg-white/10 rounded-lg text-sm text-white/80">关闭</button>
+                </div>
+            </div>
+        </div>
+
         <!-- KM 详情模态框 -->
-        <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-start justify-center overflow-y-auto">
+        <div id="detailModal" class="fixed inset-0 z-[9999] hidden flex items-start justify-center overflow-y-auto">
             <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetail()"></div>
             <div class="relative mx-auto my-4 md:my-8 w-full max-w-5xl max-h-[90vh] bg-slate-900/95 backdrop-blur rounded-xl border border-white/20 overflow-hidden flex flex-col">
                 <!-- 模态框头部 -->
@@ -702,7 +701,10 @@ function hideLoading() {
 
 // ESC 关闭模态框
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeDetail();
+    if (e.key === 'Escape') {
+        closeDetail();
+        closeImageModal();
+    }
 });
 
 // ========== KM 图片生成 [Claude Code] 2026-04-04 ==========
@@ -768,42 +770,51 @@ function doGenerateImage() {
 }
 
 function showImageLoading() {
-    document.getElementById('imageGenLoading').classList.remove('hidden');
-    document.getElementById('imagePreviewArea').classList.add('hidden');
-    document.getElementById('imageGenError').classList.add('hidden');
     document.getElementById('generateImageBtn').disabled = true;
     document.getElementById('generateImageBtn').classList.add('opacity-60');
+    var status = document.getElementById('imageGenStatus');
+    status.textContent = '生成中...';
+    status.classList.remove('hidden');
+    // 打开图片 modal，显示 loading
+    var modal = document.getElementById('imageModal');
+    modal.classList.remove('hidden');
+    document.getElementById('imageModalLoading').classList.remove('hidden');
+    document.getElementById('imageModalContent').classList.add('hidden');
+    document.getElementById('imageModalError').classList.add('hidden');
+    document.body.style.overflow = 'hidden';
 }
 
 function hideImageLoading() {
-    document.getElementById('imageGenLoading').classList.add('hidden');
     document.getElementById('generateImageBtn').disabled = false;
     document.getElementById('generateImageBtn').classList.remove('opacity-60');
+    document.getElementById('imageGenStatus').classList.add('hidden');
+    document.getElementById('imageModalLoading').classList.add('hidden');
 }
 
 function showImageResult(imgUrl, killId) {
-    var preview = document.getElementById('kmImagePreview');
-    var downloadLink = document.getElementById('kmImageDownload');
-    var killIdText = document.getElementById('kmImageKillId');
-
-    preview.src = imgUrl;
-    downloadLink.href = imgUrl;
-    downloadLink.download = 'km_' + killId + '.png';
-    killIdText.textContent = 'Kill ID: ' + killId;
-
-    document.getElementById('imagePreviewArea').classList.remove('hidden');
+    hideImageLoading();
+    var img = document.getElementById('imageModalImg');
+    var dl = document.getElementById('imageModalDownload');
+    img.src = imgUrl;
+    dl.href = imgUrl;
+    dl.download = 'km_' + killId + '.png';
+    document.getElementById('imageModalContent').classList.remove('hidden');
 }
 
-function hideImageResult() {
-    document.getElementById('imagePreviewArea').classList.add('hidden');
-    document.getElementById('imageGenError').classList.add('hidden');
+function hideImageResult() {}
+
+function closeImageModal() {
+    document.getElementById('imageModal').classList.add('hidden');
+    document.getElementById('imageModalLoading').classList.add('hidden');
+    document.getElementById('imageModalContent').classList.add('hidden');
+    document.getElementById('imageModalError').classList.add('hidden');
+    document.body.style.overflow = '';
 }
 
 function showImageError(msg) {
     hideImageLoading();
-    document.getElementById('imageGenErrorText').textContent = msg;
-    document.getElementById('imageGenError').classList.remove('hidden');
-    document.getElementById('imagePreviewArea').classList.add('hidden');
+    document.getElementById('imageModalErrorText').textContent = msg;
+    document.getElementById('imageModalError').classList.remove('hidden');
 }
 
 function openKmImageInTab() {
@@ -811,5 +822,15 @@ function openKmImageInTab() {
         window.open(currentImageUrl, '_blank');
     }
 }
+
+// 把两个 modal 挂到 body，彻底绕开布局堆叠上下文干扰
+document.addEventListener('DOMContentLoaded', function() {
+    ['detailModal', 'imageModal'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && el.parentNode !== document.body) {
+            document.body.appendChild(el);
+        }
+    });
+});
 </script>
 @endpush
