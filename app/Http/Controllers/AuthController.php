@@ -100,9 +100,9 @@ class AuthController extends Controller
         
         Log::info('✅ 用户数据已保存');
         
-        // 登录用户
+        // 登录用户（启用"记住我"，保持长期登录状态）
         Log::info('正在登录用户...');
-        Auth::login($user);
+        Auth::login($user, true);
         Log::info('✅ 用户已登录，Auth ID: ' . Auth::id());
         
         // 重定向到仪表盘
