@@ -66,7 +66,7 @@ class KillmailImageService
     const ATK_PORTRAIT     = 38;    // 攻击者头像
     const ATK_ICON         = 22;    // 攻击者舰船/武器图标
     const ITEM_ICON        = 32;    // 装备图标
-    const ATK_ROW_H        = 54;    // 攻击者行高
+    const ATK_ROW_H        = 62;    // 攻击者行高
 
     // ── 颜色 (纯黑背景主题) ───────────────────────────────────────────────
     const C_BG          = [0,   0,   0  ];   // 纯黑背景
@@ -83,7 +83,7 @@ class KillmailImageService
     const C_GREEN       = [ 55, 190,  90];   // 坠落绿
     const C_FINAL_BLOW  = [200, 160,  50];   // 最后一击金
     const C_LIGHT_BLUE  = [140, 200, 255];   // 总掉落淡蓝
-    const C_DROPPED_BG  = [  8,  35,  12];   // 坠落物品行背景
+    const C_DROPPED_BG  = [  5,  55,  18];   // 坠落物品行背景
     const C_DESTROYED_BG= [ 25,  10,  10];   // 已销毁物品行背景
 
     // ── 字体大小 ─────────────────────────────────────────────────────────
@@ -304,31 +304,26 @@ class KillmailImageService
         }
 
         // 位置: 星系（安等）< 星座 < 星域，全白，安等着色
-        $locY          = $timeY + 20;
+        // 时间和位置之间留一行间距
+        $locY          = $timeY + 30;
         $sysName       = $data['solar_system_name'] ?? '未知';
         $secStatus     = (float)($data['system_sec'] ?? 0);
         $secText       = number_format($secStatus, 1);
         $constellation = $data['constellation_name'] ?? '';
         $region        = $data['region_name'] ?? '';
         $secColor      = $this->secColor($secStatus);
-        $maxLocW       = self::CANVAS_WIDTH - $textX - self::PADDING;
 
-        $curX = $textX;
-        $this->txt($img, $sysName, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
-        $curX += $this->tw($sysName, self::FS_NORMAL);
-        $this->txt($img, '（', $curX, $locY, self::FS_NORMAL, self::C_WHITE);
-        $curX += $this->tw('（', self::FS_NORMAL);
-        $this->txt($img, $secText, $curX, $locY, self::FS_NORMAL, $secColor);
-        $curX += $this->tw($secText, self::FS_NORMAL);
-        $this->txt($img, '）', $curX, $locY, self::FS_NORMAL, self::C_WHITE);
-        $curX += $this->tw('）', self::FS_NORMAL);
-        if ($constellation) {
-            $this->txt($img, ' < ' . $constellation, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
-            $curX += $this->tw(' < ' . $constellation, self::FS_NORMAL);
-        }
-        if ($region) {
-            $this->txt($img, ' < ' . $region, $curX, $locY, self::FS_NORMAL, self::C_WHITE);
-        }
+        // 合并测量前缀宽度（比逐字符测量更准确，避免括号重叠）
+        $prefix = $sysName . '（';
+        $this->txt($img, $prefix, $textX, $locY, self::FS_NORMAL, self::C_WHITE);
+        $prefixW = $this->tw($prefix, self::FS_NORMAL);
+        $this->txt($img, $secText, $textX + $prefixW, $locY, self::FS_NORMAL, $secColor);
+        $secW = $this->tw($secText, self::FS_NORMAL);
+
+        $suffix = '）';
+        if ($constellation) $suffix .= ' < ' . $constellation;
+        if ($region)        $suffix .= ' < ' . $region;
+        $this->txt($img, $suffix, $textX + $prefixW + $secW, $locY, self::FS_NORMAL, self::C_WHITE);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -342,15 +337,8 @@ class KillmailImageService
         $p  = self::PADDING;
         $h  = self::STATS_BAR_HEIGHT;
 
-        $bg = $this->c($img, self::C_PANEL_HDR);
+        $bg = $this->c($img, self::C_BG);
         imagefilledrectangle($img, 0, $y, self::CANVAS_WIDTH - 1, $y + $h - 1, $bg);
-
-        $border = $this->c($img, self::C_BORDER);
-        imageline($img, 0, $y + $h - 1, self::CANVAS_WIDTH - 1, $y + $h - 1, $border);
-
-        // 竖线分隔列
-        $divX = self::LEFT_COL_WIDTH;
-        imageline($img, $divX, $y, $divX, $y + $h - 1, $border);
 
         $attackerCount = count($data['attackers'] ?? []);
         $damageTaken   = (int)($data['victim']['damage_taken'] ?? 0);
@@ -362,7 +350,9 @@ class KillmailImageService
         $this->txt($img, "参与者 ({$attackerCount})", $p, $y + 4, self::FS_NORMAL, self::C_WHITE, true);
         $this->txt($img, '共受到伤害：' . number_format($damageTaken), $p, $y + 24, self::FS_SMALL, self::C_RED);
         if ($supportCount > 0) {
-            $repairText = $repairDone > 0 ? "支援：{$supportCount} 人（修复 " . number_format($repairDone) . " HP）" : "支援：{$supportCount} 人";
+            $repairText = $repairDone > 0
+                ? "支援：{$supportCount}（" . number_format($repairDone) . '）'
+                : "支援：{$supportCount}";
             $this->txt($img, $repairText, $p, $y + 44, self::FS_SMALL, self::C_GREEN);
         }
 
@@ -404,18 +394,18 @@ class KillmailImageService
 
         // ── 特殊项: 最后一击 ────────────────────────────────────────
         if ($finalIdx >= 0) {
-            $this->txt($img, '最后一击', $p, $y, self::FS_TINY, self::C_FINAL_BLOW, true);
-            $y += 15;
+            $this->txt($img, '最后一击', $p, $y, self::FS_TINY, self::C_WHITE, true);
+            $y += 18;
             $this->drawAtkRow($img, $attackers[$finalIdx], $y, $totalDamage, true, false);
-            $y += self::ATK_ROW_H;
+            $y += self::ATK_ROW_H + 6;
         }
 
         // ── 特殊项: 造成伤害最多 (若与最后一击不同) ──────────────
         if ($maxIdx >= 0 && $maxIdx !== $finalIdx) {
-            $this->txt($img, '造成伤害最多', $p, $y, self::FS_TINY, self::C_GOLD, true);
-            $y += 15;
+            $this->txt($img, '造成伤害最多', $p, $y, self::FS_TINY, self::C_WHITE, true);
+            $y += 18;
             $this->drawAtkRow($img, $attackers[$maxIdx], $y, $totalDamage, false, true);
-            $y += self::ATK_ROW_H;
+            $y += self::ATK_ROW_H + 6;
         }
 
         // ── 其余参与者 ───────────────────────────────────────────────
@@ -423,7 +413,7 @@ class KillmailImageService
             if ($i === $finalIdx || $i === $maxIdx) continue;
 
             $this->drawAtkRow($img, $atk, $y, $totalDamage, false, false);
-            $y += self::ATK_ROW_H;
+            $y += self::ATK_ROW_H + 6;
         }
     }
 
@@ -490,23 +480,22 @@ class KillmailImageService
         $tx    = $iconX + $is + 6;
         $maxTW = self::LEFT_COL_WIDTH - $tx - 4;
 
-        // 角色名
-        $charName  = $atk['character_name'] ?? ($atk['corporation_name'] ?? '未知');
-        $nameColor = $isFinal ? self::C_FINAL_BLOW : ($isTopDmg ? self::C_GOLD : self::C_WHITE);
-        $this->txtTrunc($img, $charName, $tx, $py + 1, self::FS_NORMAL, $nameColor, $maxTW);
+        // 角色名 (统一白色)
+        $charName = $atk['character_name'] ?? ($atk['corporation_name'] ?? '未知');
+        $this->txtTrunc($img, $charName, $tx, $py + 2, self::FS_NORMAL, self::C_WHITE, $maxTW);
 
         // 军团名
         $corpNm = $atk['corporation_name'] ?? '';
         if ($corpNm) {
-            $this->txtTrunc($img, $corpNm, $tx, $py + 15, self::FS_SMALL, self::C_WHITE, $maxTW);
+            $this->txtTrunc($img, $corpNm, $tx, $py + 18, self::FS_SMALL, self::C_WHITE, $maxTW);
         }
 
         // 联盟名
         $aliNm    = $atk['alliance_name'] ?? '';
-        $dmgLineY = $py + 28;
+        $dmgLineY = $py + 32;
         if ($aliNm) {
-            $this->txtTrunc($img, $aliNm, $tx, $py + 27, self::FS_SMALL, self::C_WHITE, $maxTW);
-            $dmgLineY = $py + 40;
+            $this->txtTrunc($img, $aliNm, $tx, $py + 32, self::FS_SMALL, self::C_WHITE, $maxTW);
+            $dmgLineY = $py + 46;
         }
 
         // 伤害
@@ -545,15 +534,11 @@ class KillmailImageService
         foreach ($itemsBySlot as $slotName => $items) {
             if (empty($items)) continue;
 
-            // 槽位标题栏
+            // 槽位标题栏（无左侧颜色条）
             $headerBg = $this->c($img, self::C_SLOT_BAR);
             imagefilledrectangle($img, $baseX, $y, $baseX + $colW, $y + 21, $headerBg);
 
-            $slotRgb = $slotColors[$slotName] ?? [130, 130, 140];
-            $slotInd = $this->c($img, $slotRgb);
-            imagefilledrectangle($img, $baseX, $y, $baseX + 3, $y + 21, $slotInd);
-
-            $this->txt($img, $slotName, $baseX + 10, $y + 2, self::FS_NORMAL, self::C_WHITE, true);
+            $this->txt($img, $slotName, $baseX + 8, $y + 2, self::FS_NORMAL, self::C_WHITE, true);
             $y += 25;
 
             // 物品列表
@@ -562,12 +547,10 @@ class KillmailImageService
                 $typeId = (int)($item['item_type_id'] ?? 0);
                 $rowH   = self::ITEM_ICON + 6;
 
-                // 行背景色: 掉落=深绿背景+绿色左侧条，销毁=无特殊背景
+                // 行背景色: 掉落=深绿背景，销毁=无特殊背景（均无左侧颜色条）
                 if ($status === 'dropped') {
                     $rowBg = $this->c($img, self::C_DROPPED_BG);
                     imagefilledrectangle($img, $baseX, $y, $baseX + $colW, $y + $rowH - 1, $rowBg);
-                    $strip = $this->c($img, self::C_GREEN);
-                    imagefilledrectangle($img, $baseX, $y, $baseX + 2, $y + $rowH - 1, $strip);
                 }
 
                 // 物品图标
@@ -671,7 +654,8 @@ class KillmailImageService
         $featCount = ($finalIdx >= 0 ? 1 : 0) + ($maxIdx >= 0 && $maxIdx !== $finalIdx ? 1 : 0);
         $regCount  = $n - $featCount;
 
-        return 8 + $featCount * (15 + self::ATK_ROW_H) + $regCount * self::ATK_ROW_H;
+        // 特殊行: 标签(18) + 行高 + 间距(6)；普通行: 行高 + 间距(6)
+        return 8 + $featCount * (18 + self::ATK_ROW_H + 6) + $regCount * (self::ATK_ROW_H + 6);
     }
 
     protected function calcItemH(array $itemsBySlot): int
