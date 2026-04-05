@@ -609,6 +609,8 @@ class KillmailImageService
 
         $totalVal   = $this->calcTotalValue($data['items_by_slot'] ?? []);
         $droppedVal = $this->calcDroppedValue($data['items_by_slot'] ?? []);
+        $hullPrice  = $this->getHullLowestSellPrice((int)($data['victim']['ship_type_id'] ?? 0));
+        if ($hullPrice !== null) $totalVal += $hullPrice;
 
         // 总价值: 右对齐绿色
         $totalLabel = '总价值：';
