@@ -907,14 +907,16 @@ class KillmailImageService
         }
 
         try {
-            $url  = 'https://esi.evetech.net/latest/markets/10000002/orders/';
-            $resp = Http::timeout(6)->get($url, [
-                'datasource' => 'serenity',
+            $esiBase = rtrim(config('esi.base_url', 'https://ali-esi.evepc.163.com/latest/'), '/') . '/';
+            $datasrc = config('esi.datasource', 'serenity');
+            $url     = $esiBase . 'markets/10000002/orders/';
+            $resp    = Http::timeout(8)->get($url, [
+                'datasource' => $datasrc,
                 'order_type' => 'sell',
                 'type_id'    => $typeId,
             ]);
             if ($resp->successful()) {
-                $orders = $resp->json();
+                $orders     = $resp->json();
                 $sellPrices = array_filter(array_column($orders, 'price'), fn($p) => $p > 0);
                 if (!empty($sellPrices)) {
                     $minPrice = min($sellPrices);
@@ -924,8 +926,10 @@ class KillmailImageService
             }
         } catch (\Throwable $e) {
             Log::warning("KM hull price fetch fail: {$typeId}", ['err' => $e->getMessage()]);
+            return null;  // 网络异常不写缓存，下次可重试
         }
 
+        // 明确没有订单时才缓存 null，避免无效重试
         file_put_contents($cachePath, json_encode(['price' => null]));
         return null;
     }
