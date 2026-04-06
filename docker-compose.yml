@@ -7,6 +7,8 @@ services:
         container_name: eve-esi-app
         restart: unless-stopped
         working_dir: /var/www/html
+        environment:
+            - PHP_MEMORY_LIMIT=512M
         volumes:
             - ./:/var/www/html
             - ./storage:/var/www/html/storage

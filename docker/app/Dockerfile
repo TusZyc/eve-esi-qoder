@@ -15,13 +15,15 @@ RUN apt-get update && apt-get install -y \
     unzip \
     sqlite3 \
     libsqlite3-dev \
-    && docker-php-ext-configure sqlite3 \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip pdo_sqlite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 复制自定义 PHP 配置
+COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
 # 创建系统用户
 RUN useradd -G www-data,root -u 1000 -d /home/laravel laravel

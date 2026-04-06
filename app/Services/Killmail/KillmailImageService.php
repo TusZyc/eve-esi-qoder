@@ -69,15 +69,17 @@ class KillmailImageService
             $victim      = $killData['victim']        ?? [];
 
             // [修复] 限制装备项数量，避免图片过大导致内存溢出
-            $itemsBySlot = $this->limitItems($itemsBySlot, 100);
+            // 500项应该足够覆盖绝大多数KM（之前100项太少导致截断）
+            $itemsBySlot = $this->limitItems($itemsBySlot, 500);
 
             // 计算动态高度
             $leftH    = $this->renderer->calcAttackerH($attackers);
             $rightH   = $this->renderer->calcItemH($itemsBySlot);
             $contentH = max($leftH, $rightH) + KillmailImageRenderer::PADDING * 2;
 
-            // [修复] 限制最大高度，避免创建超大画布
-            $maxContentH = 2000; // 最大内容高度
+            // [修复] 增加最大高度限制，确保能容纳更多装备
+            // 5000px 约等于 250 行装备，应该足够
+            $maxContentH = 5000;
             if ($contentH > $maxContentH) {
                 $contentH = $maxContentH;
                 Log::debug("KM image: 内容高度被限制为 {$maxContentH}px");

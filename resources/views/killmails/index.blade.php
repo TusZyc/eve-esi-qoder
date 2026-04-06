@@ -82,6 +82,7 @@
                             <div id="shipDropdown" class="ac-dropdown hidden"></div>
                         </div>
                         <input type="hidden" id="shipId" value="">
+                        <input type="hidden" id="shipEntityType" value="">
                     </div>
 
                     <!-- 位置 -->
@@ -255,15 +256,17 @@ var PAGE_SIZE = 10;
 
 // ========== 自动补全 ==========
 
-function setupAutocomplete(inputId, dropdownId, hiddenId, typeGetter) {
+function setupAutocomplete(inputId, dropdownId, hiddenId, typeGetter, entityTypeSetter) {
     var input = document.getElementById(inputId);
     var dropdown = document.getElementById(dropdownId);
     var hidden = document.getElementById(hiddenId);
+    var entityTypeHidden = entityTypeSetter ? document.getElementById(entityTypeSetter) : null;
     var activeIdx = -1;
 
     input.addEventListener('input', function() {
         var q = input.value.trim();
         hidden.value = '';
+        if (entityTypeHidden) entityTypeHidden.value = '';
         selectedEntities[hiddenId.replace('Id', '')] = null;
 
         if (q.length < 2) { dropdown.classList.add('hidden'); return; }
@@ -280,7 +283,7 @@ function setupAutocomplete(inputId, dropdownId, hiddenId, typeGetter) {
                     }
                     activeIdx = -1;
                     dropdown.innerHTML = data.data.map(function(item, i) {
-                        return '<div class="ac-item" data-idx="' + i + '" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>';
+                        return '<div class="ac-item" data-idx="' + i + '" data-id="' + item.id + '" data-name="' + escapeHtml(item.name) + '" data-type="' + (item.type || type) + '">' + escapeHtml(item.name) + '</div>';
                     }).join('');
                     dropdown.classList.remove('hidden');
 
@@ -288,6 +291,7 @@ function setupAutocomplete(inputId, dropdownId, hiddenId, typeGetter) {
                         el.addEventListener('click', function() {
                             input.value = el.dataset.name;
                             hidden.value = el.dataset.id;
+                            if (entityTypeHidden) entityTypeHidden.value = el.dataset.type;
                             dropdown.classList.add('hidden');
                         });
                     });
@@ -312,6 +316,7 @@ function setupAutocomplete(inputId, dropdownId, hiddenId, typeGetter) {
             if (activeIdx >= 0 && items[activeIdx]) {
                 input.value = items[activeIdx].dataset.name;
                 hidden.value = items[activeIdx].dataset.id;
+                if (entityTypeHidden) entityTypeHidden.value = items[activeIdx].dataset.type;
                 dropdown.classList.add('hidden');
             }
         }
@@ -335,7 +340,7 @@ document.getElementById('entityTypeSelect').addEventListener('change', function(
 setupAutocomplete('entityInput', 'entityDropdown', 'entityId', function() {
     return document.getElementById('entityTypeSelect').value;
 });
-setupAutocomplete('shipInput', 'shipDropdown', 'shipId', 'ship');
+setupAutocomplete('shipInput', 'shipDropdown', 'shipId', 'ship', 'shipEntityType');
 setupAutocomplete('systemInput', 'systemDropdown', 'systemId', 'system');
 
 // ========== 搜索 ==========
@@ -347,6 +352,7 @@ function doAdvancedSearch() {
     var entityId = document.getElementById('entityId').value;
     var entityInput = document.getElementById('entityInput').value.trim();
     var shipId = document.getElementById('shipId').value;
+    var shipEntityType = document.getElementById('shipEntityType').value;
     var systemId = document.getElementById('systemId').value;
     var systemInput = document.getElementById('systemInput').value.trim();
     var timeStart = document.getElementById('timeStart').value;
@@ -360,7 +366,8 @@ function doAdvancedSearch() {
     // 如果没有选择主实体，但有舰船或星系，用那个作为主搜索
     if (!entityId) {
         if (shipId) {
-            apiEntityType = 'ship';
+            // 使用 autocomplete 返回的实际类型（ship 或 ship_group）
+            apiEntityType = shipEntityType || 'ship';
             entityId = shipId;
         } else if (systemId) {
             apiEntityType = 'system';
@@ -378,7 +385,14 @@ function doAdvancedSearch() {
         params.set('entity_type', apiEntityType);
         params.set('entity_id', entityId);
     }
-    if (shipId && apiEntityType !== 'ship') params.set('ship_id', shipId);
+    // 舰船作为过滤条件（不是主搜索时）
+    if (shipId && apiEntityType !== 'ship' && apiEntityType !== 'ship_group') {
+        params.set('ship_id', shipId);
+        // 如果是舰船分组，传递额外参数让后端知道
+        if (shipEntityType === 'ship_group') {
+            params.set('ship_entity_type', 'ship_group');
+        }
+    }
     if (systemId && apiEntityType !== 'system') params.set('system_id', systemId);
     if (timeStart) params.set('time_start', timeStart);
     if (timeEnd) params.set('time_end', timeEnd);

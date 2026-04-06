@@ -130,15 +130,27 @@ class KillmailService
         $entityId = $params['entity_id'] ?? null;
         $involvement = $params['involvement'] ?? null;
         $shipId = $params['ship_id'] ?? null;
+        $shipEntityType = $params['ship_entity_type'] ?? null; // 舰船类型: ship 或 ship_group
         $systemId = $params['system_id'] ?? null;
         $timeStart = $params['time_start'] ?? null;
         $timeEnd = $params['time_end'] ?? null;
+
+        // 处理舰船分组过滤：如果是 ship_group，先解析为具体舰船类型ID列表
+        $shipTypeIds = null;
+        if ($shipId) {
+            if ($shipEntityType === 'ship_group') {
+                $shipTypeIds = $this->searchService->getShipGroupTypeIds((int) $shipId);
+                Log::debug("advancedSearch: 舰船分组 {$shipId} 解析为 " . count($shipTypeIds) . " 种舰船类型");
+            } else {
+                $shipTypeIds = [(int) $shipId];
+            }
+        }
 
         if (!$entityType || !$entityId) {
             // 仅时间搜索: 直接用 Search API 的日期范围
             if ($timeStart || $timeEnd) {
                 $searchParams = [];
-                if ($shipId) $searchParams['types'] = [(int) $shipId];
+                if ($shipTypeIds) $searchParams['types'] = $shipTypeIds;
                 if ($systemId) $searchParams['systems'] = [(int) $systemId];
                 if ($timeStart) $searchParams['start_date'] = $timeStart;
                 if ($timeEnd) $searchParams['end_date'] = $timeEnd;
@@ -250,8 +262,8 @@ class KillmailService
             $searchParams = [
                 'systems' => [(int) $entityId],
             ];
-            if ($shipId) {
-                $searchParams['types'] = [(int) $shipId];
+            if ($shipTypeIds) {
+                $searchParams['types'] = $shipTypeIds;
             }
             if ($timeStart) $searchParams['start_date'] = $timeStart;
             if ($timeEnd) $searchParams['end_date'] = $timeEnd;
@@ -283,6 +295,10 @@ class KillmailService
             $chartype = $chartypeMap[$involvement];
         }
 
+        // [重要] Beta KB API 不支持 entity + 多个 types 的组合搜索
+        // 如果是舰船分组过滤，需要先获取角色数据，再本地过滤
+        $isShipGroupFilter = $shipEntityType === 'ship_group' && count($shipTypeIds ?? []) > 1;
+
         $searchParams = [
             'entity_type' => $entityType,
             'entity_id' => (int) $entityId,
@@ -290,8 +306,9 @@ class KillmailService
         if (!empty($chartype)) {
             $searchParams['chartype'] = $chartype;
         }
-        if ($shipId) {
-            $searchParams['types'] = [(int) $shipId];
+        // 只有单个舰船类型时才传递给 API，多个类型需要本地过滤
+        if ($shipTypeIds && !$isShipGroupFilter) {
+            $searchParams['types'] = $shipTypeIds;
         }
         if ($systemId) {
             $searchParams['systems'] = [(int) $systemId];
@@ -305,6 +322,18 @@ class KillmailService
 
         if (!empty($kills)) {
             $kills = array_slice($kills, 0, 50);
+            
+            // [舰船分组过滤] 本地过滤舰船类型
+            if ($isShipGroupFilter && !empty($shipTypeIds)) {
+                $beforeFilter = count($kills);
+                $kills = array_filter($kills, function($kill) use ($shipTypeIds) {
+                    $shipTypeId = $kill['ship_type_id'] ?? $kill['shipTypeId'] ?? null;
+                    return $shipTypeId && in_array((int) $shipTypeId, $shipTypeIds);
+                });
+                $kills = array_values($kills); // 重建索引
+                Log::debug("advancedSearch: 舰船分组本地过滤 {$beforeFilter} -> " . count($kills) . " 条");
+            }
+            
             [$enriched, $detailsMap] = $this->enrichKillList($kills);
             Log::debug("advancedSearch: 富化后 " . count($enriched) . " 条");
             return $enriched;

@@ -100,7 +100,7 @@ class KillmailController extends Controller
         }
 
         if ($hasEntity) {
-            $validTypes = ['pilot', 'corporation', 'alliance', 'ship', 'system'];
+            $validTypes = ['pilot', 'corporation', 'alliance', 'ship', 'ship_group', 'system'];
             if (!in_array($entityType, $validTypes)) {
                 return response()->json([
                     'success' => false,
