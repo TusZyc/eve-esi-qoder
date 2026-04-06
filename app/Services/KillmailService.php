@@ -295,10 +295,8 @@ class KillmailService
             $chartype = $chartypeMap[$involvement];
         }
 
-        // [重要] Beta KB API 不支持 entity + 多个 types 的组合搜索
-        // 如果是舰船分组过滤，需要先获取角色数据，再本地过滤
-        $isShipGroupFilter = $shipEntityType === 'ship_group' && count($shipTypeIds ?? []) > 1;
-
+        // [优化] Beta KB API 支持 entity + types 的组合搜索
+        // 直接将舰船类型列表传递给API进行服务端过滤，提高查询效率和准确性
         $searchParams = [
             'entity_type' => $entityType,
             'entity_id' => (int) $entityId,
@@ -306,8 +304,8 @@ class KillmailService
         if (!empty($chartype)) {
             $searchParams['chartype'] = $chartype;
         }
-        // 只有单个舰船类型时才传递给 API，多个类型需要本地过滤
-        if ($shipTypeIds && !$isShipGroupFilter) {
+        // 直接传递舰船类型列表给API（支持单个或多个）
+        if ($shipTypeIds) {
             $searchParams['types'] = $shipTypeIds;
         }
         if ($systemId) {
@@ -321,19 +319,7 @@ class KillmailService
         Log::debug("advancedSearch: Search API 返回 " . count($kills) . " 条");
 
         if (!empty($kills)) {
-            // [舰船分组过滤] 先本地过滤舰船类型，再截断
-            // 重要：必须在截断之前过滤，否则可能丢失匹配数据
-            if ($isShipGroupFilter && !empty($shipTypeIds)) {
-                $beforeFilter = count($kills);
-                $kills = array_filter($kills, function($kill) use ($shipTypeIds) {
-                    $shipTypeId = $kill['ship_type_id'] ?? $kill['shipTypeId'] ?? null;
-                    return $shipTypeId && in_array((int) $shipTypeId, $shipTypeIds);
-                });
-                $kills = array_values($kills); // 重建索引
-                Log::debug("advancedSearch: 舰船分组本地过滤 {$beforeFilter} -> " . count($kills) . " 条");
-            }
-            
-            // 过滤后再截断
+            // API已做服务端过滤，直接截断
             $kills = array_slice($kills, 0, 50);
             
             [$enriched, $detailsMap] = $this->enrichKillList($kills);
