@@ -116,6 +116,7 @@ class KillmailController extends Controller
                 'entity_id' => (int) $entityId,
                 'involvement' => $request->input('involvement'),
                 'ship_id' => $request->input('ship_id'),
+                'ship_entity_type' => $request->input('ship_entity_type'), // 舰船类型: ship 或 ship_group
                 'system_id' => $request->input('system_id'),
                 'time_start' => $request->input('time_start'),
                 'time_end' => $request->input('time_end'),
