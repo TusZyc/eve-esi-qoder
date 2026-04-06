@@ -144,7 +144,8 @@ class KillmailController extends Controller
     {
         $query = $request->input('q');
 
-        if (empty($query) || strlen($query) < 2) {
+        // 使用mb_strlen确保中文等多字节字符正确计数
+        if (empty($query) || mb_strlen($query) < 2) {
             return response()->json([
                 'success' => false,
                 'error' => 'query_too_short',

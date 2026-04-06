@@ -9,6 +9,8 @@ use App\Services\EveDataService;
 use App\Services\Killmail\ProtobufCodec;
 use App\Services\Killmail\BetaKbApiClient;
 use App\Services\Killmail\KillmailSearchService;
+use App\Services\Killmail\KillmailEnrichService;
+use App\Services\Killmail\KillmailFilterService;
 
 /**
  * Killmail 服务 - 门面模式
@@ -17,8 +19,12 @@ use App\Services\Killmail\KillmailSearchService;
  * - ProtobufCodec: Protobuf 编解码
  * - BetaKbApiClient: Beta KB API 交互
  * - KillmailSearchService: 搜索功能
+ * - KillmailEnrichService: KM 数据富化
+ * - KillmailFilterService: KM 数据过滤
  * 
- * 本类保留 KM 列表处理、详情获取和高级搜索等核心业务逻辑
+ * 本类保留高级搜索编排、详情获取等核心业务逻辑
+ * 
+ * [重构优化] 2026-04-06: 提取富化和过滤逻辑到独立服务
  */
 class KillmailService
 {
@@ -28,17 +34,23 @@ class KillmailService
     protected ProtobufCodec $codec;
     protected BetaKbApiClient $kbClient;
     protected KillmailSearchService $searchService;
+    protected KillmailEnrichService $enrichService;
+    protected KillmailFilterService $filterService;
 
     public function __construct(
         EveDataService $eveData,
         ProtobufCodec $codec,
         BetaKbApiClient $kbClient,
-        KillmailSearchService $searchService
+        KillmailSearchService $searchService,
+        KillmailEnrichService $enrichService,
+        KillmailFilterService $filterService
     ) {
         $this->eveData = $eveData;
         $this->codec = $codec;
         $this->kbClient = $kbClient;
         $this->searchService = $searchService;
+        $this->enrichService = $enrichService;
+        $this->filterService = $filterService;
         $this->esiBaseUrl = rtrim(config('esi.base_url', 'https://ali-esi.evepc.163.com/latest/'), '/') . '/';
         $this->datasource = config('esi.datasource', 'serenity');
     }
@@ -157,16 +169,25 @@ class KillmailService
         }
 
         // ====== 策略 1: 舰船/建筑搜索 (Search API types[]) ======
+        // [优化] 支持舰船+星系组合搜索，将所有条件传递给API在服务端过滤
         if ($entityType === 'ship') {
-            Log::debug("advancedSearch: 舰船/建筑搜索, type_id={$entityId}, isStructure=" . ($isStructure ? 'Y' : 'N'));
+            Log::debug("advancedSearch: 舰船/建筑搜索, type_id={$entityId}, system_id={$systemId}, isStructure=" . ($isStructure ? 'Y' : 'N'));
 
-            $kills = $this->kbClient->fetchBetaSearchKillsAdvanced([
+            // 构建搜索参数，支持types + systems + 时间范围组合
+            $searchParams = [
                 'types' => [(int) $entityId],
-            ]);
+            ];
+            if ($systemId) {
+                $searchParams['systems'] = [(int) $systemId];
+            }
+            if ($timeStart) $searchParams['start_date'] = $timeStart;
+            if ($timeEnd) $searchParams['end_date'] = $timeEnd;
+
+            $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($searchParams);
 
             if (!empty($kills)) {
+                // API已过滤主要条件，这里只做时间过滤（如果API未处理）
                 $kills = $this->filterKills($kills, [
-                    'system_id' => $systemId,
                     'time_start' => $timeStart,
                     'time_end' => $timeEnd,
                 ]);
@@ -180,16 +201,25 @@ class KillmailService
         }
 
         // ====== 策略 2: 星系搜索 (Search API systems[]) ======
+        // [优化] 支持星系+舰船组合搜索，将所有条件传递给API在服务端过滤
         if ($entityType === 'system') {
-            Log::debug("advancedSearch: 星系搜索, system_id={$entityId}");
+            Log::debug("advancedSearch: 星系搜索, system_id={$entityId}, ship_id={$shipId}");
 
-            $kills = $this->kbClient->fetchBetaSearchKillsAdvanced([
+            // 构建搜索参数，支持systems + types + 时间范围组合
+            $searchParams = [
                 'systems' => [(int) $entityId],
-            ]);
+            ];
+            if ($shipId) {
+                $searchParams['types'] = [(int) $shipId];
+            }
+            if ($timeStart) $searchParams['start_date'] = $timeStart;
+            if ($timeEnd) $searchParams['end_date'] = $timeEnd;
+
+            $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($searchParams);
 
             if (!empty($kills)) {
+                // API已过滤主要条件，这里只做时间过滤（如果API未处理）
                 $kills = $this->filterKills($kills, [
-                    'ship_id' => $shipId,
                     'time_start' => $timeStart,
                     'time_end' => $timeEnd,
                 ]);
@@ -273,317 +303,76 @@ class KillmailService
 
     /**
      * 按条件过滤 KM 列表
+     * [重构优化] 委托给 KillmailFilterService
      */
     protected function filterKills(array $kills, array $params): array
     {
-        $shipId = $params['ship_id'] ?? null;
-        $systemId = $params['system_id'] ?? null;
-        $timeStart = $params['time_start'] ?? null;
-        $timeEnd = $params['time_end'] ?? null;
-
-        return array_values(array_filter($kills, function ($kill) use ($shipId, $systemId, $timeStart, $timeEnd) {
-            if ($shipId && !empty($kill['ship_type_id']) && (int) $kill['ship_type_id'] !== (int) $shipId) {
-                return false;
-            }
-            if ($systemId && !empty($kill['system_id']) && (int) $kill['system_id'] !== (int) $systemId) {
-                return false;
-            }
-            if ($timeStart && !empty($kill['kill_timestamp'])) {
-                $startTs = strtotime($timeStart);
-                if ($startTs && $kill['kill_timestamp'] < $startTs) {
-                    return false;
-                }
-            }
-            if ($timeEnd && !empty($kill['kill_timestamp'])) {
-                if (strpos($timeEnd, 'T') !== false || strpos($timeEnd, ':') !== false) {
-                    $endTs = strtotime($timeEnd);
-                } else {
-                    $endTs = strtotime($timeEnd . ' 23:59:59');
-                }
-                if ($endTs && $kill['kill_timestamp'] > $endTs) {
-                    return false;
-                }
-            }
-            return true;
-        }));
+        return $this->filterService->filterKills($kills, $params);
     }
 
     /**
      * 基于 protobuf 列表数据的预过滤
+     * [重构优化] 委托给 KillmailFilterService
      */
     protected function preFilterByInvolvement(array $kills, string $entityType, int $entityId, string $involvement): array
     {
-        if ($involvement === 'victim' && $entityType === 'pilot') {
-            $filtered = array_values(array_filter($kills, function ($kill) use ($entityId) {
-                return !empty($kill['victim_id']) && (int) $kill['victim_id'] === $entityId;
-            }));
-            Log::debug("preFilterByInvolvement: pilot+victim 预过滤, 输入 " . count($kills) . " 条, 输出 " . count($filtered) . " 条");
-            return $filtered;
-        }
-        return $kills;
+        return $this->filterService->preFilterByInvolvement($kills, $entityType, $entityId, $involvement);
     }
 
     /**
      * 根据参与类型过滤富化后的 KM 列表
+     * [重构优化] 委托给 KillmailFilterService
      */
     protected function filterByInvolvement(array $enrichedKills, string $entityType, int $entityId, string $involvement, array $detailsMap = []): array
     {
-        $matchCount = 0;
-        $noDetailCount = 0;
-
-        $result = array_values(array_filter($enrichedKills, function ($kill) use ($entityType, $entityId, $involvement, $detailsMap, &$matchCount, &$noDetailCount) {
-            $killId = $kill['kill_id'];
-            $detail = $detailsMap[$killId] ?? Cache::get("kb:kill:{$killId}");
-            if (!$detail) {
-                try {
-                    $detail = $this->getKillDetails($killId);
-                } catch (\Exception $e) {
-                    $noDetailCount++;
-                    return false;
-                }
+        return $this->filterService->filterByInvolvement(
+            $enrichedKills,
+            $entityType,
+            $entityId,
+            $involvement,
+            $detailsMap,
+            function ($killId) {
+                return $this->getKillDetails($killId);
             }
-
-            if (!$detail || empty($detail['victim'])) {
-                $noDetailCount++;
-                return false;
-            }
-
-            $matched = false;
-            switch ($involvement) {
-                case 'victim':
-                    $matched = $this->entityMatchesParticipant($detail['victim'], $entityType, $entityId);
-                    break;
-                case 'finalblow':
-                    foreach ($detail['attackers'] ?? [] as $atk) {
-                        if (!empty($atk['final_blow']) && $this->entityMatchesParticipant($atk, $entityType, $entityId)) {
-                            $matched = true;
-                            break;
-                        }
-                    }
-                    break;
-                case 'attacker':
-                    foreach ($detail['attackers'] ?? [] as $atk) {
-                        if (empty($atk['final_blow']) && $this->entityMatchesParticipant($atk, $entityType, $entityId)) {
-                            $matched = true;
-                            break;
-                        }
-                    }
-                    break;
-                default:
-                    $matched = true;
-            }
-
-            if ($matched) $matchCount++;
-            return $matched;
-        }));
-
-        Log::debug("filterByInvolvement: involvement={$involvement}, entity={$entityType}:{$entityId}, 输入 " . count($enrichedKills) . " 条, 匹配 {$matchCount} 条, 无详情 {$noDetailCount} 条");
-
-        return $result;
-    }
-
-    /**
-     * 判断某个参与者是否匹配搜索的实体
-     */
-    protected function entityMatchesParticipant(array $participant, string $entityType, int $entityId): bool
-    {
-        switch ($entityType) {
-            case 'pilot':
-                return !empty($participant['character_id']) && (int) $participant['character_id'] === $entityId;
-            case 'corporation':
-                return !empty($participant['corporation_id']) && (int) $participant['corporation_id'] === $entityId;
-            case 'alliance':
-                return !empty($participant['alliance_id']) && (int) $participant['alliance_id'] === $entityId;
-            default:
-                return false;
-        }
+        );
     }
 
     // ========================================================
-    // KM 列表富化 (批量 ESI 获取详情)
+    // KM 列表富化 - 委托给 KillmailEnrichService
     // ========================================================
 
     /**
      * 批量富化 KM 列表数据
+     * [重构优化] 委托给 KillmailEnrichService
      */
     public function enrichKillList(array $kills): array
     {
-        if (empty($kills)) {
-            return [[], []];
-        }
+        // 传入构建详情响应的回调函数，以便使用本类的 buildKillDetailResponse 方法
+        return $this->enrichService->enrichKillList($kills, function ($esiData, $names, $killId) {
+            return $this->buildKillDetailResponse($esiData, $names, $killId);
+        });
+    }
 
-        $enriched = [];
-        $toFetch = [];
-        $needHash = [];
-        $detailsMap = [];
+    // ========================================================
+    // 辅助方法 - 委托给 KillmailEnrichService
+    // ========================================================
 
-        foreach ($kills as $idx => $kill) {
-            $killId = $kill['kill_id'];
-            $cached = Cache::get("kb:kill:{$killId}");
-
-            if ($cached) {
-                $enriched[$idx] = $this->extractListDataFromDetail($kill, $cached);
-                $detailsMap[$killId] = $cached;
-            } elseif (!empty($kill['esi_hash'])) {
-                $toFetch[$idx] = $kill;
-            } else {
-                $cachedHash = Cache::get("kb:esi_hash:{$killId}");
-                if ($cachedHash) {
-                    $kill['esi_hash'] = $cachedHash;
-                    $toFetch[$idx] = $kill;
-                } else {
-                    $needHash[$idx] = $kill;
-                }
-            }
-        }
-
-        foreach (array_slice($needHash, 0, 20, true) as $idx => $kill) {
-            $hash = $this->kbClient->extractEsiHash($kill['kill_id']);
-            if ($hash) {
-                $kill['esi_hash'] = $hash;
-                $toFetch[$idx] = $kill;
-                unset($needHash[$idx]);
-            }
-        }
-
-        foreach ($needHash as $idx => $kill) {
-            $enriched[$idx] = $this->buildBasicListItem($kill);
-        }
-
-        if (!empty($toFetch)) {
-            $batchDetails = $this->batchFetchEsiKills($toFetch);
-
-            foreach ($batchDetails as $idx => $detail) {
-                if ($detail) {
-                    $enriched[$idx] = $this->extractListDataFromDetail($toFetch[$idx], $detail);
-                    $detailsMap[$toFetch[$idx]['kill_id']] = $detail;
-                } else {
-                    $enriched[$idx] = $this->buildBasicListItem($toFetch[$idx]);
-                }
-            }
-
-            foreach ($toFetch as $idx => $kill) {
-                if (!isset($enriched[$idx])) {
-                    $enriched[$idx] = $this->buildBasicListItem($kill);
-                }
-            }
-        }
-
-        ksort($enriched);
-        return [array_values($enriched), $detailsMap];
+    /**
+     * 收集 ESI 数据中需要解析名称的 ID
+     * [重构优化] 委托给 KillmailEnrichService
+     */
+    protected function collectIds(array $esiData): array
+    {
+        return $this->enrichService->collectIds($esiData);
     }
 
     /**
-     * 批量从 ESI 获取 KM 详情
+     * 批量解析 ID 到名称
+     * [重构优化] 委托给 KillmailEnrichService
      */
-    protected function batchFetchEsiKills(array $kills): array
+    protected function resolveNames(array $ids): array
     {
-        $results = [];
-        $chunks = array_chunk($kills, 20, true);
-
-        foreach ($chunks as $chunk) {
-            $responses = Http::pool(function ($pool) use ($chunk) {
-                foreach ($chunk as $idx => $kill) {
-                    $url = $this->esiBaseUrl . "killmails/{$kill['kill_id']}/{$kill['esi_hash']}/";
-                    $pool->as((string) $idx)->timeout(15)->get($url, [
-                        'datasource' => $this->datasource,
-                    ]);
-                }
-            });
-
-            $allIds = [];
-            $validResponses = [];
-
-            foreach ($responses as $idx => $response) {
-                if ($response instanceof \Illuminate\Http\Client\Response && $response->ok()) {
-                    $esiData = $response->json();
-                    if (!empty($esiData) && isset($esiData['victim'])) {
-                        $validResponses[(int) $idx] = $esiData;
-                        $allIds = array_merge($allIds, $this->collectIds($esiData));
-                    }
-                }
-            }
-
-            $names = $this->resolveNames(array_values(array_unique(array_filter($allIds))));
-
-            foreach ($validResponses as $idx => $esiData) {
-                $killId = $kills[$idx]['kill_id'] ?? 0;
-                if ($killId > 0) {
-                    $detail = $this->buildKillDetailResponse($esiData, $names, $killId);
-                    Cache::put("kb:kill:{$killId}", $detail, 3600);
-                    $results[$idx] = $detail;
-                }
-            }
-        }
-
-        return $results;
-    }
-
-    /**
-     * 从已有的详情缓存中提取列表需要的字段
-     */
-    protected function extractListDataFromDetail(array $kill, array $detail): array
-    {
-        $victim = $detail['victim'] ?? [];
-        $finalBlow = null;
-        foreach ($detail['attackers'] ?? [] as $atk) {
-            if (!empty($atk['final_blow'])) {
-                $finalBlow = $atk;
-                break;
-            }
-        }
-
-        return [
-            'kill_id' => $kill['kill_id'],
-            'ship_type_id' => $victim['ship_type_id'] ?? ($kill['ship_type_id'] ?? null),
-            'ship_name' => $victim['ship_name'] ?? ($kill['ship_name'] ?? null),
-            'victim_id' => $victim['character_id'] ?? ($kill['victim_id'] ?? null),
-            'victim_name' => $victim['character_name'] ?? ($kill['victim_name'] ?? null),
-            'victim_corporation_id' => $victim['corporation_id'] ?? null,
-            'victim_corp' => $victim['corporation_name'] ?? null,
-            'victim_alliance' => $victim['alliance_name'] ?? null,
-            'final_blow_name' => $finalBlow['character_name'] ?? null,
-            'final_blow_corp' => $finalBlow['corporation_name'] ?? null,
-            'final_blow_alliance' => $finalBlow['alliance_name'] ?? null,
-            'final_blow_ship' => $finalBlow['ship_name'] ?? null,
-            'system_id' => $detail['solar_system_id'] ?? ($kill['system_id'] ?? null),
-            'system_name' => $detail['solar_system_name'] ?? ($kill['system_name'] ?? null),
-            'system_sec' => $detail['system_sec'] ?? null,
-            'region_name' => $detail['region_name'] ?? null,
-            'kill_time' => $detail['kill_time'] ?? ($kill['kill_time'] ?? null),
-            'total_value' => $kill['total_value'] ?? null,
-            'esi_hash' => $kill['esi_hash'] ?? null,
-            'attacker_count' => $detail['attacker_count'] ?? null,
-        ];
-    }
-
-    /**
-     * 构建基础列表项 (无 ESI 详情时)
-     */
-    protected function buildBasicListItem(array $kill): array
-    {
-        return [
-            'kill_id' => $kill['kill_id'],
-            'ship_type_id' => $kill['ship_type_id'] ?? null,
-            'ship_name' => $kill['ship_name'] ?? null,
-            'victim_id' => $kill['victim_id'] ?? null,
-            'victim_name' => $kill['victim_name'] ?? null,
-            'victim_corporation_id' => null,
-            'victim_corp' => null,
-            'victim_alliance' => null,
-            'final_blow_name' => null,
-            'final_blow_corp' => null,
-            'final_blow_alliance' => null,
-            'final_blow_ship' => null,
-            'system_id' => $kill['system_id'] ?? null,
-            'system_name' => $kill['system_name'] ?? null,
-            'system_sec' => null,
-            'region_name' => null,
-            'kill_time' => $kill['kill_time'] ?? null,
-            'total_value' => $kill['total_value'] ?? null,
-            'esi_hash' => $kill['esi_hash'] ?? null,
-            'attacker_count' => null,
-        ];
+        return $this->enrichService->resolveNames($ids);
     }
 
     // ========================================================
@@ -780,159 +569,6 @@ class KillmailService
                 return [];
             }
         });
-    }
-
-    // ========================================================
-    // 名称解析
-    // ========================================================
-
-    protected function collectIds(array $esiData): array
-    {
-        $ids = [];
-
-        if (!empty($esiData['solar_system_id'])) {
-            $ids[] = (int) $esiData['solar_system_id'];
-        }
-
-        $victim = $esiData['victim'] ?? [];
-        foreach (['character_id', 'corporation_id', 'alliance_id', 'ship_type_id'] as $field) {
-            if (!empty($victim[$field])) {
-                $ids[] = (int) $victim[$field];
-            }
-        }
-
-        foreach ($victim['items'] ?? [] as $item) {
-            if (!empty($item['item_type_id'])) {
-                $ids[] = (int) $item['item_type_id'];
-            }
-        }
-
-        foreach ($esiData['attackers'] ?? [] as $attacker) {
-            foreach (['character_id', 'corporation_id', 'alliance_id', 'ship_type_id', 'weapon_type_id'] as $field) {
-                if (!empty($attacker[$field])) {
-                    $ids[] = (int) $attacker[$field];
-                }
-            }
-        }
-
-        foreach ($esiData['supporters'] ?? [] as $sup) {
-            foreach (['character_id', 'corporation_id', 'alliance_id', 'ship_type_id', 'repairer_type_id'] as $field) {
-                if (!empty($sup[$field])) {
-                    $ids[] = (int) $sup[$field];
-                }
-            }
-        }
-
-        return array_values(array_unique(array_filter($ids)));
-    }
-
-    protected function resolveNames(array $ids): array
-    {
-        if (empty($ids)) {
-            return [];
-        }
-
-        $names = [];
-        $missing = [];
-
-        // 1. 优先从本地静态数据查找
-        $localNames = EveDataService::getLocalNames($ids);
-        foreach ($localNames as $id => $name) {
-            $names[$id] = $name;
-        }
-
-        // 2. 从旧版内存数据库查找
-        $itemDb = $this->eveData->getItemDatabase();
-        foreach ($ids as $id) {
-            if (isset($names[$id])) continue;
-            if (isset($itemDb[$id])) {
-                $names[$id] = $itemDb[$id];
-            }
-        }
-
-        // 3. 从缓存查找
-        foreach ($ids as $id) {
-            if (isset($names[$id])) continue;
-            $cached = Cache::get("eve_name_{$id}");
-            if ($cached !== null) {
-                $names[$id] = $cached;
-            } else {
-                $missing[] = $id;
-            }
-        }
-
-        // 4. 调用 ESI API 查询剩余的 (主要是角色、军团、联盟等动态数据)
-        if (!empty($missing)) {
-            $this->resolveNamesFromEsi($missing, $names);
-        }
-
-        return $names;
-    }
-
-    protected function resolveNamesFromEsi(array $ids, array &$names): void
-    {
-        $chunks = array_chunk($ids, 1000);
-
-        foreach ($chunks as $chunk) {
-            try {
-                $response = Http::timeout(10)->post(
-                    $this->esiBaseUrl . 'universe/names/',
-                    $chunk
-                );
-
-                if ($response->ok()) {
-                    foreach ($response->json() as $item) {
-                        if (isset($item['id']) && isset($item['name'])) {
-                            $names[(int) $item['id']] = $item['name'];
-                            Cache::put("eve_name_{$item['id']}", $item['name'], 86400);
-                        }
-                    }
-                } else {
-                    $this->resolveNamesFallback($chunk, $names);
-                }
-            } catch (\Exception $e) {
-                Log::warning('ESI universe/names 批量查询失败: ' . $e->getMessage());
-                $this->resolveNamesFallback($chunk, $names);
-            }
-        }
-    }
-
-    protected function resolveNamesFallback(array $ids, array &$names): void
-    {
-        foreach ($ids as $id) {
-            if (isset($names[$id])) continue;
-
-            try {
-                $response = Http::timeout(5)->post(
-                    $this->esiBaseUrl . 'universe/names/',
-                    [$id]
-                );
-
-                if ($response->ok()) {
-                    $result = $response->json();
-                    if (!empty($result[0]['name'])) {
-                        $names[$id] = $result[0]['name'];
-                        Cache::put("eve_name_{$id}", $result[0]['name'], 86400);
-                        continue;
-                    }
-                }
-
-                $response = Http::timeout(5)->get(
-                    $this->esiBaseUrl . "universe/types/{$id}/",
-                    ['datasource' => $this->datasource, 'language' => 'zh']
-                );
-
-                if ($response->ok()) {
-                    $data = $response->json();
-                    if (!empty($data['name'])) {
-                        $names[$id] = $data['name'];
-                        Cache::put("eve_name_{$id}", $data['name'], 86400);
-                    }
-                }
-            } catch (\Exception $e) {
-                // 忽略单个失败
-            }
-        }
     }
 
     // ========================================================
