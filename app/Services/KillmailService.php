@@ -321,9 +321,8 @@ class KillmailService
         Log::debug("advancedSearch: Search API 返回 " . count($kills) . " 条");
 
         if (!empty($kills)) {
-            $kills = array_slice($kills, 0, 50);
-            
-            // [舰船分组过滤] 本地过滤舰船类型
+            // [舰船分组过滤] 先本地过滤舰船类型，再截断
+            // 重要：必须在截断之前过滤，否则可能丢失匹配数据
             if ($isShipGroupFilter && !empty($shipTypeIds)) {
                 $beforeFilter = count($kills);
                 $kills = array_filter($kills, function($kill) use ($shipTypeIds) {
@@ -333,6 +332,9 @@ class KillmailService
                 $kills = array_values($kills); // 重建索引
                 Log::debug("advancedSearch: 舰船分组本地过滤 {$beforeFilter} -> " . count($kills) . " 条");
             }
+            
+            // 过滤后再截断
+            $kills = array_slice($kills, 0, 50);
             
             [$enriched, $detailsMap] = $this->enrichKillList($kills);
             Log::debug("advancedSearch: 富化后 " . count($enriched) . " 条");
