@@ -302,6 +302,107 @@ class KillmailSearchService
     }
 
     /**
+     * 根据舰船分组ID获取该分组下的所有舰船 type_id 列表
+     * 
+     * @param int $groupId 舰船分组ID (如 237 = 货舰)
+     * @return array type_id 数组
+     */
+    public function getShipGroupTypeIds(int $groupId): array
+    {
+        $cacheKey = "eve:ship_group_types:{$groupId}";
+        
+        return Cache::remember($cacheKey, 86400, function () use ($groupId) {
+            // 从舰船分组列表中查找
+            $groups = $this->getShipGroups();
+            
+            foreach ($groups as $group) {
+                if ((int) $group['group_id'] === $groupId) {
+                    $typeIds = $group['type_ids'] ?? [];
+                    
+                    // 如果已有 type_ids，直接返回
+                    if (!empty($typeIds)) {
+                        return array_map('intval', $typeIds);
+                    }
+                    
+                    // 否则从 ESI 获取该分组的详细信息
+                    break;
+                }
+            }
+            
+            // 从 ESI 获取分组详情
+            try {
+                $response = Http::withHeaders([
+                    'User-Agent' => 'EVE-ESI-Admin/1.0',
+                ])->timeout(15)->get("{$this->esiBaseUrl}universe/groups/{$groupId}/?datasource=serenity&language=zh");
+                
+                if ($response->ok()) {
+                    $data = $response->json();
+                    $typeIds = $data['types'] ?? [];
+                    
+                    if (!empty($typeIds)) {
+                        Log::debug("getShipGroupTypeIds: 从 ESI 获取分组 {$groupId} 的舰船列表，共 " . count($typeIds) . " 种");
+                        return array_map('intval', $typeIds);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning("getShipGroupTypeIds: ESI 获取分组 {$groupId} 失败: " . $e->getMessage());
+            }
+            
+            // 如果 ESI 也失败，尝试静态映射
+            $staticTypeIds = $this->getStaticGroupTypeIds($groupId);
+            if (!empty($staticTypeIds)) {
+                return $staticTypeIds;
+            }
+            
+            Log::warning("getShipGroupTypeIds: 无法获取分组 {$groupId} 的舰船列表");
+            return [];
+        });
+    }
+
+    /**
+     * 静态舰船分组 type_id 映射 (ESI 完全不可用时的降级)
+     * 包含常见舰船类型的 ID
+     */
+    protected function getStaticGroupTypeIds(int $groupId): array
+    {
+        // 常见舰船分组的静态 type_id 映射
+        static $staticMap = [
+            // 货舰 (237)
+            237 => [28, 29, 30, 31, 32, 33, 34, 35, 650, 651, 652, 653],
+            // 战列舰 (27)
+            27 => [638, 639, 640, 641, 642, 643, 644, 645],
+            // 航空母舰 (547)
+            547 => [239, 240, 241, 242, 243, 244],
+            // 泰坦 (30)
+            30 => [671, 672, 673, 674, 675, 676, 1157],
+            // 护卫舰 (25)
+            25 => [582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604, 605, 606, 607, 608, 609],
+            // 巡洋舰 (26)
+            26 => [620, 621, 622, 623, 624, 625, 626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637],
+            // 无畏舰 (900)
+            900 => [1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980],
+            // 超级航母 (513)
+            513 => [239, 240, 241, 242, 243, 244],
+            // 战列巡洋舰 (419)
+            419 => [1944, 1945, 1946, 1947, 1948, 1949, 1950, 1951, 1952],
+            // 驱逐舰 (420)
+            420 => [326, 327, 328, 329, 330, 331, 332, 333, 334, 335],
+            // 突击护卫舰 (324)
+            324 => [1116, 1117, 1118, 1119, 1120, 1121, 1122, 1123, 1124, 1125],
+            // 重型突击巡洋舰 (358)
+            358 => [1198, 1199, 1200, 1201, 1202, 1203, 1204, 1205],
+            // 战略巡洋舰 (963)
+            963 => [2998, 2999, 3000, 3001, 3002, 3003, 3004],
+            // 工业舰 (28)
+            28 => [340, 341, 342, 343, 344, 345, 346, 347, 348, 349],
+            // 采矿驳船 (463)
+            463 => [1742, 1743, 1744, 1745, 1746, 1747, 1748],
+        ];
+        
+        return $staticMap[$groupId] ?? [];
+    }
+
+    /**
      * 获取建筑分组 (ESI category 65 = Structures)
      */
     public function getStructureGroups(): array

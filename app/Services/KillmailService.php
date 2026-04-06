@@ -200,6 +200,47 @@ class KillmailService
             return [];
         }
 
+        // ====== 策略 1.5: 舰船类别搜索 (ship_group) ======
+        // [新增] 支持按舰船类别（如"货舰"、"战列舰"）搜索
+        if ($entityType === 'ship_group') {
+            Log::debug("advancedSearch: 舰船类别搜索, group_id={$entityId}, system_id={$systemId}");
+
+            // 获取该分组下的所有舰船 type_id
+            $groupIds = $this->searchService->getShipGroupTypeIds((int) $entityId);
+            
+            if (empty($groupIds)) {
+                Log::warning("advancedSearch: 舰船类别 {$entityId} 下无舰船类型");
+                return [];
+            }
+
+            Log::debug("advancedSearch: 舰船类别 {$entityId} 包含 " . count($groupIds) . " 种舰船");
+
+            // 构建搜索参数，批量搜索该类别下的所有舰船
+            $searchParams = [
+                'types' => $groupIds,
+            ];
+            if ($systemId) {
+                $searchParams['systems'] = [(int) $systemId];
+            }
+            if ($timeStart) $searchParams['start_date'] = $timeStart;
+            if ($timeEnd) $searchParams['end_date'] = $timeEnd;
+
+            $kills = $this->kbClient->fetchBetaSearchKillsAdvanced($searchParams);
+
+            if (!empty($kills)) {
+                $kills = $this->filterKills($kills, [
+                    'time_start' => $timeStart,
+                    'time_end' => $timeEnd,
+                ]);
+                $kills = array_slice($kills, 0, 50);
+                [$enriched, $detailsMap] = $this->enrichKillList($kills);
+                Log::debug("advancedSearch: 舰船类别搜索富化后 " . count($enriched) . " 条");
+                return $enriched;
+            }
+
+            return [];
+        }
+
         // ====== 策略 2: 星系搜索 (Search API systems[]) ======
         // [优化] 支持星系+舰船组合搜索，将所有条件传递给API在服务端过滤
         if ($entityType === 'system') {
