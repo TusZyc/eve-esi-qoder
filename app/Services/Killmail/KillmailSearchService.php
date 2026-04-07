@@ -277,8 +277,10 @@ class KillmailSearchService
 
     /**
      * 静态舰船分组列表 (ESI 不可用时的降级)
-     * 数据来源: EVE ESI universe/groups API
-     * 更新时间: 2026-04-06
+     * 
+     * 数据来源: ESI universe/categories/6/groups
+     * 最后更新: 2026-04-07
+     * 注意: EVE 游戏更新可能新增舰船分组，需定期同步
      */
     protected function getStaticShipGroups(): array
     {
@@ -348,7 +350,7 @@ class KillmailSearchService
                     }
                 }
             } catch (\Exception $e) {
-                Log::warning("getShipGroupTypeIds: ESI 获取分组 {$groupId} 失败: " . $e->getMessage());
+                Log::debug("getShipGroupTypeIds: ESI 获取分组 {$groupId} 失败: " . $e->getMessage());
             }
             
             // 如果 ESI 也失败，尝试静态映射
@@ -364,8 +366,10 @@ class KillmailSearchService
 
     /**
      * 静态舰船分组 type_id 映射 (ESI 完全不可用时的降级)
+     * 
      * 数据来源: eve_items.json (根据舰船 category 字段精确匹配)
-     * 更新时间: 2026-04-06
+     * 最后更新: 2026-04-07
+     * 注意: 新舰船加入后需同步更新此映射
      */
     protected function getStaticGroupTypeIds(int $groupId): array
     {

@@ -21,9 +21,14 @@ use function imagedestroy;
  * 本类保留入口方法和缓存管理
  * 
  * [重构优化] 2026-04-06: 提取绘制逻辑到 KillmailImageRenderer
+ * [内存优化] 2026-04-07: 添加并发控制和内存监控
  */
 class KillmailImageService
 {
+    // 并发控制
+    private static int $activeGenerations = 0;
+    private const MAX_CONCURRENT = 2;
+
     protected KillmailImageRenderer $renderer;
     protected string $cachePath;
 
@@ -50,14 +55,23 @@ class KillmailImageService
      */
     public function generate(array $killData, bool $force = false): string
     {
-        $killId     = $killData['kill_id'];
-        $cachedPath = $this->cachePath . "/km_{$killId}.png";
-
-        if (!$force && file_exists($cachedPath)) {
-            return $cachedPath;
+        // 并发检查
+        if (self::$activeGenerations >= self::MAX_CONCURRENT) {
+            Log::warning("KM图片生成: 达到并发上限(" . self::MAX_CONCURRENT . ")，请求被拒绝");
+            throw new \RuntimeException('图片生成服务繁忙，请稍后重试');
         }
 
+        self::$activeGenerations++;
+        $startMemory = memory_get_usage(true);
+        $killId = $killData['kill_id'];
+
         try {
+            $cachedPath = $this->cachePath . "/km_{$killId}.png";
+
+            if (!$force && file_exists($cachedPath)) {
+                return $cachedPath;
+            }
+
             // 提高内存限制（复杂KM可能需要更多内存）
             $memoryLimit = ini_get('memory_limit');
             if ($memoryLimit && (int)$memoryLimit < 256) {
@@ -119,6 +133,10 @@ class KillmailImageService
             imagepng($img, $cachedPath, 5);
             imagedestroy($img);
 
+            // 记录内存消耗
+            $usedMemory = round((memory_get_usage(true) - $startMemory) / 1024 / 1024, 2);
+            Log::debug("KM图片生成完成: killId={$killId}, 内存消耗={$usedMemory}MB");
+
             return $cachedPath;
         } catch (\Throwable $e) {
             // 清理可能残留的GD资源
@@ -132,6 +150,8 @@ class KillmailImageService
             
             // 返回错误占位图
             return $this->generateErrorPlaceholder($killId, $e->getMessage());
+        } finally {
+            self::$activeGenerations--;
         }
     }
 

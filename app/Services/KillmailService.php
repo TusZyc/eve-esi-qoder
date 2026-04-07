@@ -28,6 +28,13 @@ use App\Services\Killmail\KillmailFilterService;
  */
 class KillmailService
 {
+    // 缓存时间常量（秒）
+    public const CACHE_TTL_ENTITY_KILLS = 600;      // 实体KM列表：10分钟
+    public const CACHE_TTL_KILL_DETAIL = 3600;      // KM详情：1小时
+    public const CACHE_TTL_ESI_HASH = 86400;        // ESI Hash：24小时
+    public const CACHE_TTL_SYSTEM_INFO = 86400;     // 星系信息：24小时
+    public const CACHE_TTL_MARKET_PRICES = 86400;   // 市场价格：24小时
+
     protected string $esiBaseUrl;
     protected string $datasource;
     protected EveDataService $eveData;
@@ -86,14 +93,14 @@ class KillmailService
     {
         $cacheKey = "kb:entity:{$entityType}:{$entityId}";
 
-        return Cache::remember($cacheKey, 600, function () use ($entityType, $entityId) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_ENTITY_KILLS, function () use ($entityType, $entityId) {
             try {
                 $kills = $this->kbClient->fetchBetaEntityKillList($entityType, $entityId);
                 if (!empty($kills)) {
                     return $kills;
                 }
             } catch (\Exception $e) {
-                Log::debug("Beta KB entity list failed ({$entityType} {$entityId}): " . $e->getMessage());
+                Log::warning("Beta KB entity list failed ({$entityType} {$entityId}): " . $e->getMessage());
             }
 
             // 降级: 仅 pilot 有旧 KB HTML 备选
@@ -441,7 +448,7 @@ class KillmailService
     {
         $cacheKey = "kb:kill:{$killId}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($killId) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_KILL_DETAIL, function () use ($killId) {
             $hash = $this->kbClient->extractEsiHash($killId);
 
             if ($hash === null) {
@@ -479,8 +486,8 @@ class KillmailService
     {
         $cacheKey = "kb:kill:{$killId}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($killId, $hash) {
-            Cache::put("kb:esi_hash:{$killId}", $hash, 86400);
+        return Cache::remember($cacheKey, self::CACHE_TTL_KILL_DETAIL, function () use ($killId, $hash) {
+            Cache::put("kb:esi_hash:{$killId}", $hash, self::CACHE_TTL_ESI_HASH);
 
             $esiUrl = $this->esiBaseUrl . "killmails/{$killId}/{$hash}/";
             $response = Http::timeout(15)->get($esiUrl, [
@@ -511,7 +518,7 @@ class KillmailService
     {
         $cacheKey = "eve_system_info:{$systemId}";
 
-        return Cache::remember($cacheKey, 86400, function () use ($systemId) {
+        return Cache::remember($cacheKey, self::CACHE_TTL_SYSTEM_INFO, function () use ($systemId) {
             $info = ['security_status' => null, 'region_name' => null, 'constellation_name' => null];
 
             // 1. 优先从本地数据获取
@@ -604,7 +611,7 @@ class KillmailService
 
     protected function getMarketPrices(): array
     {
-        return Cache::remember('esi_market_prices', 86400, function () {
+        return Cache::remember('esi_market_prices', self::CACHE_TTL_MARKET_PRICES, function () {
             try {
                 $response = Http::timeout(30)->get(
                     $this->esiBaseUrl . 'markets/prices/',

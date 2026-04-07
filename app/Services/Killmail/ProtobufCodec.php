@@ -2,6 +2,8 @@
 
 namespace App\Services\Killmail;
 
+use Illuminate\Support\Facades\Log;
+
 /**
  * Protobuf 编解码工具类
  * 
@@ -52,22 +54,32 @@ class ProtobufCodec
                     $value = $this->decodeVarint($data, $offset, $offset);
                     break;
                 case 1:
-                    if ($offset + 8 > $len) return $fields;
+                    if ($offset + 8 > $len) {
+                        Log::debug("Protobuf解析: 数据不完整(wire=1), offset={$offset}, len={$len}, 需要8字节");
+                        return $fields;
+                    }
                     $value = substr($data, $offset, 8);
                     $offset += 8;
                     break;
                 case 2:
                     $length = $this->decodeVarint($data, $offset, $offset);
-                    if ($offset + $length > $len) return $fields;
+                    if ($offset + $length > $len) {
+                        Log::debug("Protobuf解析: 数据不完整(wire=2), offset={$offset}, len={$len}, 需要{$length}字节");
+                        return $fields;
+                    }
                     $value = substr($data, $offset, $length);
                     $offset += $length;
                     break;
                 case 5:
-                    if ($offset + 4 > $len) return $fields;
+                    if ($offset + 4 > $len) {
+                        Log::debug("Protobuf解析: 数据不完整(wire=5), offset={$offset}, len={$len}, 需要4字节");
+                        return $fields;
+                    }
                     $value = substr($data, $offset, 4);
                     $offset += 4;
                     break;
                 default:
+                    Log::debug("Protobuf解析: 未知wire类型, wireType={$wireType}");
                     return $fields;
             }
 

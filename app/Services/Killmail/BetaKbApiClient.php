@@ -83,7 +83,7 @@ class BetaKbApiClient
 
         // 负缓存 60 秒, 避免每次搜索都阻塞 20s+ 等待超时
         Cache::put('kb:xsrf_cookies_fail', true, 60);
-        Log::warning("getBetaKbXsrfCookies: beta.ceve-market.org 不可用, 60s 内跳过重试");
+        Log::error("getBetaKbXsrfCookies: beta.ceve-market.org 不可用, 60s 内跳过重试");
 
         return ['', ''];
     }
@@ -219,7 +219,8 @@ class BetaKbApiClient
      */
     public function fetchBetaSearchKillsAdvanced(array $params): array
     {
-        $cacheKey = "kb:advsearch:" . md5(json_encode($params));
+        ksort($params); // 按键名排序，保证相同参数产生相同键
+        $cacheKey = "kb:advsearch:" . md5(serialize($params));
         $cached = Cache::get($cacheKey);
         if ($cached !== null) return $cached;
 

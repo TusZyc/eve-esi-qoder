@@ -247,7 +247,10 @@
 
 @push('scripts')
 <script>
-var BETA_KB_URL = 'https://beta.ceve-market.org';
+(function() {
+    'use strict';
+
+    var BETA_KB_URL = 'https://beta.ceve-market.org';
 var debounceTimers = {};
 var selectedEntities = { entity: null, ship: null, system: null };
 var allKills = [];
@@ -638,34 +641,14 @@ function renderKillDetail(d) {
 
         html += '<div class="px-4 py-1.5 bg-white/5 border-b border-white/10 text-xs font-bold text-blue-300">' + escapeHtml(slotName) + '</div>';
         slotItems.forEach(function(item) {
-            var colorClass = item.status === 'dropped' ? 'item-dropped' : 'item-destroyed';
-            var priceText = '';
-            if (item.total_price && item.total_price > 0) {
-                priceText = formatIsk(item.total_price);
-            }
-            html += '<div class="px-4 py-1 text-xs flex justify-between items-center border-b border-white/5">';
-            html += '<span class="' + colorClass + '">';
-            if (item.quantity > 1) html += '<span class="text-white/50">x' + item.quantity + '</span> ';
-            html += escapeHtml(item.item_name) + '</span>';
-            html += '<span class="text-yellow-300/80 whitespace-nowrap ml-2">' + (priceText || '-') + '</span>';
-            html += '</div>';
+            html += renderItemRow(item, true);
         });
     });
 
     // 如果没有 items_by_slot，回退到 items 列表
     if (!hasItems && v.items && v.items.length) {
         v.items.forEach(function(item) {
-            var colorClass = item.status === 'dropped' ? 'item-dropped' : 'item-destroyed';
-            var priceText = '';
-            if (item.total_price && item.total_price > 0) {
-                priceText = formatIsk(item.total_price);
-            }
-            html += '<div class="px-4 py-1 text-xs flex justify-between items-center border-b border-white/5">';
-            html += '<span class="' + colorClass + '">';
-            if (item.quantity > 1) html += '<span class="text-white/50">x' + item.quantity + '</span> ';
-            html += escapeHtml(item.item_name) + '</span>';
-            html += '<span class="text-yellow-300/80 whitespace-nowrap ml-2">' + (priceText || '-') + '</span>';
-            html += '</div>';
+            html += renderItemRow(item, true);
         });
     } else if (!hasItems) {
         html += '<div class="px-4 py-4 text-white/30 text-sm text-center">无物品数据</div>';
@@ -701,6 +684,21 @@ function getSecClass(sec) {
     if (sec >= 0.5) return 'sec-high';
     if (sec > 0.0) return 'sec-low';
     return 'sec-null';
+}
+
+// 渲染物品行（提取公共函数）
+function renderItemRow(item, showPrice) {
+    var colorClass = item.status === 'dropped' ? 'item-dropped' : 'item-destroyed';
+    var qtyText = item.quantity > 1 ? '<span class="text-white/50">x' + item.quantity + '</span> ' : '';
+    var priceText = '';
+    if (showPrice && item.total_price && item.total_price > 0) {
+        priceText = formatIsk(item.total_price);
+    }
+    
+    return '<div class="px-4 py-1 text-xs flex justify-between items-center border-b border-white/5">' +
+           '<span class="' + colorClass + '">' + qtyText + escapeHtml(item.item_name) + '</span>' +
+           '<span class="text-yellow-300/80 whitespace-nowrap ml-2">' + (priceText || '-') + '</span>' +
+           '</div>';
 }
 
 function showLoading(text) {
@@ -846,5 +844,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+})();
 </script>
 @endpush
