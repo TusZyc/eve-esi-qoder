@@ -844,6 +844,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// 将需要在onclick中调用的函数暴露到全局
+window.openKillDetail = openKillDetail;
+window.closeDetail = closeDetail;
+window.closeImageModal = closeImageModal;
+window.openKmImageInTab = openKmImageInTab;
+
 })();
 </script>
 @endpush
