@@ -240,6 +240,9 @@ Route::middleware(['throttle:30,1'])->prefix('api/public/lp-store')->group(funct
 // KM 查询（公开访问）
 Route::get('/killmails', [\App\Http\Controllers\Api\KillmailController::class, 'index'])->name('killmails.index');
 
+// 战场报告（公开访问）
+Route::get('/killmails/battle', [\App\Http\Controllers\Api\BattleReportController::class, 'index'])->name('battlereport.index');
+
 // KM API（公开）
 Route::middleware('throttle:30,1')->group(function () {
     Route::get('/api/killmails/autocomplete', [\App\Http\Controllers\Api\KillmailController::class, 'autocomplete']);
@@ -248,6 +251,10 @@ Route::middleware('throttle:30,1')->group(function () {
     Route::get('/api/killmails/pilot/{pilotId}/kills', [\App\Http\Controllers\Api\KillmailController::class, 'pilotKills']);
     Route::get('/api/killmails/kill/{killId}', [\App\Http\Controllers\Api\KillmailController::class, 'killDetail']);
     Route::get('/api/killmails/kill/{killId}/image', [\App\Http\Controllers\Api\KillmailController::class, 'killImage']);
+    
+    // 战场报告 API
+    Route::post('/api/battlereport/search', [\App\Http\Controllers\Api\BattleReportController::class, 'search']);
+    Route::post('/api/battlereport/generate', [\App\Http\Controllers\Api\BattleReportController::class, 'generate']);
 });
 
 // 旗舰导航（公开访问）

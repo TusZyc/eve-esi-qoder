@@ -322,6 +322,11 @@
                 <span class="text-xl w-6 text-center">⚔️</span>
                 <span>KM查询</span>
             </a>
+            <a href="{{ route('battlereport.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'battlereport' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">🎯</span>
+                <span>战场报告</span>
+            </a>
             <a href="{{ route('capital-nav.index') }}" 
                class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'capital-nav' ? 'active' : '' }}">
                 <span class="text-xl w-6 text-center">📍</span>

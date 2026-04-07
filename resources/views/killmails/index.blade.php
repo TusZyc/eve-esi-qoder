@@ -53,7 +53,15 @@
     <div class="container mx-auto px-4 py-6 max-w-7xl">
         <!-- 搜索区域 -->
         <div class="bg-white/5 backdrop-blur rounded-xl p-6 mb-6 border border-white/10">
-            <h2 class="text-lg font-bold mb-4">KM 高级搜索</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold">KM 高级搜索</h2>
+                <a href="{{ route('battlereport.index') }}" class="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                    🎯 战场报告
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                </a>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- 左侧: 高级搜索表单 -->
                 <div class="space-y-4">
