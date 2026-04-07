@@ -702,6 +702,14 @@ class BetaKbApiClient
             }
         }
 
+        // 将items转换为items_by_slot格式
+        if (!empty($data['victim']['items'])) {
+            foreach ($data['victim']['items'] as $item) {
+                $slotGroup = $item['slot_group'] ?? '其他';
+                $data['items_by_slot'][$slotGroup][] = $item;
+            }
+        }
+
         return $data;
     }
 

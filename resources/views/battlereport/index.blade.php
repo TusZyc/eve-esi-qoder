@@ -57,7 +57,7 @@
         left: 0;
         right: 0;
         top: 100%;
-        z-index: 50;
+        z-index: 9999;
         max-height: 240px;
         overflow-y: auto;
         background: rgba(15, 23, 42, 0.98);
@@ -81,6 +81,11 @@
         animation: spin 0.8s linear infinite;
         display: inline-block;
     }
+    .sec-high { color: #4ade80; }
+    .sec-low { color: #facc15; }
+    .sec-null { color: #f87171; }
+    .item-dropped { color: #4ade80; }
+    .item-destroyed { color: #f87171; }
 </style>
 @endpush
 
@@ -89,7 +94,7 @@
 @section('content')
 <div class="container mx-auto px-4 py-6 max-w-7xl">
     <!-- 搜索区域 -->
-    <div class="bg-white/5 backdrop-blur rounded-xl p-6 mb-6 border border-white/10">
+    <div class="bg-white/5 backdrop-blur rounded-xl p-6 mb-6 border border-white/10 overflow-visible">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold">🎯 战场报告</h2>
             <a href="{{ route('killmails.index') }}" class="text-blue-400 hover:text-blue-300 text-sm">
@@ -258,18 +263,16 @@
             </div>
         </div>
 
-        <!-- 舰船统计 -->
+        <!-- 舰船统计 - 对称布局 -->
         <div class="bg-white/5 backdrop-blur rounded-xl p-4 mb-6 border border-white/10">
             <h4 class="font-medium mb-3">舰船损失统计</h4>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-slate-400 border-b border-slate-700">
-                            <th class="text-left py-2 px-3">舰船类型</th>
-                            <th class="text-center py-2 px-3 text-red-400">红方损失</th>
-                            <th class="text-center py-2 px-3 text-blue-400">蓝方损失</th>
-                            <th class="text-right py-2 px-3">红方ISK</th>
-                            <th class="text-right py-2 px-3">蓝方ISK</th>
+                            <th class="text-right py-2 px-3 text-red-400 w-[25%]">红方损失 / ISK</th>
+                            <th class="text-center py-2 px-3 w-[50%]">舰船类型</th>
+                            <th class="text-left py-2 px-3 text-blue-400 w-[25%]">蓝方损失 / ISK</th>
                         </tr>
                     </thead>
                     <tbody id="shipStatsBody"></tbody>
@@ -277,20 +280,17 @@
             </div>
         </div>
 
-        <!-- KM列表 -->
+        <!-- KM列表 - 对称布局 -->
         <div class="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
             <h4 class="font-medium mb-3">击毁报告列表 (<span id="kmCount">0</span>条)</h4>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-slate-400 border-b border-slate-700">
-                            <th class="text-left py-2 px-2">时间</th>
-                            <th class="text-left py-2 px-2">受害者</th>
-                            <th class="text-left py-2 px-2">舰船</th>
-                            <th class="text-left py-2 px-2">星系</th>
-                            <th class="text-right py-2 px-2">ISK</th>
-                            <th class="text-center py-2 px-2">损失方</th>
-                            <th class="text-center py-2 px-2">操作</th>
+                            <th class="text-right py-2 px-3 text-red-400 w-[20%]">红方损失</th>
+                            <th class="text-center py-2 px-3 w-[40%]">舰船 / 星系 / 时间</th>
+                            <th class="text-left py-2 px-3 text-blue-400 w-[20%]">蓝方损失</th>
+                            <th class="text-center py-2 px-3 w-[20%]">操作</th>
                         </tr>
                     </thead>
                     <tbody id="kmListBody"></tbody>
@@ -302,6 +302,22 @@
     <!-- 提示信息 -->
     <div id="emptyMessage" class="hidden text-center py-12 text-slate-400">
         <p>请在上方输入搜索条件，开始生成战场报告</p>
+    </div>
+
+    <!-- KM详情弹窗 -->
+    <div id="detailModal" class="fixed inset-0 z-[9999] hidden flex items-start justify-center overflow-y-auto">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="closeDetail()"></div>
+        <div class="relative mx-auto my-4 md:my-8 w-full max-w-5xl max-h-[90vh] bg-slate-900/95 backdrop-blur rounded-xl border border-white/20 overflow-hidden flex flex-col">
+            <!-- 模态框头部 -->
+            <div class="flex justify-between items-center px-6 py-3 border-b border-white/10 shrink-0">
+                <h3 id="detailTitle" class="font-bold">KM 详情</h3>
+                <button onclick="closeDetail()" class="text-white/50 hover:text-white text-xl">&times;</button>
+            </div>
+            <!-- 模态框内容 -->
+            <div id="detailContent" class="flex-1 overflow-y-auto p-6">
+                <div class="text-center py-12"><div class="spinner mx-auto"></div></div>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
@@ -499,6 +515,12 @@
     document.getElementById('generateBtn').addEventListener('click', generateReport);
 
     function generateReport() {
+        // 验证星系是否已选择
+        if (!selectedSystemId) {
+            alert('请先选择一个星系并点击"搜索"按钮');
+            return;
+        }
+
         var redFactions = [];
         var blueFactions = [];
 
@@ -583,32 +605,64 @@
         }).join('');
         document.getElementById('blueFactionsList').innerHTML = blueFactionsHtml || '<div class="text-slate-500 text-sm">无</div>';
 
-        // 舰船统计
+        // 舰船统计 - 对称布局
         var shipHtml = report.ship_stats.map(function(s) {
+            var redLossText = s.red_loss > 0 ? '<span class="text-red-400 font-medium">' + s.red_loss + '</span>' : '<span class="text-white/30">-</span>';
+            var redIskText = s.red_value > 0 ? '<span class="text-slate-400 text-xs">' + formatIsk(s.red_value) + '</span>' : '';
+            var blueLossText = s.blue_loss > 0 ? '<span class="text-blue-400 font-medium">' + s.blue_loss + '</span>' : '<span class="text-white/30">-</span>';
+            var blueIskText = s.blue_value > 0 ? '<span class="text-slate-400 text-xs">' + formatIsk(s.blue_value) + '</span>' : '';
+
             return '<tr class="border-b border-slate-700/50 hover:bg-slate-800/30">' +
-                '<td class="py-2 px-3">' + escapeHtml(s.ship_name) + '</td>' +
-                '<td class="text-center py-2 px-3 text-red-400">' + s.red_loss + '</td>' +
-                '<td class="text-center py-2 px-3 text-blue-400">' + s.blue_loss + '</td>' +
-                '<td class="text-right py-2 px-3 text-slate-400">' + formatIsk(s.red_value) + '</td>' +
-                '<td class="text-right py-2 px-3 text-slate-400">' + formatIsk(s.blue_value) + '</td>' +
+                '<td class="py-2 px-3 text-right">' +
+                    '<div class="flex flex-col items-end gap-1">' +
+                        '<div>' + redLossText + '</div>' +
+                        '<div>' + redIskText + '</div>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="py-2 px-3 text-center font-medium">' + escapeHtml(s.ship_name) + '</td>' +
+                '<td class="py-2 px-3 text-left">' +
+                    '<div class="flex flex-col items-start gap-1">' +
+                        '<div>' + blueLossText + '</div>' +
+                        '<div>' + blueIskText + '</div>' +
+                    '</div>' +
+                '</td>' +
                 '</tr>';
         }).join('');
         document.getElementById('shipStatsBody').innerHTML = shipHtml;
 
-        // KM列表
+        // KM列表 - 对称布局
         document.getElementById('kmCount').textContent = report.km_list.length;
         var kmHtml = report.km_list.map(function(km) {
-            var sideClass = km.side === 'red' ? 'text-red-400' : 'text-blue-400';
-            var sideText = km.side === 'red' ? '红方' : '蓝方';
-            return '<tr class="border-b border-slate-700/50 hover:bg-slate-800/30">' +
-                '<td class="py-2 px-2 text-slate-400">' + (km.kill_time || '-') + '</td>' +
-                '<td class="py-2 px-2">' + escapeHtml(km.victim_name || '-') + '</td>' +
-                '<td class="py-2 px-2">' + escapeHtml(km.ship_name || '-') + '</td>' +
-                '<td class="py-2 px-2">' + escapeHtml(km.system_name || '-') + '</td>' +
-                '<td class="py-2 px-2 text-right">' + formatIsk(km.total_value) + '</td>' +
-                '<td class="py-2 px-2 text-center ' + sideClass + '">' + sideText + '</td>' +
-                '<td class="py-2 px-2 text-center">' +
-                    '<a href="/killmails?kill_id=' + km.kill_id + '" target="_blank" class="text-blue-400 hover:text-blue-300">详情</a>' +
+            var isRed = km.side === 'red';
+            
+            // 红方损失列：只在红方损失时显示受害者/ISK
+            var redCellHtml = isRed ?
+                '<div class="flex flex-col items-end gap-1">' +
+                    '<div class="text-red-300 font-medium">' + escapeHtml(km.victim_name || '-') + '</div>' +
+                    '<div class="text-xs text-slate-400">' + formatIsk(km.total_value) + '</div>' +
+                '</div>' :
+                '<span class="text-white/20">-</span>';
+
+            // 蓝方损失列：只在蓝方损失时显示受害者/ISK
+            var blueCellHtml = !isRed ?
+                '<div class="flex flex-col items-start gap-1">' +
+                    '<div class="text-blue-300 font-medium">' + escapeHtml(km.victim_name || '-') + '</div>' +
+                    '<div class="text-xs text-slate-400">' + formatIsk(km.total_value) + '</div>' +
+                '</div>' :
+                '<span class="text-white/20">-</span>';
+
+            return '<tr class="border-b border-slate-700/50 hover:bg-slate-800/30' + (isRed ? ' bg-red-500/5' : ' bg-blue-500/5') + '">' +
+                '<td class="py-3 px-3 text-right">' + redCellHtml + '</td>' +
+                '<td class="py-3 px-3 text-center">' +
+                    '<div class="flex flex-col items-center gap-1">' +
+                        '<div class="font-medium">' + escapeHtml(km.ship_name || '-') + '</div>' +
+                        '<div class="text-xs text-slate-400">' + escapeHtml(km.system_name || '-') + '</div>' +
+                        '<div class="text-xs text-white/50">' + (km.kill_time || '-') + '</div>' +
+                    '</div>' +
+                '</td>' +
+                '<td class="py-3 px-3 text-left">' + blueCellHtml + '</td>' +
+                '<td class="py-3 px-3 text-center">' +
+                    '<button onclick="openKmDetail(' + km.kill_id + ', ' + (km.esi_hash ? "'" + km.esi_hash + "'" : 'null') + ')" class="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded hover:bg-blue-500/10 transition-all">详情</button>' +
                 '</td>' +
                 '</tr>';
         }).join('');
@@ -623,11 +677,192 @@
 
     function formatIsk(value) {
         if (!value || value === 0) return '0 ISK';
-        if (value >= 1000000000) return (value / 1000000000).toFixed(2) + 'B';
-        if (value >= 1000000) return (value / 1000000).toFixed(2) + 'M';
-        if (value >= 1000) return (value / 1000).toFixed(2) + 'K';
-        return value.toFixed(2) + ' ISK';
+        // 千位分隔符格式显示完整金额
+        return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' ISK';
     }
+
+    function formatNum(n) {
+        if (n === null || n === undefined) return '0';
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    // ========== KM 详情弹窗 ==========
+
+    var BETA_KB_URL = 'https://beta.ceve-market.org';
+
+    window.openKmDetail = function(killId, hash) {
+        var modal = document.getElementById('detailModal');
+        var content = document.getElementById('detailContent');
+        document.getElementById('detailTitle').textContent = 'KM #' + killId + ' 详情';
+        content.innerHTML = '<div class="text-center py-12"><div class="spinner mx-auto mb-3"></div><p class="text-blue-200 text-sm">加载中...</p></div>';
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        var fetchDetail = function(h) {
+            var url = '/api/killmails/kill/' + killId;
+            if (h) url += '?hash=' + h;
+            fetch(url)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        renderKillDetail(data.data);
+                    } else {
+                        content.innerHTML = '<div class="text-center py-12 text-red-400">' + escapeHtml(data.message || '加载失败') + '</div>';
+                    }
+                })
+                .catch(function(err) {
+                    content.innerHTML = '<div class="text-center py-12 text-red-400">网络错误: ' + escapeHtml(err.message) + '</div>';
+                });
+        };
+
+        if (hash) {
+            fetchDetail(hash);
+        } else {
+            fetch(BETA_KB_URL + '/app/kill/' + killId + '/info', { mode: 'cors', credentials: 'omit' })
+                .then(function(r) { return r.text(); })
+                .then(function(text) {
+                    var m = text.match(/[a-f0-9]{40}/);
+                    fetchDetail(m ? m[0] : null);
+                })
+                .catch(function() { fetchDetail(null); });
+        }
+    };
+
+    window.closeDetail = function() {
+        document.getElementById('detailModal').classList.add('hidden');
+        document.body.style.overflow = '';
+    };
+
+    function renderKillDetail(d) {
+        var content = document.getElementById('detailContent');
+        var v = d.victim || {};
+        var secClass = getSecClass(d.system_sec);
+        var secText = d.system_sec !== null && d.system_sec !== undefined ? '(' + d.system_sec.toFixed(1) + ')' : '';
+
+        var html = '';
+
+        // ESI 验证标记
+        if (d.esi_verified) {
+            html += '<div class="mb-3 text-xs"><span class="bg-green-600/30 text-green-300 px-2 py-0.5 rounded">ESI 官方数据</span></div>';
+        } else {
+            html += '<div class="mb-3 text-xs"><span class="bg-yellow-600/30 text-yellow-300 px-2 py-0.5 rounded">KB 降级数据</span></div>';
+        }
+
+        // 受害者/击毁信息
+        html += '<div class="bg-white/5 rounded-lg p-4 mb-4 border border-red-500/20">';
+        html += '<div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">';
+        html += '<span class="text-lg font-bold text-red-300">' + escapeHtml(v.character_name || '未知') + '</span>';
+        var victimOrg = [];
+        if (v.corporation_name) victimOrg.push(v.corporation_name);
+        if (v.alliance_name) victimOrg.push(v.alliance_name);
+        if (victimOrg.length) html += '<span class="text-white/50 text-sm">[' + escapeHtml(victimOrg.join(' / ')) + ']</span>';
+        html += '<span class="text-white/70">舰船: <span class="text-white font-medium">' + escapeHtml(v.ship_name || '未知') + '</span></span>';
+        html += '<span class="text-white/70">伤害: <span class="text-orange-300">' + formatNum(v.damage_taken) + '</span></span>';
+        html += '</div>';
+        html += '<div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-white/50">';
+        html += '<span>星系: ' + escapeHtml(d.solar_system_name || '-') + ' <span class="' + secClass + '">' + secText + '</span>';
+        if (d.region_name) html += ' / ' + escapeHtml(d.region_name);
+        html += '</span>';
+        html += '<span>时间: ' + escapeHtml(d.kill_time || '-') + ' (北京时间)</span>';
+        html += '<span>参与: ' + d.attacker_count + '人</span>';
+        html += '<a href="https://kb.ceve-market.org/kill/' + d.kill_id + '/" target="_blank" class="text-blue-400 hover:underline">KB 链接</a>';
+        html += '</div></div>';
+
+        // 两列布局: 攻击者 | 装配/物品
+        html += '<div class="grid grid-cols-1 lg:grid-cols-10 gap-4">';
+        html += '<div class="lg:col-span-3 bg-white/5 rounded-lg border border-white/10 overflow-hidden">';
+        html += '<div class="px-4 py-2 border-b border-white/10 font-bold text-sm">攻击者 (' + d.attacker_count + ')</div>';
+        html += '<div class="divide-y divide-white/5 max-h-[600px] overflow-y-auto">';
+
+        var attackers = d.attackers || [];
+        attackers.forEach(function(atk, idx) {
+            var badge = '';
+            if (atk.final_blow) {
+                badge = '<span class="text-yellow-400 text-xs font-bold ml-1">&#11088; 最后一击</span>';
+            } else if (idx === 1 && (!attackers[0] || !attackers[0].final_blow || attackers[0].character_id !== atk.character_id)) {
+                badge = '<span class="text-orange-400 text-xs font-bold ml-1">&#127942; 最高伤害</span>';
+            } else if (idx === 0 && !atk.final_blow) {
+                badge = '<span class="text-orange-400 text-xs font-bold ml-1">&#127942; 最高伤害</span>';
+            }
+
+            var atkOrg = '';
+            if (atk.corporation_name) atkOrg = atk.corporation_name;
+            if (atk.alliance_name) atkOrg += (atkOrg ? ' - ' : '') + atk.alliance_name;
+
+            html += '<div class="px-4 py-2.5' + (atk.final_blow ? ' bg-yellow-500/5' : '') + '">';
+            html += '<div class="font-medium text-sm">' + escapeHtml(atk.character_name || '未知') + badge + '</div>';
+            if (atkOrg) html += '<div class="text-white/40 text-xs">' + escapeHtml(atkOrg) + '</div>';
+            html += '<div class="text-white/50 text-xs">' + escapeHtml(atk.ship_name || '?') + ' - ' + escapeHtml(atk.weapon_name || '?') + '</div>';
+            html += '<div class="text-orange-300 text-xs">伤害: ' + formatNum(atk.damage_done) + '</div>';
+            html += '</div>';
+        });
+
+        if (!attackers.length) {
+            html += '<div class="px-4 py-4 text-white/30 text-sm text-center">无攻击者数据</div>';
+        }
+
+        html += '</div></div>';
+
+        // 装配/物品
+        html += '<div class="lg:col-span-7 bg-white/5 rounded-lg border border-white/10 overflow-hidden">';
+        html += '<div class="px-4 py-2 border-b border-white/10 font-bold text-sm">装配 / 物品</div>';
+        html += '<div class="max-h-[600px] overflow-y-auto">';
+
+        var slots = d.items_by_slot || {};
+        var slotOrder = ['高槽', '中槽', '低槽', '改装件', '子系统', '无人机舱', '弹药舱', '货柜舱', '其他'];
+        var hasItems = false;
+
+        slotOrder.forEach(function(slotName) {
+            var slotItems = slots[slotName];
+            if (!slotItems || !slotItems.length) return;
+            hasItems = true;
+            html += '<div class="px-4 py-1.5 bg-white/5 border-b border-white/10 text-xs font-bold text-blue-300">' + escapeHtml(slotName) + '</div>';
+            slotItems.forEach(function(item) {
+                html += renderItemRow(item, true);
+            });
+        });
+
+        if (!hasItems && v.items && v.items.length) {
+            v.items.forEach(function(item) {
+                html += renderItemRow(item, true);
+            });
+        } else if (!hasItems) {
+            html += '<div class="px-4 py-4 text-white/30 text-sm text-center">无物品数据</div>';
+        }
+
+        html += '</div></div>';
+        html += '</div>';
+
+        content.innerHTML = html;
+    }
+
+    function getSecClass(sec) {
+        if (sec === null || sec === undefined) return '';
+        if (sec >= 0.5) return 'sec-high';
+        if (sec > 0.0) return 'sec-low';
+        return 'sec-null';
+    }
+
+    function renderItemRow(item, showPrice) {
+        var colorClass = item.status === 'dropped' ? 'item-dropped' : 'item-destroyed';
+        var qtyText = item.quantity > 1 ? '<span class="text-white/50">x' + item.quantity + '</span> ' : '';
+        var priceText = '';
+        if (showPrice && item.total_price && item.total_price > 0) {
+            priceText = formatIsk(item.total_price);
+        }
+
+        return '<div class="px-4 py-1 text-xs flex justify-between items-center border-b border-white/5">' +
+               '<span class="' + colorClass + '">' + qtyText + escapeHtml(item.item_name) + '</span>' +
+               '<span class="text-yellow-300/80 whitespace-nowrap ml-2">' + (priceText || '-') + '</span>' +
+               '</div>';
+    }
+
+    // ESC 关闭弹窗
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDetail();
+        }
+    });
 
     // 初始化
     initTimeInputs();

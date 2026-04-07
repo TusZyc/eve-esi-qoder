@@ -4,6 +4,7 @@ namespace App\Services\BattleReport;
 
 use App\Services\Killmail\BetaKbApiClient;
 use App\Services\Killmail\KillmailEnrichService;
+use App\Services\KillmailService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -16,14 +17,17 @@ class BattleReportService
 {
     protected BetaKbApiClient $kbClient;
     protected KillmailEnrichService $enrichService;
+    protected KillmailService $killmailService;
     protected ?array $systemJumps = null;
 
     public function __construct(
         BetaKbApiClient $kbClient,
-        KillmailEnrichService $enrichService
+        KillmailEnrichService $enrichService,
+        KillmailService $killmailService
     ) {
         $this->kbClient = $kbClient;
         $this->enrichService = $enrichService;
+        $this->killmailService = $killmailService;
     }
 
     /**
@@ -69,8 +73,8 @@ class BattleReportService
             ];
         }
 
-        // 富化KM数据
-        [$enrichedKills, $detailsMap] = $this->enrichService->enrichKillList($uniqueKills);
+        // 富化KM数据（使用 KillmailService 以获取完整物品数据）
+        [$enrichedKills, $detailsMap] = $this->killmailService->enrichKillList($uniqueKills);
 
         // 提取阵营
         $factions = $this->extractFactions($enrichedKills, $detailsMap);
@@ -133,8 +137,8 @@ class BattleReportService
             ];
         }
 
-        // 富化KM数据
-        [$enrichedKills, $detailsMap] = $this->enrichService->enrichKillList($uniqueKills);
+        // 富化KM数据（使用 KillmailService 以获取完整物品数据）
+        [$enrichedKills, $detailsMap] = $this->killmailService->enrichKillList($uniqueKills);
 
         // 计算统计数据
         $stats = $this->calculateStats($enrichedKills, $redFactionIds, $blueFactionIds);
@@ -319,31 +323,34 @@ class BattleReportService
             'red' => [
                 'loss_isk' => 0,
                 'loss_ships' => 0,
-                'kills' => 0,
+                'kills' => 0,  // 红方击杀数 = 蓝方损失舰船数
                 'participants' => [],
             ],
             'blue' => [
                 'loss_isk' => 0,
                 'loss_ships' => 0,
-                'kills' => 0,
+                'kills' => 0,  // 蓝方击杀数 = 红方损失舰船数
                 'participants' => [],
             ],
         ];
 
         foreach ($enrichedKills as $kill) {
+            // 优先使用联盟ID，无联盟时使用军团ID
             $victimFactionId = $kill['victim_alliance_id'] ?? $kill['victim_corporation_id'] ?? null;
             $totalValue = $kill['total_value'] ?? 0;
 
-            // 统计损失
+            // 统计损失（同时计算对方的击杀数）
             if (in_array($victimFactionId, $redFactionIds)) {
                 $stats['red']['loss_isk'] += $totalValue;
                 $stats['red']['loss_ships']++;
+                $stats['blue']['kills']++;  // 蓝方击杀数+1
                 if ($kill['victim_id'] ?? null) {
                     $stats['red']['participants'][$kill['victim_id']] = true;
                 }
             } elseif (in_array($victimFactionId, $blueFactionIds)) {
                 $stats['blue']['loss_isk'] += $totalValue;
                 $stats['blue']['loss_ships']++;
+                $stats['red']['kills']++;  // 红方击杀数+1
                 if ($kill['victim_id'] ?? null) {
                     $stats['blue']['participants'][$kill['victim_id']] = true;
                 }
