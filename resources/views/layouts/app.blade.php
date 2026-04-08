@@ -347,6 +347,11 @@
                 <span class="text-xl w-6 text-center">🔭</span>
                 <span>斥候工具</span>
             </a>
+            <a href="{{ route('fitting-simulator.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'fitting-simulator' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">🚀</span>
+                <span>装配模拟器</span>
+            </a>
         </nav>
 
         <!-- 用户信息（已登录时显示） -->
