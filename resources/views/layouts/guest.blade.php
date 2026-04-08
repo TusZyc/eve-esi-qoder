@@ -6,6 +6,9 @@
     <title>@yield('title', 'Tus Esi System')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js 本地化，避免CDN限流 -->
+    <script defer src="/js/alpine-collapse.min.js"></script>
+    <script defer src="/js/alpine.min.js"></script>
     <style>
         .eve-bg {
             background: linear-gradient(135deg, #0c1445 0%, #1a237e 50%, #283593 100%);
@@ -186,6 +189,11 @@
                class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'scout' ? 'active' : '' }}">
                 <span class="text-xl w-6 text-center">🔭</span>
                 <span>斥候工具</span>
+            </a>
+            <a href="{{ route('fitting-simulator.index') }}" 
+               class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg {{ ($activePage ?? '') === 'fitting-simulator' ? 'active' : '' }}">
+                <span class="text-xl w-6 text-center">🔧</span>
+                <span>装配模拟器</span>
             </a>
 
             <!-- 登录提示 -->

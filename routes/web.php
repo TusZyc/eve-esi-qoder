@@ -40,6 +40,8 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\FleetController;
 use App\Http\Controllers\MailController;
 use App\Http\Controllers\ScoutController;
+use App\Http\Controllers\FittingSimulatorController;
+use App\Http\Controllers\Api\FittingSimulatorDataController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -297,4 +299,23 @@ Route::middleware('throttle:30,1')->prefix('api/public/wormhole')->group(functio
     Route::get('/systems', [\App\Http\Controllers\Api\WormholeApiController::class, 'systemsList'])->name('api.public.wormhole.systems');
     Route::get('/types', [\App\Http\Controllers\Api\WormholeApiController::class, 'typesList'])->name('api.public.wormhole.types');
     Route::get('/effects', [\App\Http\Controllers\Api\WormholeApiController::class, 'effectsList'])->name('api.public.wormhole.effects');
+});
+
+// 装配模拟器（公开访问）
+Route::get('/fitting-simulator', [FittingSimulatorController::class, 'index'])->name('fitting-simulator.index');
+
+// 装配模拟器公开 API - 放宽限流以支持多级分类展开
+Route::middleware('throttle:120,1')->prefix('api/public/fitting-simulator')->group(function () {
+    Route::get('/categories', [FittingSimulatorDataController::class, 'categories'])->name('api.public.fitting-simulator.categories');
+    Route::get('/module-categories', [FittingSimulatorDataController::class, 'moduleCategories'])->name('api.public.fitting-simulator.module-categories');
+    Route::get('/module-category-tree', [FittingSimulatorDataController::class, 'moduleCategoryTree'])->name('api.public.fitting-simulator.module-category-tree');
+    Route::get('/modules-by-category-path', [FittingSimulatorDataController::class, 'modulesByCategoryPath'])->name('api.public.fitting-simulator.modules-by-category-path');
+    Route::get('/groups/{groupId}/ships', [FittingSimulatorDataController::class, 'shipsByGroup'])->name('api.public.fitting-simulator.ships-by-group');
+    Route::get('/groups/{groupId}/modules', [FittingSimulatorDataController::class, 'modulesByGroup'])->name('api.public.fitting-simulator.modules-by-group');
+    Route::get('/ships/{typeId}', [FittingSimulatorDataController::class, 'shipDetails'])->name('api.public.fitting-simulator.ship-details');
+    Route::get('/types/{typeId}', [FittingSimulatorDataController::class, 'typeDetails'])->name('api.public.fitting-simulator.type-details');
+    Route::get('/search', [FittingSimulatorDataController::class, 'searchModules'])->name('api.public.fitting-simulator.search');
+    Route::get('/image/{typeId}', [FittingSimulatorDataController::class, 'getImage'])->name('api.public.fitting-simulator.image');
+    Route::post('/batch-types', [FittingSimulatorDataController::class, 'batchTypeDetails'])->name('api.public.fitting-simulator.batch-types');
+    Route::get('/attributes', [FittingSimulatorDataController::class, 'attributeDefinitions'])->name('api.public.fitting-simulator.attributes');
 });

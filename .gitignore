@@ -56,3 +56,7 @@ npm-debug.log
 yarn-error.log
 .phpunit.result.cache
 composer.lock
+
+# SQLite database files
+*.sqlite
+*.sqlite.bz2
