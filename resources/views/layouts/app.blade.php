@@ -6,6 +6,9 @@
     <title>@yield('title', 'Tus Esi System')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js 本地化，避免CDN限流 -->
+    <script defer src="/js/alpine-collapse.min.js"></script>
+    <script defer src="/js/alpine.min.js"></script>
     <style>
         /* 侧边栏 - 深邃渐变 + 微光效果 */
         .admin-sidebar {
