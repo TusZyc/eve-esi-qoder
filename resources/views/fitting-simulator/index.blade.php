@@ -542,7 +542,7 @@
                 <div class="tab-btn" :class="{ 'active': activeTab === 'modules' }" @click="activeTab = 'modules'">🔧 装备</div>
             </div>
             
-            <!-- 舰船列表 -->
+            <!-- 舰船列表 - 一级分类=舰种 -->
             <div x-show="activeTab === 'ships'">
                 <input type="text" x-model="shipSearchQuery" @input="filterShips()" placeholder="搜索舰船..." class="search-input">
                 
@@ -552,23 +552,14 @@
                              :class="{ 'expanded': expandedCategories.includes(key) }"
                              @click="toggleCategory(key)">
                             <span x-text="category.name"></span>
+                            <span class="count" x-text="'(' + category.count + ')'"></span>
                             <span class="toggle">▶</span>
                         </div>
                         <div x-show="expandedCategories.includes(key)" x-collapse>
-                            <template x-for="group in category.groups" :key="group.group_id">
-                                <div>
-                                    <div class="item-row" @click="toggleGroup(group.group_id)" :class="{ 'active': selectedGroup === group.group_id }">
-                                        <span class="name" x-text="group.name_cn || group.name"></span>
-                                        <span class="meta" x-text="group.count"></span>
-                                    </div>
-                                    <div x-show="expandedGroups.includes(group.group_id)" x-collapse>
-                                        <template x-for="ship in getShipsByGroup(group.group_id)" :key="ship.type_id">
-                                            <div class="item-row" style="padding-left: 16px;" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
-                                                <img :src="ship.image_url">
-                                                <span class="name" x-text="ship.name_cn || ship.name"></span>
-                                            </div>
-                                        </template>
-                                    </div>
+                            <template x-for="ship in getShipsByGroup(category.group_id)" :key="ship.type_id">
+                                <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
+                                    <img :src="ship.image_url">
+                                    <span class="name" x-text="ship.name_cn || ship.name"></span>
                                 </div>
                             </template>
                         </div>

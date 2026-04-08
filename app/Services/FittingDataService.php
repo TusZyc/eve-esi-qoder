@@ -167,7 +167,7 @@ class FittingDataService
     }
 
     /**
-     * 获取舰船分类列表（简化版，用于左侧树形导航）
+     * 获取舰船分类列表（一级分类=舰种，二级=势力（暂不实现，直接显示舰船））
      */
     public function getShipCategories(): array
     {
@@ -175,64 +175,37 @@ class FittingDataService
         if (!$this->isDatabaseReady()) {
             return ['not_initialized' => [
                 'key' => 'not_initialized',
-                'name' => '⚠️ 数据未初始化',
-                'groups' => [[
-                    'group_id' => 0,
-                    'name' => '请运行 php artisan fitting:import-sde',
-                    'name_cn' => '请运行 php artisan fitting:import-sde',
-                    'count' => 0,
-                ]],
+                'name' => '数据未初始化',
+                'count' => 0,
             ]];
         }
         
-        return Cache::remember('fitting_ship_categories', 3600, function () {
-            // 正确的舰船分类配置（根据 SDE group_id）
-            $categories = [
-                'frigate' => ['name' => '护卫舰', 'group_ids' => [25, 324, 830, 831, 834, 893, 1283, 1527]],
-                'corvette' => ['name' => '轻型护卫舰', 'group_ids' => [237]],
-                'destroyer' => ['name' => '驱逐舰', 'group_ids' => [420, 541, 1305, 1534]],
-                'cruiser' => ['name' => '巡洋舰', 'group_ids' => [26, 358, 832, 833, 894, 906, 963, 1972]],
-                'battlecruiser' => ['name' => '战列巡洋舰', 'group_ids' => [419, 540, 1201]],
-                'battleship' => ['name' => '战列舰', 'group_ids' => [27, 898, 900]],
-                'capital' => ['name' => '旗舰', 'group_ids' => [30, 485, 4594, 547, 659, 1538]],
-                'industrial' => ['name' => '工业舰', 'group_ids' => [28, 380, 513, 902, 1202, 941, 883]],
-                'mining' => ['name' => '采矿舰', 'group_ids' => [463, 543]],
-                'shuttle' => ['name' => '穿梭机', 'group_ids' => [29, 31]],
-                'special' => ['name' => '特别版', 'group_ids' => [1022]],
-            ];
-
+        return Cache::remember('fitting_ship_categories_v3', 3600, function () {
             $result = [];
-            foreach ($categories as $key => $cat) {
-                $groups = DB::connection('fitting')
-                    ->table('fitting_groups')
-                    ->whereIn('group_id', $cat['group_ids'])
+            
+            // 获取所有舰船groups
+            $groups = DB::connection('fitting')
+                ->table('fitting_groups')
+                ->where('category_id', 6)
+                ->where('published', 1)
+                ->orderBy('name_cn')
+                ->get();
+            
+            foreach ($groups as $group) {
+                // 获取该group下的舰船数量
+                $count = DB::connection('fitting')
+                    ->table('fitting_types')
+                    ->where('group_id', $group->group_id)
                     ->where('published', 1)
-                    ->orderBy('name_en')
-                    ->get();
-
-                $groupList = [];
-                foreach ($groups as $group) {
-                    $count = DB::connection('fitting')
-                        ->table('fitting_types')
-                        ->where('group_id', $group->group_id)
-                        ->where('published', 1)
-                        ->count();
-                    
-                    if ($count > 0) {
-                        $groupList[] = [
-                            'group_id' => $group->group_id,
-                            'name' => $group->name_en,
-                            'name_cn' => $group->name_cn ?? $group->name_en,
-                            'count' => $count,
-                        ];
-                    }
-                }
-
-                if (!empty($groupList)) {
+                    ->count();
+                
+                if ($count > 0) {
+                    $key = $group->group_id == 1022 ? 'special' : 'group_' . $group->group_id;
                     $result[$key] = [
                         'key' => $key,
-                        'name' => $cat['name'],
-                        'groups' => $groupList,
+                        'group_id' => $group->group_id,
+                        'name' => $group->name_cn ?? $group->name_en,
+                        'count' => $count,
                     ];
                 }
             }
