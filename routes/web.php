@@ -305,7 +305,7 @@ Route::middleware('throttle:30,1')->prefix('api/public/wormhole')->group(functio
 Route::get('/fitting-simulator', [FittingSimulatorController::class, 'index'])->name('fitting-simulator.index');
 
 // 装配模拟器公开 API - 放宽限流以支持多级分类展开
-Route::middleware('throttle:120,1')->prefix('api/public/fitting-simulator')->group(function () {
+Route::middleware('throttle:600,1')->prefix('api/public/fitting-simulator')->group(function () {
     Route::get('/categories', [FittingSimulatorDataController::class, 'categories'])->name('api.public.fitting-simulator.categories');
     Route::get('/module-categories', [FittingSimulatorDataController::class, 'moduleCategories'])->name('api.public.fitting-simulator.module-categories');
     Route::get('/module-category-tree', [FittingSimulatorDataController::class, 'moduleCategoryTree'])->name('api.public.fitting-simulator.module-category-tree');

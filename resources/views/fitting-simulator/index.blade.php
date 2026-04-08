@@ -578,7 +578,7 @@
                     <div class="category-block">
                         <div class="category-header" 
                              :class="{ 'expanded': expandedCategories.includes(key) }"
-                             @click="toggleCategory(key)">
+                             @click="toggleCategory(key, category.group_id)">
                             <span x-text="category.name"></span>
                             <span class="count" x-text="'(' + category.count + ')'"></span>
                             <span class="toggle">▶</span>
@@ -894,24 +894,24 @@
                         <div class="stats-section-title">🛡️ 护盾</div>
                         <div class="stat-row">
                             <span class="stat-label">HP</span>
-                            <span class="stat-value" x-text="formatNumber(shipStats.attributes?.shieldCapacity?.value)"></span>
+                            <span class="stat-value" x-text="formatNumber(displayAttributes?.shieldCapacity?.value)"></span>
                         </div>
                         <div class="resistance-row">
                             <div class="resistance-item">
-                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (shipStats.attributes?.shieldEmDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.shieldEmDamageResonance?.value)"></span>
+                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (displayAttributes?.shieldEmDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.shieldEmDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (shipStats.attributes?.shieldExplosiveDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.shieldExplosiveDamageResonance?.value)"></span>
+                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (displayAttributes?.shieldExplosiveDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.shieldExplosiveDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (shipStats.attributes?.shieldKineticDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.shieldKineticDamageResonance?.value)"></span>
+                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (displayAttributes?.shieldKineticDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.shieldKineticDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (shipStats.attributes?.shieldThermalDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.shieldThermalDamageResonance?.value)"></span>
+                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (displayAttributes?.shieldThermalDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.shieldThermalDamageResonance?.value)"></span>
                             </div>
                         </div>
                     </div>
@@ -921,24 +921,24 @@
                         <div class="stats-section-title">🔧 装甲</div>
                         <div class="stat-row">
                             <span class="stat-label">HP</span>
-                            <span class="stat-value" x-text="formatNumber(shipStats.attributes?.armorHP?.value)"></span>
+                            <span class="stat-value" x-text="formatNumber(displayAttributes?.armorHP?.value)"></span>
                         </div>
                         <div class="resistance-row">
                             <div class="resistance-item">
-                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (shipStats.attributes?.armorEmDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.armorEmDamageResonance?.value)"></span>
+                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (displayAttributes?.armorEmDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.armorEmDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (shipStats.attributes?.armorExplosiveDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.armorExplosiveDamageResonance?.value)"></span>
+                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (displayAttributes?.armorExplosiveDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.armorExplosiveDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (shipStats.attributes?.armorKineticDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.armorKineticDamageResonance?.value)"></span>
+                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (displayAttributes?.armorKineticDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.armorKineticDamageResonance?.value)"></span>
                             </div>
                             <div class="resistance-item">
-                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (shipStats.attributes?.armorThermalDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(shipStats.attributes?.armorThermalDamageResonance?.value)"></span>
+                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (displayAttributes?.armorThermalDamageResonance?.value || 1))"></div>
+                                <span x-text="formatResistance(displayAttributes?.armorThermalDamageResonance?.value)"></span>
                             </div>
                         </div>
                     </div>
@@ -948,19 +948,19 @@
                         <div class="stats-section-title">🚀 机动性</div>
                         <div class="stat-row">
                             <span class="stat-label">最大速度</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.maxVelocity?.value || 0).toFixed(1) + ' m/s'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.maxVelocity?.value || 0).toFixed(1) + ' m/s'"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">惯性系数</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.agility?.value || 0).toFixed(3)"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.agility?.value || 0).toFixed(3)"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">信号半径</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.signatureRadius?.value || 0).toFixed(0) + ' m'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.signatureRadius?.value || 0).toFixed(0) + ' m'"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">曲速</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.warpSpeedMultiplier?.value || 1).toFixed(1) + ' AU/s'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.warpSpeedMultiplier?.value || 1).toFixed(1) + ' AU/s'"></span>
                         </div>
                     </div>
                     
@@ -969,28 +969,28 @@
                         <div class="stats-section-title">🎯 锁定</div>
                         <div class="stat-row">
                             <span class="stat-label">锁定距离</span>
-                            <span class="stat-value" x-text="formatDistance(shipStats.attributes?.maxTargetRange?.value)"></span>
+                            <span class="stat-value" x-text="formatDistance(displayAttributes?.maxTargetRange?.value)"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">扫描分辨率</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.scanResolution?.value || 0).toFixed(0) + ' mm'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.scanResolution?.value || 0).toFixed(0) + ' mm'"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">最大目标数</span>
-                            <span class="stat-value" x-text="shipStats.attributes?.maxLockedTargets?.value || 0"></span>
+                            <span class="stat-value" x-text="displayAttributes?.maxLockedTargets?.value || 0"></span>
                         </div>
                     </div>
                     
                     <!-- 无人机 -->
-                    <div x-show="shipStats.attributes?.droneBandwidth?.value > 0" class="stats-section">
+                    <div x-show="displayAttributes?.droneBandwidth?.value > 0" class="stats-section">
                         <div class="stats-section-title">🤖 无人机</div>
                         <div class="stat-row">
                             <span class="stat-label">带宽</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.droneBandwidth?.value || 0) + ' Mbit/s'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.droneBandwidth?.value || 0) + ' Mbit/s'"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">舱容</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.droneCapacity?.value || 0) + ' m³'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.droneCapacity?.value || 0) + ' m³'"></span>
                         </div>
                     </div>
                     
@@ -999,11 +999,11 @@
                         <div class="stats-section-title">⚡ 电容</div>
                         <div class="stat-row">
                             <span class="stat-label">容量</span>
-                            <span class="stat-value" x-text="(shipStats.attributes?.capacitorCapacity?.value || 0).toFixed(0) + ' GJ'"></span>
+                            <span class="stat-value" x-text="(displayAttributes?.capacitorCapacity?.value || 0).toFixed(0) + ' GJ'"></span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">充能时间</span>
-                            <span class="stat-value" x-text="formatTime(shipStats.attributes?.rechargeRate?.value)"></span>
+                            <span class="stat-value" x-text="formatTime(displayAttributes?.rechargeRate?.value)"></span>
                         </div>
                     </div>
                 </div>
@@ -1032,6 +1032,7 @@ function fittingSimulator() {
         expandedGroups: [],
         expandedFactions: [], // 展开的势力列表
         shipStats: null,
+        displayAttributes: {},
         fittedModules: { high: [], med: [], low: [], rig: [] },
         moduleSearchQuery: '',
         moduleSlotFilter: '',
@@ -1214,10 +1215,15 @@ function fittingSimulator() {
         
         getModulesByGroup(groupId) { return this.allModules[groupId] || []; },
         
-        toggleCategory(key) {
+        toggleCategory(key, groupId = null) {
             const idx = this.expandedCategories.indexOf(key);
             if (idx > -1) this.expandedCategories.splice(idx, 1);
-            else this.expandedCategories.push(key);
+            else {
+                this.expandedCategories.push(key);
+                if (groupId) {
+                    this.loadShipsByGroup(groupId);
+                }
+            }
         },
         
         toggleGroup(groupId) {
@@ -1240,6 +1246,7 @@ function fittingSimulator() {
             
             try {
                 const response = await fetch('/api/public/fitting-simulator/groups/' + groupId + '/ships');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 // 直接赋值触发响应
                 this.allShips[groupId] = data;
@@ -1262,7 +1269,7 @@ function fittingSimulator() {
                 this.expandedFactions.splice(idx, 1);
             } else {
                 this.expandedFactions.push(key);
-                this.loadShipsByGroupAndFaction(groupId, factionId);
+                this.loadShipsByGroup(groupId);
             }
         },
         
@@ -1274,6 +1281,7 @@ function fittingSimulator() {
             
             try {
                 const response = await fetch('/api/public/fitting-simulator/groups/' + groupId + '/faction/' + factionId + '/ships');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 this.factionShips[key] = data;
                 this.factionShips = JSON.parse(JSON.stringify(this.factionShips));
@@ -1284,8 +1292,8 @@ function fittingSimulator() {
         },
         
         getShipsByGroupAndFaction(groupId, factionId) {
-            const key = groupId + '_' + factionId;
-            return this.factionShips[key] || [];
+            const ships = this.allShips[groupId] || [];
+            return ships.filter(ship => Number(ship.faction_id ?? 0) === Number(factionId));
         },
         
         async selectShip(ship) {
@@ -1298,6 +1306,7 @@ function fittingSimulator() {
                 this.resourceUsage.power.total = this.shipStats.resources?.power_output || 0;
                 this.resourceUsage.calibration.total = this.shipStats.resources?.upgrade_capacity || 350;
                 this.updateResourceUsage();
+                this.recalculateFittingStats();
             } catch (e) { console.error('Failed to load ship details:', e); }
         },
         
@@ -1306,8 +1315,11 @@ function fittingSimulator() {
             const query = this.shipSearchQuery.toLowerCase();
             const filtered = {};
             for (const [key, cat] of Object.entries(this.categories)) {
-                const matchingGroups = cat.groups.filter(g => (g.name_cn || g.name).toLowerCase().includes(query));
-                if (matchingGroups.length > 0) filtered[key] = { ...cat, groups: matchingGroups };
+                const categoryMatch = (cat.name || '').toLowerCase().includes(query);
+                const factionMatch = Object.values(cat.factions || {}).some(f => (f.name || '').toLowerCase().includes(query));
+                if (categoryMatch || factionMatch) {
+                    filtered[key] = cat;
+                }
             }
             this.filteredCategories = filtered;
         },
@@ -1324,17 +1336,23 @@ function fittingSimulator() {
         },
         
         selectSlotForModule(slotType, index) {
-            this.selectedSlot = { type: slotType, index: index };
-            this.moduleSlotFilter = slotType === 'rig' ? 'rig' : slotType;
+            const normalizedSlot = this.normalizeSlotType(slotType);
+            this.selectedSlot = { type: normalizedSlot, index: index };
+            this.moduleSlotFilter = normalizedSlot === 'rig' ? 'rig' : normalizedSlot;
             this.activeTab = 'modules';
             if (this.moduleSearchQuery) this.searchModules();
         },
         
         async addModule(module) {
-            const slot = module.slot || this.selectedSlot?.type || this.moduleSlotFilter;
+            if (!this.selectedSlot) {
+                alert('请先点一下要安装的槽位，再点装备。');
+                return;
+            }
+
+            const slot = this.normalizeSlotType(this.selectedSlot.type);
             if (!slot || !this.selectedShip) return;
             
-            const maxSlots = this.shipStats?.slots?.[slot] || 0;
+            const maxSlots = this.getShipSlotCapacity(slot);
             let slotIndex = this.selectedSlot?.index ?? -1;
             
             if (slotIndex === -1 || this.fittedModules[slot][slotIndex]) {
@@ -1361,20 +1379,48 @@ function fittingSimulator() {
             this.fittedModules[slot][slotIndex] = { ...moduleDetails, slot: slot, slotIndex: slotIndex };
             this.selectedSlot = null;
             this.updateResourceUsage();
+            this.recalculateFittingStats();
         },
         
         removeModule(slotType, index) {
             this.fittedModules[slotType][index] = null;
             this.updateResourceUsage();
+            this.recalculateFittingStats();
         },
         
         clearAllSlots() {
             this.fittedModules = { high: [], med: [], low: [], rig: [] };
             this.updateResourceUsage();
+            this.recalculateFittingStats();
         },
         
         getSlotModule(slotType, index) { return this.fittedModules[slotType]?.[index]; },
         getFilledSlots(slotType) { return this.fittedModules[slotType]?.filter(m => m).length || 0; },
+
+        normalizeSlotType(slotType) {
+            const slotMap = {
+                hi: 'high',
+                high: 'high',
+                med: 'med',
+                mid: 'med',
+                low: 'low',
+                rig: 'rig',
+            };
+
+            return slotMap[slotType] || slotType || null;
+        },
+
+        getShipSlotCapacity(slotType) {
+            const keyMap = {
+                high: 'hi',
+                med: 'med',
+                low: 'low',
+                rig: 'rig',
+            };
+
+            const shipKey = keyMap[this.normalizeSlotType(slotType)];
+            return shipKey ? (this.shipStats?.slots?.[shipKey] || 0) : 0;
+        },
         
         updateResourceUsage() {
             let cpuUsed = 0, powerUsed = 0, calibrationUsed = 0;
@@ -1393,6 +1439,130 @@ function fittingSimulator() {
             this.resourceUsage.power.percent = this.resourceUsage.power.total > 0 ? (powerUsed / this.resourceUsage.power.total) * 100 : 0;
             this.resourceUsage.calibration.used = calibrationUsed;
             this.resourceUsage.calibration.percent = this.resourceUsage.calibration.total > 0 ? (calibrationUsed / this.resourceUsage.calibration.total) * 100 : 0;
+        },
+
+        recalculateFittingStats() {
+            if (!this.shipStats?.attributes) {
+                this.displayAttributes = {};
+                return;
+            }
+
+            const attrs = this.cloneAttributes(this.shipStats.attributes);
+
+            ['high', 'med', 'low', 'rig'].forEach(slot => {
+                this.fittedModules[slot]?.forEach(module => {
+                    if (module) {
+                        this.applyModuleBonuses(attrs, module);
+                    }
+                });
+            });
+
+            this.displayAttributes = attrs;
+        },
+
+        cloneAttributes(attributes) {
+            const cloned = {};
+            for (const [key, value] of Object.entries(attributes || {})) {
+                cloned[key] = value ? { ...value } : { value: 0 };
+            }
+            return cloned;
+        },
+
+        applyModuleBonuses(attrs, module) {
+            const modAttrs = module.attributes || {};
+            const effectNames = (module.effects || []).map(effect => (effect.name || '').toLowerCase());
+
+            [267, 268, 269, 270, 271, 272, 273, 274].forEach(attrId => {
+                if (this.hasNumericAttr(modAttrs, attrId)) {
+                    this.multiplyAttributeById(attrs, attrId, modAttrs[attrId]);
+                }
+            });
+
+            if (this.hasNumericAttr(modAttrs, 72) && modAttrs[72] !== 0) {
+                this.addToAttribute(attrs, 'shieldCapacity', modAttrs[72]);
+            }
+
+            if (this.hasNumericAttr(modAttrs, 1159) && modAttrs[1159] !== 0) {
+                this.addToAttribute(attrs, 'armorHP', modAttrs[1159]);
+            }
+
+            if (this.hasNumericAttr(modAttrs, 20) && modAttrs[20] !== 0) {
+                this.applyPercentToAttribute(attrs, 'maxVelocity', modAttrs[20]);
+            }
+
+            if (this.hasNumericAttr(modAttrs, 983) && modAttrs[983] !== 0) {
+                this.applyPercentToAttribute(attrs, 'signatureRadius', modAttrs[983]);
+            }
+
+            if (this.hasNumericAttr(modAttrs, 150) && modAttrs[150] > 0) {
+                this.multiplyAttribute(attrs, 'agility', modAttrs[150]);
+            }
+
+            const resonanceAttrIds = [984, 985, 986, 987];
+            if (resonanceAttrIds.some(attrId => this.hasNumericAttr(modAttrs, attrId) && modAttrs[attrId] !== 0)) {
+                const targetKeys = effectNames.some(name => name.includes('armor'))
+                    ? ['armorEmDamageResonance', 'armorExplosiveDamageResonance', 'armorKineticDamageResonance', 'armorThermalDamageResonance']
+                    : ['shieldEmDamageResonance', 'shieldExplosiveDamageResonance', 'shieldKineticDamageResonance', 'shieldThermalDamageResonance'];
+
+                resonanceAttrIds.forEach((attrId, index) => {
+                    if (this.hasNumericAttr(modAttrs, attrId) && modAttrs[attrId] !== 0) {
+                        this.applyPercentToAttribute(attrs, targetKeys[index], modAttrs[attrId]);
+                    }
+                });
+            }
+        },
+
+        hasNumericAttr(modAttrs, attrId) {
+            return Number.isFinite(Number(modAttrs?.[attrId]));
+        },
+
+        multiplyAttributeById(attrs, attrId, factor) {
+            const key = this.getAttributeKeyById(attrId);
+            if (!key) return;
+            this.multiplyAttribute(attrs, key, factor);
+        },
+
+        getAttributeKeyById(attrId) {
+            const attributeMap = {
+                267: 'armorEmDamageResonance',
+                268: 'armorExplosiveDamageResonance',
+                269: 'armorKineticDamageResonance',
+                270: 'armorThermalDamageResonance',
+                271: 'shieldEmDamageResonance',
+                272: 'shieldExplosiveDamageResonance',
+                273: 'shieldKineticDamageResonance',
+                274: 'shieldThermalDamageResonance',
+            };
+
+            return attributeMap[attrId] || null;
+        },
+
+        ensureAttribute(attrs, key, fallbackId = null) {
+            if (!attrs[key]) {
+                attrs[key] = {
+                    attribute_id: fallbackId,
+                    value: 0,
+                    name: key,
+                    unit: null,
+                };
+            }
+
+            return attrs[key];
+        },
+
+        addToAttribute(attrs, key, value) {
+            const attr = this.ensureAttribute(attrs, key);
+            attr.value = Number(attr.value || 0) + Number(value || 0);
+        },
+
+        multiplyAttribute(attrs, key, factor) {
+            const attr = this.ensureAttribute(attrs, key);
+            attr.value = Number(attr.value || 0) * Number(factor || 1);
+        },
+
+        applyPercentToAttribute(attrs, key, percent) {
+            const attr = this.ensureAttribute(attrs, key);
+            attr.value = Number(attr.value || 0) * (1 + (Number(percent || 0) / 100));
         },
         
         getRemainingHardpoints(type) {
