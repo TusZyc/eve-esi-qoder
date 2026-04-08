@@ -167,7 +167,7 @@ class FittingDataService
     }
 
     /**
-     * 获取舰船分类列表（一级分类=舰种，二级=势力（暂不实现，直接显示舰船））
+     * 获取舰船分类列表（一级分类=舰种，二级分类=势力）
      */
     public function getShipCategories(): array
     {
@@ -180,34 +180,82 @@ class FittingDataService
             ]];
         }
         
-        return Cache::remember('fitting_ship_categories_v3', 3600, function () {
+        return Cache::remember('fitting_ship_categories_v4', 3600, function () {
             $result = [];
             
-            // 获取所有舰船groups
+            // 势力名称映射
+            $factionNames = [
+                1 => '加达里',
+                8 => '盖伦特',
+                2 => '米玛塔尔',
+                4 => '艾玛',
+                0 => '非帝国',
+            ];
+            
+            // 获取所有舰船groups（排除特别版）
             $groups = DB::connection('fitting')
                 ->table('fitting_groups')
                 ->where('category_id', 6)
                 ->where('published', 1)
+                ->where('group_id', '!=', 1022)
                 ->orderBy('name_cn')
                 ->get();
             
             foreach ($groups as $group) {
-                // 获取该group下的舰船数量
-                $count = DB::connection('fitting')
+                // 获取该group下每个势力的舰船数量
+                $factionCounts = DB::connection('fitting')
                     ->table('fitting_types')
                     ->where('group_id', $group->group_id)
                     ->where('published', 1)
-                    ->count();
+                    ->select('faction_id', DB::raw('count(*) as count'))
+                    ->groupBy('faction_id')
+                    ->get()
+                    ->pluck('count', 'faction_id')
+                    ->toArray();
                 
-                if ($count > 0) {
-                    $key = $group->group_id == 1022 ? 'special' : 'group_' . $group->group_id;
+                $totalCount = array_sum($factionCounts);
+                
+                if ($totalCount > 0) {
+                    $key = 'group_' . $group->group_id;
+                    
+                    // 构建势力子分类
+                    $factions = [];
+                    foreach ($factionNames as $factionId => $factionName) {
+                        if (isset($factionCounts[$factionId]) && $factionCounts[$factionId] > 0) {
+                            $factions['faction_' . $factionId] = [
+                                'key' => 'faction_' . $factionId,
+                                'faction_id' => $factionId,
+                                'name' => $factionName,
+                                'count' => $factionCounts[$factionId],
+                            ];
+                        }
+                    }
+                    
                     $result[$key] = [
                         'key' => $key,
                         'group_id' => $group->group_id,
                         'name' => $group->name_cn ?? $group->name_en,
-                        'count' => $count,
+                        'count' => $totalCount,
+                        'factions' => $factions,
                     ];
                 }
+            }
+            
+            // 特别版舰船单独分类（无势力分组）
+            $specialCount = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('group_id', 1022)
+                ->where('published', 1)
+                ->count();
+            
+            if ($specialCount > 0) {
+                $result['special'] = [
+                    'key' => 'special',
+                    'group_id' => 1022,
+                    'name' => '特别版舰船',
+                    'count' => $specialCount,
+                    'factions' => [],
+                ];
             }
 
             return $result;
@@ -841,6 +889,42 @@ class FittingDataService
             $ships = DB::connection('fitting')
                 ->table('fitting_types')
                 ->where('group_id', $groupId)
+                ->where('published', 1)
+                ->orderBy('name_en')
+                ->get();
+
+            $result = [];
+            foreach ($ships as $ship) {
+                $attrs = $this->getTypeAttributes($ship->type_id);
+                
+                $result[] = [
+                    'type_id' => $ship->type_id,
+                    'name' => $ship->name_en,
+                    'name_cn' => $ship->name_cn ?? $ship->name_en,
+                    'slots' => [
+                        'hi' => (int)($attrs[14] ?? 0),
+                        'med' => (int)($attrs[13] ?? 0),
+                        'low' => (int)($attrs[12] ?? 0),
+                        'rig' => (int)($attrs[1137] ?? 0),
+                    ],
+                    'image_url' => $this->getImageUrl($ship->type_id),
+                ];
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * 获取组内指定势力的舰船列表
+     */
+    public function getShipsByGroupAndFaction(int $groupId, int $factionId): array
+    {
+        return Cache::remember("fitting_ships_group_{$groupId}_faction_{$factionId}", 3600, function () use ($groupId, $factionId) {
+            $ships = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('group_id', $groupId)
+                ->where('faction_id', $factionId)
                 ->where('published', 1)
                 ->orderBy('name_en')
                 ->get();

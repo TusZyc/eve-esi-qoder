@@ -153,6 +153,34 @@
         transform: rotate(90deg);
     }
     
+    /* 势力分组头部 */
+    .faction-header {
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 2px;
+    }
+    
+    .faction-header:hover {
+        background: rgba(59, 130, 246, 0.1);
+    }
+    
+    .faction-header .toggle {
+        font-size: 10px;
+        transition: transform 0.2s;
+    }
+    
+    .faction-header.expanded .toggle {
+        transform: rotate(90deg);
+    }
+    
     /* 物品行 */
     .item-row {
         display: flex;
@@ -542,7 +570,7 @@
                 <div class="tab-btn" :class="{ 'active': activeTab === 'modules' }" @click="activeTab = 'modules'">🔧 装备</div>
             </div>
             
-            <!-- 舰船列表 - 一级分类=舰种 -->
+            <!-- 舰船列表 - 一级分类=舰种，二级分类=势力 -->
             <div x-show="activeTab === 'ships'">
                 <input type="text" x-model="shipSearchQuery" @input="filterShips()" placeholder="搜索舰船..." class="search-input">
                 
@@ -556,10 +584,40 @@
                             <span class="toggle">▶</span>
                         </div>
                         <div x-show="expandedCategories.includes(key)" x-collapse>
-                            <template x-for="ship in getShipsByGroup(category.group_id)" :key="ship.type_id">
-                                <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
-                                    <img :src="ship.image_url">
-                                    <span class="name" x-text="ship.name_cn || ship.name"></span>
+                            <!-- 特别版舰船直接显示舰船，无势力分组 -->
+                            <template x-if="category.key === 'special'">
+                                <div>
+                                    <template x-for="ship in getShipsByGroup(category.group_id)" :key="ship.type_id">
+                                        <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
+                                            <img :src="ship.image_url">
+                                            <span class="name" x-text="ship.name_cn || ship.name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <!-- 非特别版舰船显示势力分组 -->
+                            <template x-if="category.key !== 'special'">
+                                <div>
+                                    <template x-for="(faction, fkey) in category.factions" :key="fkey">
+                                        <div>
+                                            <div class="faction-header" 
+                                                 :class="{ 'expanded': expandedFactions.includes(category.group_id + '_' + faction.faction_id) }"
+                                                 @click="toggleFaction(category.group_id, faction.faction_id)">
+                                                <span x-text="faction.name"></span>
+                                                <span class="count" x-text="'(' + faction.count + ')'"></span>
+                                                <span class="toggle">▶</span>
+                                            </div>
+                                            <div x-show="expandedFactions.includes(category.group_id + '_' + faction.faction_id)" x-collapse>
+                                                <template x-for="ship in getShipsByGroupAndFaction(category.group_id, faction.faction_id)" :key="ship.type_id">
+                                                    <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
+                                                        <img :src="ship.image_url">
+                                                        <span class="name" x-text="ship.name_cn || ship.name"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -966,11 +1024,13 @@ function fittingSimulator() {
         categories: {},
         filteredCategories: {},
         allShips: {},
+        factionShips: {}, // 势力舰船缓存
         shipSearchQuery: '',
         selectedShip: null,
         selectedGroup: null,
         expandedCategories: [],
         expandedGroups: [],
+        expandedFactions: [], // 展开的势力列表
         shipStats: null,
         fittedModules: { high: [], med: [], low: [], rig: [] },
         moduleSearchQuery: '',
@@ -1193,6 +1253,39 @@ function fittingSimulator() {
         
         getShipsByGroup(groupId) { 
             return this.allShips[groupId] || []; 
+        },
+        
+        toggleFaction(groupId, factionId) {
+            const key = groupId + '_' + factionId;
+            const idx = this.expandedFactions.indexOf(key);
+            if (idx > -1) {
+                this.expandedFactions.splice(idx, 1);
+            } else {
+                this.expandedFactions.push(key);
+                this.loadShipsByGroupAndFaction(groupId, factionId);
+            }
+        },
+        
+        async loadShipsByGroupAndFaction(groupId, factionId) {
+            const key = groupId + '_' + factionId;
+            if (this.factionShips[key] && this.factionShips[key].length > 0) return;
+            
+            this.factionShips[key] = [];
+            
+            try {
+                const response = await fetch('/api/public/fitting-simulator/groups/' + groupId + '/faction/' + factionId + '/ships');
+                const data = await response.json();
+                this.factionShips[key] = data;
+                this.factionShips = JSON.parse(JSON.stringify(this.factionShips));
+            } catch (e) {
+                console.error('加载势力舰船失败:', e);
+                this.factionShips[key] = [];
+            }
+        },
+        
+        getShipsByGroupAndFaction(groupId, factionId) {
+            const key = groupId + '_' + factionId;
+            return this.factionShips[key] || [];
         },
         
         async selectShip(ship) {

@@ -36,6 +36,14 @@ class FittingSimulatorDataController extends Controller
     }
 
     /**
+     * 获取指定组内指定势力的舰船列表
+     */
+    public function shipsByGroupAndFaction(int $groupId, int $factionId)
+    {
+        return response()->json($this->fittingService->getShipsByGroupAndFaction($groupId, $factionId));
+    }
+
+    /**
      * 获取舰船详情
      */
     public function shipDetails(int $typeId)
