@@ -245,16 +245,23 @@ class FittingSimulatorDataController extends Controller
     public function modulesByCategoryPath(Request $request)
     {
         $pathJson = $request->input('path', '[]');
+        $slot = $request->input('slot', null);
         $path = json_decode($pathJson, true);
         
         if (!is_array($path) || empty($path)) {
             return response()->json(['error' => '请提供有效的分类路径'], 400);
         }
 
-        $modules = $this->fittingService->getModulesByCategoryPath($path);
+        $validSlots = ['high', 'med', 'low', 'rig', 'drone'];
+        if ($slot && !in_array($slot, $validSlots, true)) {
+            $slot = null;
+        }
+
+        $modules = $this->fittingService->getModulesByCategoryPath($path, $slot);
 
         return response()->json([
             'path' => $path,
+            'slot' => $slot,
             'total' => count($modules),
             'modules' => $modules,
         ]);

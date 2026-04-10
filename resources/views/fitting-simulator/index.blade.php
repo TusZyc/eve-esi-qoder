@@ -406,7 +406,14 @@
 
                 this.moduleLeafLoading = true;
                 try {
-                    const response = await fetch(`/api/public/fitting-simulator/modules-by-category-path?path=${encodeURIComponent(JSON.stringify(node.path))}`);
+                    const query = new URLSearchParams({
+                        path: JSON.stringify(node.path),
+                    });
+                    if (this.moduleSlotFilter) {
+                        query.set('slot', this.moduleSlotFilter);
+                    }
+
+                    const response = await fetch(`/api/public/fitting-simulator/modules-by-category-path?${query.toString()}`);
                     if (!response.ok) {
                         throw new Error('load modules by path failed');
                     }

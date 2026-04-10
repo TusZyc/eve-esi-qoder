@@ -917,25 +917,7 @@ class FittingDataService
             return [];
         }
 
-        return Cache::remember('fitting_ship_category_tree_v1', 3600, function () {
-            $ships = DB::connection('fitting')
-                ->table('fitting_types')
-                ->where('category_id', 6)
-                ->where('published', 1)
-                ->select('type_id')
-                ->get();
-
-            $tree = [];
-            foreach ($ships as $ship) {
-                $path = $this->getShipDisplayCategoryPath((int)$ship->type_id);
-                if (empty($path)) {
-                    continue;
-                }
-                $this->appendTreePath($tree, $path);
-            }
-
-            return $this->normalizeTreeNodes($tree);
-        });
+        return $this->getShipCatalog()['tree'];
     }
 
     public function getShipsByCategoryPath(array $path): array
@@ -944,34 +926,34 @@ class FittingDataService
             return [];
         }
 
-        $ships = DB::connection('fitting')
-            ->table('fitting_types')
-            ->where('category_id', 6)
-            ->where('published', 1)
-            ->orderBy('name_en')
-            ->get();
+        $catalog = $this->getShipCatalog();
+        $typeIds = $catalog['path_map'][$this->pathKey($path)] ?? [];
+        if (empty($typeIds)) {
+            return [];
+        }
 
+        $attrMap = $this->getTypeAttributesMap($typeIds);
         $result = [];
-        foreach ($ships as $ship) {
-            $shipPath = $this->getShipDisplayCategoryPath((int)$ship->type_id);
-            if (!$this->pathStartsWith($shipPath, $path)) {
+        foreach ($typeIds as $typeId) {
+            $ship = $catalog['types'][$typeId] ?? null;
+            if (!$ship) {
                 continue;
             }
 
-            $attrs = $this->getTypeAttributes((int)$ship->type_id);
+            $attrs = $attrMap[$typeId] ?? [];
             $result[] = [
-                'type_id' => $ship->type_id,
-                'name' => $ship->name_en,
-                'name_cn' => $ship->name_cn ?? $ship->name_en,
-                'category_path' => $shipPath,
-                'faction_id' => (int)($ship->faction_id ?? 0),
+                'type_id' => $typeId,
+                'name' => $ship['name'],
+                'name_cn' => $ship['name_cn'],
+                'category_path' => $ship['category_path'],
+                'faction_id' => (int)($ship['faction_id'] ?? 0),
                 'slots' => [
                     'hi' => (int)($attrs[14] ?? 0),
                     'med' => (int)($attrs[13] ?? 0),
                     'low' => (int)($attrs[12] ?? 0),
                     'rig' => (int)($attrs[1137] ?? 0),
                 ],
-                'image_url' => $this->getImageUrl((int)$ship->type_id, 64, 6),
+                'image_url' => $this->getImageUrl($typeId, 64, 6),
             ];
         }
 
@@ -1137,32 +1119,9 @@ class FittingDataService
      */
     public function getModuleCategoryTree(?string $slotFilter = null): array
     {
-        return Cache::remember('fitting_module_category_tree_' . ($slotFilter ?? 'all'), 3600, function () use ($slotFilter) {
-            $modules = DB::connection('fitting')
-                ->table('fitting_types')
-                ->where('category_id', 7)
-                ->where('published', 1)
-                ->select('type_id')
-                ->get();
-
-            $tree = [];
-            foreach ($modules as $module) {
-                $typeId = (int)$module->type_id;
-                $displayPath = $this->getModuleDisplayCategoryPath($typeId);
-                if (empty($displayPath)) {
-                    continue;
-                }
-
-                $slot = $this->determineModuleSlot($typeId);
-                if ($slotFilter && $slot !== $slotFilter) {
-                    continue;
-                }
-
-                $this->appendTreePath($tree, $displayPath);
-            }
-
-            return $this->normalizeTreeNodes($tree);
-        });
+        $catalog = $this->getModuleCatalog();
+        $treeKey = $slotFilter ? "tree_{$slotFilter}" : 'tree_all';
+        return $catalog[$treeKey] ?? [];
     }
 
     /**
@@ -1233,15 +1192,22 @@ class FittingDataService
 
     private function getLocalItemsIndex(): array
     {
-        return Cache::remember('fitting_local_items_index_v1', 3600, function () {
-            $itemsFile = base_path('data/eve_items.json');
-            if (!file_exists($itemsFile)) {
-                return [];
-            }
+        static $items = null;
 
-            $items = json_decode(file_get_contents($itemsFile), true);
-            return is_array($items) ? $items : [];
-        });
+        if ($items !== null) {
+            return $items;
+        }
+
+        $itemsFile = base_path('data/eve_items.json');
+        if (!file_exists($itemsFile)) {
+            $items = [];
+            return $items;
+        }
+
+        $decoded = json_decode(file_get_contents($itemsFile), true);
+        $items = is_array($decoded) ? $decoded : [];
+
+        return $items;
     }
 
     private function getLocalItemCategoryPath(int $typeId): array
@@ -1257,6 +1223,10 @@ class FittingDataService
         $path = $this->getLocalItemCategoryPath($typeId);
         if (empty($path)) {
             return [];
+        }
+
+        if (($path[0] ?? null) === '舰船') {
+            array_shift($path);
         }
 
         if (($path[0] ?? null) === '运载舰和工业舰') {
@@ -1333,42 +1303,44 @@ class FittingDataService
      * @param array $categoryPath 分类路径 ['舰船装备', '护盾', '护盾扩展装置', '小型']
      * @return array 装备列表
      */
-    public function getModulesByCategoryPath(array $categoryPath): array
+    public function getModulesByCategoryPath(array $categoryPath, ?string $slotFilter = null): array
     {
         if (!$this->isDatabaseReady() || empty($categoryPath)) {
             return [];
         }
 
-        $types = DB::connection('fitting')
-            ->table('fitting_types')
-            ->where('category_id', 7)
-            ->where('published', 1)
-            ->orderBy('name_en')
-            ->get();
+        $catalog = $this->getModuleCatalog();
+        $typeIds = $catalog['path_map'][$this->pathKey($categoryPath)] ?? [];
+        if (empty($typeIds)) {
+            return [];
+        }
 
+        $attrMap = $this->getTypeAttributesMap($typeIds);
         $result = [];
-        foreach ($types as $type) {
-            $typeId = (int)$type->type_id;
-            $displayPath = $this->getModuleDisplayCategoryPath($typeId);
-            if (!$this->pathStartsWith($displayPath, $categoryPath)) {
+        foreach ($typeIds as $typeId) {
+            $module = $catalog['types'][$typeId] ?? null;
+            if (!$module) {
                 continue;
             }
 
-            $attrs = $this->getTypeAttributes($typeId);
-            $slot = $this->determineModuleSlot($typeId);
+            if ($slotFilter && ($module['slot'] ?? null) !== $slotFilter) {
+                continue;
+            }
+
+            $attrs = $attrMap[$typeId] ?? [];
 
             $result[] = [
                 'type_id' => $typeId,
-                'name' => $type->name_en,
-                'name_cn' => $type->name_cn ?? $type->name_en,
-                'category' => $displayPath,
-                'category_label' => $this->buildModuleCategoryLabel($displayPath),
-                'slot' => $slot,
+                'name' => $module['name'],
+                'name_cn' => $module['name_cn'],
+                'category' => $module['category_path'],
+                'category_label' => $this->buildModuleCategoryLabel($module['category_path']),
+                'slot' => $module['slot'],
                 'cpu' => (float)($attrs[50] ?? 0),
                 'power' => (float)($attrs[30] ?? 0),
                 'upgrade_cost' => (float)($attrs[1153] ?? 0),
                 'meta_level' => (int)($attrs[422] ?? 0),
-                'image_url' => $this->getImageUrl($typeId, 64, (int)$type->category_id),
+                'image_url' => $this->getImageUrl($typeId, 64, 7),
             ];
         }
         
@@ -1378,5 +1350,165 @@ class FittingDataService
         });
         
         return $result;
+    }
+
+    private function getShipCatalog(): array
+    {
+        return Cache::remember('fitting_ship_catalog_v2', 3600, function () {
+            $types = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('category_id', 6)
+                ->where('published', 1)
+                ->select('type_id', 'name_en', 'name_cn', 'faction_id')
+                ->orderByRaw('COALESCE(name_cn, name_en)')
+                ->get();
+
+            $tree = [];
+            $pathMap = [];
+            $typeMap = [];
+
+            foreach ($types as $type) {
+                $typeId = (int)$type->type_id;
+                $path = $this->getShipDisplayCategoryPath($typeId);
+                if (empty($path)) {
+                    continue;
+                }
+
+                $this->appendTreePath($tree, $path);
+                $pathMap[$this->pathKey($path)][] = $typeId;
+                $typeMap[$typeId] = [
+                    'name' => $type->name_en,
+                    'name_cn' => $type->name_cn ?? $type->name_en,
+                    'faction_id' => (int)($type->faction_id ?? 0),
+                    'category_path' => $path,
+                ];
+            }
+
+            return [
+                'tree' => $this->normalizeTreeNodes($tree),
+                'path_map' => $pathMap,
+                'types' => $typeMap,
+            ];
+        });
+    }
+
+    private function getModuleCatalog(): array
+    {
+        return Cache::remember('fitting_module_catalog_v2', 3600, function () {
+            $types = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('category_id', 7)
+                ->where('published', 1)
+                ->select('type_id', 'name_en', 'name_cn')
+                ->orderByRaw('COALESCE(name_cn, name_en)')
+                ->get();
+
+            $effectSlotMap = $this->getModuleEffectSlotMap();
+            $treeAll = [];
+            $treeBySlot = [
+                'high' => [],
+                'med' => [],
+                'low' => [],
+                'rig' => [],
+                'drone' => [],
+            ];
+            $pathMap = [];
+            $typeMap = [];
+
+            foreach ($types as $type) {
+                $typeId = (int)$type->type_id;
+                $path = $this->getModuleDisplayCategoryPath($typeId);
+                if (empty($path)) {
+                    continue;
+                }
+
+                $slot = $this->inferSlotFromCategoryPath($this->getLocalItemCategoryPath($typeId))
+                    ?? ($effectSlotMap[$typeId] ?? null);
+
+                if (!$slot) {
+                    continue;
+                }
+
+                $this->appendTreePath($treeAll, $path);
+                if (isset($treeBySlot[$slot])) {
+                    $this->appendTreePath($treeBySlot[$slot], $path);
+                }
+
+                $pathMap[$this->pathKey($path)][] = $typeId;
+                $typeMap[$typeId] = [
+                    'name' => $type->name_en,
+                    'name_cn' => $type->name_cn ?? $type->name_en,
+                    'slot' => $slot,
+                    'category_path' => $path,
+                ];
+            }
+
+            return [
+                'tree_all' => $this->normalizeTreeNodes($treeAll),
+                'tree_high' => $this->normalizeTreeNodes($treeBySlot['high']),
+                'tree_med' => $this->normalizeTreeNodes($treeBySlot['med']),
+                'tree_low' => $this->normalizeTreeNodes($treeBySlot['low']),
+                'tree_rig' => $this->normalizeTreeNodes($treeBySlot['rig']),
+                'tree_drone' => $this->normalizeTreeNodes($treeBySlot['drone']),
+                'path_map' => $pathMap,
+                'types' => $typeMap,
+            ];
+        });
+    }
+
+    private function getModuleEffectSlotMap(): array
+    {
+        return Cache::remember('fitting_module_effect_slot_map_v1', 3600, function () {
+            $rows = DB::connection('fitting')
+                ->table('fitting_type_effects')
+                ->join('fitting_types', 'fitting_types.type_id', '=', 'fitting_type_effects.type_id')
+                ->where('fitting_types.category_id', 7)
+                ->where('fitting_types.published', 1)
+                ->select('fitting_type_effects.type_id', 'fitting_type_effects.effect_id')
+                ->get();
+
+            $slotMap = [];
+            foreach ($rows as $row) {
+                $typeId = (int)$row->type_id;
+                if (isset($slotMap[$typeId])) {
+                    continue;
+                }
+
+                foreach (self::SLOT_EFFECT_IDS as $slot => $ids) {
+                    if (in_array((int)$row->effect_id, $ids, true)) {
+                        $slotMap[$typeId] = $slot;
+                        break;
+                    }
+                }
+            }
+
+            return $slotMap;
+        });
+    }
+
+    private function getTypeAttributesMap(array $typeIds): array
+    {
+        if (empty($typeIds)) {
+            return [];
+        }
+
+        $rows = DB::connection('fitting')
+            ->table('fitting_attributes')
+            ->whereIn('type_id', $typeIds)
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $typeId = (int)$row->type_id;
+            $result[$typeId] ??= [];
+            $result[$typeId][(int)$row->attribute_id] = $row->value_float ?? $row->value_int ?? 0;
+        }
+
+        return $result;
+    }
+
+    private function pathKey(array $path): string
+    {
+        return implode(' > ', $path);
     }
 }
