@@ -4,1589 +4,637 @@
 
 @push('styles')
 <style>
-    /* 适配app布局的内容区域 */
-    .fitting-page-wrapper {
-        position: relative;
-        height: calc(100vh - 180px);
-        min-height: 600px;
-        padding: 12px;
-        background: transparent;
-        overflow: hidden;
-    }
-    
-    /* 三列等宽布局 */
-    .fitting-layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 12px;
-        height: 100%;
-        box-sizing: border-box;
-    }
-    
-    @media (max-width: 1200px) {
-        .fitting-layout {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    
-    @media (max-width: 992px) {
-        .fitting-layout {
-            grid-template-columns: 1fr 1fr;
-            height: auto;
-        }
-    }
-    
-    @media (max-width: 768px) {
-        .fitting-layout {
-            grid-template-columns: 1fr;
-        }
-    }
-    
-    /* 面板样式 */
-    .panel {
-        background: rgba(15, 23, 42, 0.7);
-        border: 1px solid rgba(59, 130, 246, 0.2);
-        border-radius: 8px;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-    
-    .panel-header {
-        padding: 10px 12px;
-        background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 100%);
-        border-bottom: 1px solid rgba(59, 130, 246, 0.1);
-        font-weight: 600;
-        font-size: 13px;
-        color: #e2e8f0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    .panel-body {
-        flex: 1;
-        overflow-y: auto;
-        padding: 8px;
-    }
-    
-    /* 标签切换 */
-    .tab-switcher {
-        display: flex;
-        gap: 4px;
-        padding: 4px;
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 6px;
-        margin-bottom: 8px;
-    }
-    
-    .tab-btn {
-        flex: 1;
-        padding: 8px 12px;
-        font-size: 12px;
-        font-weight: 500;
-        text-align: center;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #94a3b8;
-    }
-    
-    .tab-btn:hover {
-        background: rgba(59, 130, 246, 0.1);
-    }
-    
-    .tab-btn.active {
-        background: rgba(59, 130, 246, 0.2);
-        color: #3b82f6;
-    }
-    
-    /* 搜索框 */
-    .search-input {
-        width: 100%;
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(71, 85, 105, 0.5);
-        border-radius: 4px;
-        padding: 6px 10px;
-        font-size: 12px;
-        color: #e2e8f0;
-        margin-bottom: 8px;
-    }
-    
-    .search-input:focus {
-        outline: none;
-        border-color: rgba(59, 130, 246, 0.5);
-    }
-    
-    .search-input::placeholder {
-        color: #64748b;
-    }
-    
-    /* 分类 */
-    .category-block {
-        margin-bottom: 4px;
-    }
-    
-    .category-header {
-        padding: 8px 10px;
-        font-size: 12px;
-        font-weight: 600;
-        color: #94a3b8;
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 4px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    .category-header:hover {
-        background: rgba(59, 130, 246, 0.15);
-    }
-    
-    .category-header .toggle {
-        font-size: 10px;
-        transition: transform 0.2s;
-    }
-    
-    .category-header.expanded .toggle {
-        transform: rotate(90deg);
-    }
-    
-    /* 势力分组头部 */
-    .faction-header {
-        padding: 6px 10px;
-        font-size: 11px;
-        font-weight: 500;
-        color: #64748b;
-        background: rgba(15, 23, 42, 0.5);
-        border-radius: 3px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 2px;
-    }
-    
-    .faction-header:hover {
-        background: rgba(59, 130, 246, 0.1);
-    }
-    
-    .faction-header .toggle {
-        font-size: 10px;
-        transition: transform 0.2s;
-    }
-    
-    .faction-header.expanded .toggle {
-        transform: rotate(90deg);
-    }
-    
-    /* 物品行 */
-    .item-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.15s;
-    }
-    
-    .item-row:hover {
-        background: rgba(59, 130, 246, 0.15);
-    }
-    
-    .item-row.active {
-        background: rgba(59, 130, 246, 0.25);
-        border-left: 2px solid #3b82f6;
-    }
-    
-    .item-row img {
-        width: 22px;
-        height: 22px;
-        border-radius: 3px;
-    }
-    
-    .item-row .name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    .item-row .meta {
-        font-size: 10px;
-        color: #64748b;
-    }
-    
-    /* 四级分类样式 */
-    .cat-level-1 { font-weight: 600; color: #94a3b8; }
-    .cat-level-2 { padding-left: 8px; font-weight: 500; color: #cbd5e1; }
-    .cat-level-3 { padding-left: 16px; font-weight: 400; color: #e2e8f0; }
-    .cat-level-4 { padding-left: 24px; font-size: 11px; color: #94a3b8; }
-    
-    .category-item {
-        padding: 6px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.15s;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    .category-item:hover {
-        background: rgba(59, 130, 246, 0.15);
-    }
-    
-    .category-item.active {
-        background: rgba(59, 130, 246, 0.25);
-        border-left: 2px solid #3b82f6;
-    }
-    
-    .category-item .toggle-icon {
-        font-size: 10px;
-        color: #64748b;
-        transition: transform 0.2s;
-    }
-    
-    .category-item.expanded .toggle-icon {
-        transform: rotate(90deg);
-    }
-    
-    .category-children {
-        border-left: 1px solid rgba(71, 85, 105, 0.3);
-        margin-left: 8px;
-    }
-    
-    /* 过滤标签 */
-    .filter-tabs {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 8px;
-        flex-wrap: wrap;
-    }
-    
-    .filter-tab {
-        padding: 4px 8px;
-        font-size: 11px;
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(71, 85, 105, 0.3);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-    
-    .filter-tab:hover {
-        background: rgba(59, 130, 246, 0.15);
-    }
-    
-    .filter-tab.active {
-        background: rgba(59, 130, 246, 0.25);
-        border-color: rgba(59, 130, 246, 0.5);
-        color: #3b82f6;
-    }
-    
-    /* 装备结果 */
-    .module-results {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-    
-    .module-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        background: rgba(30, 41, 59, 0.3);
-        border: 1px solid rgba(71, 85, 105, 0.2);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 11px;
-        transition: all 0.15s;
-    }
-    
-    .module-item:hover {
-        background: rgba(59, 130, 246, 0.15);
-        border-color: rgba(59, 130, 246, 0.4);
-    }
-    
-    .module-item img {
-        width: 22px;
-        height: 22px;
-        border-radius: 3px;
-    }
-    
-    .module-item .name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    .module-item .slot-tag {
-        font-size: 10px;
-        padding: 2px 6px;
-        background: rgba(59, 130, 246, 0.2);
-        border-radius: 3px;
-        color: #94a3b8;
-    }
-    
-    /* 槽位列表 */
-    .slot-section {
-        margin-bottom: 12px;
-    }
-    
-    .slot-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 8px;
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 4px;
-        margin-bottom: 4px;
-        font-size: 12px;
-        font-weight: 500;
-    }
-    
-    .slot-header .count {
-        color: #64748b;
-        font-size: 11px;
-    }
-    
-    .slot-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-    
-    .slot-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px;
-        background: rgba(30, 41, 59, 0.3);
-        border: 1px solid rgba(71, 85, 105, 0.3);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.15s;
-    }
-    
-    .slot-item:hover {
-        border-color: rgba(59, 130, 246, 0.4);
-        background: rgba(30, 41, 59, 0.5);
-    }
-    
-    .slot-item.empty {
-        opacity: 0.5;
-    }
-    
-    .slot-item.filled {
-        border-color: rgba(59, 130, 246, 0.5);
-        background: rgba(59, 130, 246, 0.1);
-    }
-    
-    .slot-item .slot-num {
-        width: 20px;
-        height: 20px;
-        background: rgba(59, 130, 246, 0.2);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        color: #94a3b8;
-    }
-    
-    .slot-item img {
-        width: 22px;
-        height: 22px;
-        border-radius: 3px;
-    }
-    
-    .slot-item .module-name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    .slot-item .remove-btn {
-        width: 18px;
-        height: 18px;
-        background: rgba(239, 68, 68, 0.2);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        color: #ef4444;
-        opacity: 0;
-        transition: opacity 0.15s;
-    }
-    
-    .slot-item:hover .remove-btn {
-        opacity: 1;
-    }
-    
-    /* 属性面板 */
-    .stats-section {
-        padding: 10px;
-        border-bottom: 1px solid rgba(59, 130, 246, 0.1);
-    }
-    
-    .stats-section:last-child {
-        border-bottom: none;
-    }
-    
-    .stats-section-title {
-        font-size: 11px;
-        font-weight: 600;
-        color: #94a3b8;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    
-    .stat-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 3px 0;
-        font-size: 12px;
-    }
-    
-    .stat-label {
-        color: #94a3b8;
-    }
-    
-    .stat-value {
-        color: #3b82f6;
-        font-weight: 500;
-    }
-    
-    .stat-value.danger {
-        color: #ef4444;
-    }
-    
-    /* 资源条 */
-    .resource-bar {
-        height: 6px;
-        background: rgba(30, 41, 59, 0.8);
-        border-radius: 3px;
-        overflow: hidden;
-        margin-top: 3px;
-    }
-    
-    .resource-bar-fill {
-        height: 100%;
-        border-radius: 3px;
-        transition: width 0.3s;
-    }
-    
-    .resource-bar-fill.cpu { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-    .resource-bar-fill.power { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-    .resource-bar-fill.calibration { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-    
-    /* 抗性条 */
-    .resistance-row {
-        display: flex;
-        gap: 4px;
-        margin-top: 4px;
-    }
-    
-    .resistance-item {
-        flex: 1;
-        text-align: center;
-        font-size: 10px;
-    }
-    
-    .resistance-bar {
-        height: 4px;
-        border-radius: 2px;
-        margin-bottom: 2px;
-    }
-    
-    .resistance-bar.em { background: #3b82f6; }
-    .resistance-bar.explosive { background: #f59e0b; }
-    .resistance-bar.kinetic { background: #8b5cf6; }
-    .resistance-bar.thermal { background: #ef4444; }
-    
-    /* 空状态 */
-    .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        color: #64748b;
-        text-align: center;
-        padding: 20px;
-    }
-    
-    .empty-state .icon {
-        font-size: 48px;
-        margin-bottom: 12px;
-    }
-    
-    /* 舰船信息头 */
-    .ship-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .ship-info img {
-        width: 24px;
-        height: 24px;
-        border-radius: 4px;
-    }
+    .fitting-page { min-height: calc(100vh - 180px); padding: 12px; }
+    .fitting-grid { display: grid; grid-template-columns: 320px minmax(360px, 1fr) 320px; gap: 12px; }
+    .fitting-panel { display: flex; flex-direction: column; min-height: 720px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; overflow: hidden; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22); }
+    .fitting-panel__header { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(148, 163, 184, 0.14); background: linear-gradient(90deg, rgba(59, 130, 246, 0.18), rgba(15, 23, 42, 0)); }
+    .fitting-panel__title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+    .fitting-panel__body { flex: 1; overflow-y: auto; padding: 12px; }
+    .fitting-tabs, .slot-filter { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+    .slot-filter { grid-template-columns: repeat(5, 1fr); }
+    .fitting-btn { border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(30, 41, 59, 0.75); color: #cbd5e1; border-radius: 10px; padding: 8px 10px; font-size: 13px; cursor: pointer; transition: 0.18s ease; }
+    .fitting-btn:hover { border-color: rgba(96, 165, 250, 0.45); color: #f8fafc; }
+    .fitting-btn.is-active { background: rgba(37, 99, 235, 0.28); border-color: rgba(96, 165, 250, 0.65); color: #eff6ff; }
+    .fitting-btn.is-danger { background: rgba(127, 29, 29, 0.24); border-color: rgba(248, 113, 113, 0.38); color: #fee2e2; }
+    .fitting-input { width: 100%; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.88); color: #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 13px; outline: none; margin-bottom: 12px; }
+    .fitting-input:focus { border-color: rgba(96, 165, 250, 0.55); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16); }
+    .notice { margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+    .notice.info { background: rgba(30, 64, 175, 0.18); border: 1px solid rgba(96, 165, 250, 0.22); color: #dbeafe; }
+    .notice.warn { background: rgba(120, 53, 15, 0.22); border: 1px solid rgba(251, 191, 36, 0.24); color: #fef3c7; }
+    .tree-group, .card-list, .stats-block, .slot-block { display: flex; flex-direction: column; gap: 8px; }
+    .tree-item, .list-item, .slot-item, .stats-card { border: 1px solid rgba(148, 163, 184, 0.14); background: rgba(15, 23, 42, 0.78); border-radius: 10px; }
+    .tree-head, .list-item, .slot-item, .stats-card { padding: 10px 12px; }
+    .tree-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #e2e8f0; font-size: 13px; font-weight: 600; }
+    .tree-children { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+    .faction-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: #cbd5e1; background: rgba(30, 41, 59, 0.62); border: 1px solid transparent; font-size: 12px; }
+    .faction-item.is-active, .list-item.is-active, .slot-item.is-selected { border-color: rgba(96, 165, 250, 0.56); background: rgba(30, 64, 175, 0.24); }
+    .list-item { display: flex; gap: 10px; align-items: center; cursor: pointer; }
+    .list-item img, .slot-item img, .ship-summary img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: rgba(255, 255, 255, 0.06); }
+    .list-item__text, .slot-item__text { flex: 1; min-width: 0; }
+    .item-name { color: #f8fafc; font-size: 13px; font-weight: 600; }
+    .item-meta { color: #94a3b8; font-size: 12px; margin-top: 3px; }
+    .ship-summary { display: flex; gap: 12px; align-items: center; padding: 12px; margin-bottom: 12px; border-radius: 12px; background: rgba(30, 41, 59, 0.74); border: 1px solid rgba(148, 163, 184, 0.16); }
+    .slot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: #e2e8f0; font-size: 13px; font-weight: 700; }
+    .slot-item { display: flex; gap: 10px; align-items: center; }
+    .slot-index { width: 22px; text-align: center; color: #60a5fa; font-size: 12px; font-weight: 700; }
+    .resource-row, .stats-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #cbd5e1; font-size: 13px; }
+    .resource-row strong, .stats-row strong { color: #f8fafc; }
+    .resource-row.is-danger strong { color: #fca5a5; }
+    .empty-state { padding: 18px 12px; text-align: center; color: #94a3b8; font-size: 13px; border: 1px dashed rgba(148, 163, 184, 0.18); border-radius: 10px; }
+    .tiny-tip { margin-top: 10px; color: #94a3b8; font-size: 12px; line-height: 1.6; }
+    @media (max-width: 1280px) { .fitting-grid { grid-template-columns: 300px 1fr; } .fitting-panel:last-child { grid-column: span 2; min-height: 420px; } }
+    @media (max-width: 900px) { .fitting-grid { grid-template-columns: 1fr; } .fitting-panel:last-child { grid-column: auto; } .fitting-panel { min-height: auto; } }
 </style>
 @endpush
 
-@section('title', '装配模拟器 - Tus Esi System')
-@section('page-title', '装配模拟器')
-
 @section('content')
-<div class="fitting-page-wrapper">
-<div x-data="fittingSimulator()" x-init="init()" class="fitting-layout">
-    
-    <!-- 第一列：舰船/装备选择器 -->
-    <div class="panel">
-        <div class="panel-header">
-            <span x-text="activeTab === 'ships' ? '🚀 舰船' : '🔧 装备'"></span>
-            <span class="text-xs text-slate-400" x-show="activeTab === 'ships'" x-text="Object.keys(categories).length + ' 类'"></span>
-            <span class="text-xs text-slate-400" x-show="activeTab === 'modules'" x-text="moduleResults.length + ' 项'"></span>
-        </div>
-        <div class="panel-body">
-            <!-- 标签切换 -->
-            <div class="tab-switcher">
-                <div class="tab-btn" :class="{ 'active': activeTab === 'ships' }" @click="activeTab = 'ships'">🚀 舰船</div>
-                <div class="tab-btn" :class="{ 'active': activeTab === 'modules' }" @click="activeTab = 'modules'">🔧 装备</div>
-            </div>
-            
-            <!-- 舰船列表 - 一级分类=舰种，二级分类=势力 -->
-            <div x-show="activeTab === 'ships'">
-                <input type="text" x-model="shipSearchQuery" @input="filterShips()" placeholder="搜索舰船..." class="search-input">
-                
-                <template x-for="(category, key) in filteredCategories" :key="key">
-                    <div class="category-block">
-                        <div class="category-header" 
-                             :class="{ 'expanded': expandedCategories.includes(key) }"
-                             @click="toggleCategory(key, category.group_id)">
-                            <span x-text="category.name"></span>
-                            <span class="count" x-text="'(' + category.count + ')'"></span>
-                            <span class="toggle">▶</span>
-                        </div>
-                        <div x-show="expandedCategories.includes(key)" x-collapse>
-                            <!-- 特别版舰船直接显示舰船，无势力分组 -->
-                            <template x-if="category.key === 'special'">
-                                <div>
-                                    <template x-for="ship in getShipsByGroup(category.group_id)" :key="ship.type_id">
-                                        <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
-                                            <img :src="ship.image_url">
-                                            <span class="name" x-text="ship.name_cn || ship.name"></span>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
-                            
-                            <!-- 非特别版舰船显示势力分组 -->
-                            <template x-if="category.key !== 'special'">
-                                <div>
-                                    <template x-for="(faction, fkey) in category.factions" :key="fkey">
-                                        <div>
-                                            <div class="faction-header" 
-                                                 :class="{ 'expanded': expandedFactions.includes(category.group_id + '_' + faction.faction_id) }"
-                                                 @click="toggleFaction(category.group_id, faction.faction_id)">
-                                                <span x-text="faction.name"></span>
-                                                <span class="count" x-text="'(' + faction.count + ')'"></span>
-                                                <span class="toggle">▶</span>
-                                            </div>
-                                            <div x-show="expandedFactions.includes(category.group_id + '_' + faction.faction_id)" x-collapse>
-                                                <template x-for="ship in getShipsByGroupAndFaction(category.group_id, faction.faction_id)" :key="ship.type_id">
-                                                    <div class="item-row" @click="selectShip(ship)" :class="{ 'active': selectedShip?.type_id === ship.type_id }">
-                                                        <img :src="ship.image_url">
-                                                        <span class="name" x-text="ship.name_cn || ship.name"></span>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-            </div>
-            
-            <!-- 装备列表 -->
-            <div x-show="activeTab === 'modules'">
-                <input type="text" 
-                       x-model="moduleSearchQuery" 
-                       @input.debounce.300ms="searchModules()"
-                       placeholder="搜索装备..."
-                       class="search-input">
-                
-                <div class="filter-tabs">
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === '' }" @click="setModuleFilter('')">全部</span>
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === 'high' }" @click="setModuleFilter('high')">高槽</span>
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === 'med' }" @click="setModuleFilter('med')">中槽</span>
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === 'low' }" @click="setModuleFilter('low')">低槽</span>
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === 'rig' }" @click="setModuleFilter('rig')">改装</span>
-                    <span class="filter-tab" :class="{ 'active': moduleSlotFilter === 'drone' }" @click="setModuleFilter('drone')">无人机</span>
+<div class="container-fluid">
+    <div class="fitting-page" x-data="fittingStageOne()" x-init="init()">
+        <div class="fitting-grid">
+            <section class="fitting-panel">
+                <div class="fitting-panel__header">
+                    <div class="fitting-panel__title">选择舰船与装备</div>
+                    <div style="font-size:12px;color:#94a3b8;">阶段1基础版</div>
                 </div>
-                
-                <!-- 搜索结果模式 -->
-                <div x-show="moduleSearchQuery" class="module-results">
-                    <template x-for="module in moduleResults" :key="module.type_id">
-                        <div class="module-item" @click="addModule(module)">
-                            <img :src="module.image_url">
-                            <span class="name" x-text="module.name_cn || module.name"></span>
-                            <span class="slot-tag" x-text="getSlotLabel(module.slot)"></span>
-                        </div>
+                <div class="fitting-panel__body">
+                    <template x-if="notice.message">
+                        <div class="notice" :class="notice.type" x-text="notice.message"></div>
                     </template>
-                    
-                    <div x-show="moduleResults.length === 0" class="empty-state" style="height: 100px;">
-                        <span>没有找到匹配的装备</span>
+
+                    <div class="fitting-tabs">
+                        <button class="fitting-btn" :class="{ 'is-active': activeTab === 'ships' }" @click="activeTab = 'ships'">舰船</button>
+                        <button class="fitting-btn" :class="{ 'is-active': activeTab === 'modules' }" @click="activeTab = 'modules'">装备</button>
                     </div>
-                </div>
-                
-                <!-- 分类浏览模式 -->
-                <div x-show="!moduleSearchQuery" class="module-categories">
-                    <!-- 使用新的四级分类树 -->
-                    <template x-for="(l2Data, l2Name) in getFilteredCategoryTree()" :key="l2Name">
-                        <div class="category-block">
-                            <!-- 二级分类（如：护盾、工程装备等） -->
-                            <div class="category-item cat-level-1"
-                                 :class="{ 'expanded': expandedL2Categories.includes(l2Name) }"
-                                 @click="toggleL2Category(l2Name)">
-                                <span x-text="l2Name"></span>
-                                <span class="toggle-icon">▶</span>
-                            </div>
-                            
-                            <!-- 三级分类 -->
-                            <div x-show="expandedL2Categories.includes(l2Name)" x-collapse class="category-children">
-                                <template x-for="(l3Data, l3Name) in l2Data.children" :key="l3Name">
-                                    <div>
-                                        <div class="category-item cat-level-2"
-                                             :class="{ 'expanded': expandedL3Categories.includes(l2Name + '|' + l3Name) }"
-                                             @click="toggleL3Category(l2Name, l3Name)">
-                                            <span x-text="l3Name"></span>
-                                            <span class="toggle-icon">▶</span>
-                                        </div>
-                                        
-                                        <!-- 四级分类或物品 -->
-                                        <div x-show="expandedL3Categories.includes(l2Name + '|' + l3Name)" x-collapse class="category-children">
-                                            <!-- 如果有四级分类 -->
-                                            <template x-if="Object.keys(l3Data.children).length > 0">
-                                                <template x-for="(l4Data, l4Name) in l3Data.children" :key="l4Name">
-                                                    <div>
-                                                        <div class="category-item cat-level-3"
-                                                             :class="{ 'expanded': expandedL4Categories.includes(l2Name + '|' + l3Name + '|' + l4Name) }"
-                                                             @click="toggleL4Category(l2Name, l3Name, l4Name)">
-                                                            <span x-text="l4Name"></span>
-                                                            <span class="toggle-icon">▶</span>
-                                                        </div>
-                                                        
-                                                        <!-- 四级分类下的物品 -->
-                                                        <div x-show="expandedL4Categories.includes(l2Name + '|' + l3Name + '|' + l4Name)" x-collapse>
-                                                            <template x-for="module in getCategoryModules(['舰船装备', l2Name, l3Name, l4Name])" :key="module.type_id">
-                                                                <div class="module-item cat-level-4" @click="addModule(module)">
-                                                                    <img :src="module.image_url">
-                                                                    <span class="name" x-text="module.name_cn || module.name"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
+
+                    <div x-show="activeTab === 'ships'">
+                        <input class="fitting-input" type="text" placeholder="搜索舰船分类或势力" x-model="shipSearchQuery" @input="filterCategories">
+
+                        <div class="tree-group">
+                            <template x-for="[categoryKey, category] in Object.entries(filteredCategories)" :key="categoryKey">
+                                <div class="tree-item">
+                                    <div class="tree-head" @click="toggleCategory(categoryKey, category)">
+                                        <span x-text="category.name + ' (' + category.count + ')'"></span>
+                                        <span x-text="expandedCategories[categoryKey] ? '收起' : '展开'"></span>
+                                    </div>
+
+                                    <div class="tree-children" x-show="expandedCategories[categoryKey]">
+                                        <template x-if="categoryLoading[category.group_id]">
+                                            <div class="empty-state">正在加载这类舰船...</div>
+                                        </template>
+
+                                        <template x-if="Object.keys(category.factions || {}).length">
+                                            <div class="card-list">
+                                                <template x-for="[factionKey, faction] in Object.entries(category.factions || {})" :key="factionKey">
+                                                    <div class="faction-item"
+                                                         :class="{ 'is-active': isFactionSelected(category.group_id, faction.faction_id) }"
+                                                         @click="selectFaction(category, faction)">
+                                                        <span x-text="faction.name"></span>
+                                                        <span x-text="faction.count"></span>
                                                     </div>
                                                 </template>
-                                            </template>
-                                            
-                                            <!-- 如果没有四级分类，直接显示物品 -->
-                                            <template x-if="Object.keys(l3Data.children).length === 0 && l3Data.items.length > 0">
-                                                <div>
-                                                    <template x-for="module in getCategoryModules(['舰船装备', l2Name, l3Name])" :key="module.type_id">
-                                                        <div class="module-item cat-level-3" @click="addModule(module)">
-                                                            <img :src="module.image_url">
-                                                            <span class="name" x-text="module.name_cn || module.name"></span>
-                                                        </div>
-                                                    </template>
+                                            </div>
+                                        </template>
+
+                                        <div class="card-list" x-show="isCategorySelected(category.group_id)">
+                                            <template x-for="ship in visibleShips(category.group_id)" :key="ship.type_id">
+                                                <div class="list-item"
+                                                     :class="{ 'is-active': selectedShip?.type_id === ship.type_id }"
+                                                     @click="selectShip(ship)">
+                                                    <img :src="ship.image_url" :alt="shipDisplayName(ship)">
+                                                    <div class="list-item__text">
+                                                        <div class="item-name" x-text="shipDisplayName(ship)"></div>
+                                                        <div class="item-meta" x-text="'高 ' + (ship.slots?.hi || 0) + ' / 中 ' + (ship.slots?.med || 0) + ' / 低 ' + (ship.slots?.low || 0) + ' / 改装 ' + (ship.slots?.rig || 0)"></div>
+                                                    </div>
                                                 </div>
+                                            </template>
+                                            <template x-if="!visibleShips(category.group_id).length && !categoryLoading[category.group_id]">
+                                                <div class="empty-state">这个分类下暂时没有可显示的舰船。</div>
                                             </template>
                                         </div>
                                     </div>
-                                </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div x-show="activeTab === 'modules'">
+                        <div class="slot-filter">
+                            <button class="fitting-btn" :class="{ 'is-active': moduleSlotFilter === null }" @click="setModuleSlotFilter(null)">全部</button>
+                            <button class="fitting-btn" :class="{ 'is-active': moduleSlotFilter === 'high' }" @click="setModuleSlotFilter('high')">高槽</button>
+                            <button class="fitting-btn" :class="{ 'is-active': moduleSlotFilter === 'med' }" @click="setModuleSlotFilter('med')">中槽</button>
+                            <button class="fitting-btn" :class="{ 'is-active': moduleSlotFilter === 'low' }" @click="setModuleSlotFilter('low')">低槽</button>
+                            <button class="fitting-btn" :class="{ 'is-active': moduleSlotFilter === 'rig' }" @click="setModuleSlotFilter('rig')">改装</button>
+                        </div>
+
+                        <input class="fitting-input" type="text" placeholder="输入装备名称搜索" x-model="moduleSearchQuery" @keydown.enter.prevent="searchModules" @input.debounce.300ms="searchModules">
+
+                        <div class="tiny-tip">先点中间的槽位，再点这里的装备，会更准确。阶段1先保留搜索安装，不做拖拽。</div>
+
+                        <div class="card-list" style="margin-top:12px;">
+                            <template x-for="module in moduleResults" :key="module.type_id">
+                                <div class="list-item" @click="addModule(module)">
+                                    <img :src="module.image_url" :alt="moduleDisplayName(module)">
+                                    <div class="list-item__text">
+                                        <div class="item-name" x-text="moduleDisplayName(module)"></div>
+                                        <div class="item-meta" x-text="moduleMeta(module)"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="moduleLoading">
+                                <div class="empty-state">正在查找装备...</div>
+                            </template>
+                            <template x-if="!moduleLoading && !moduleResults.length">
+                                <div class="empty-state">先搜索装备，或先点一个槽位后再搜索。</div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="fitting-panel">
+                <div class="fitting-panel__header">
+                    <div class="fitting-panel__title">装配区</div>
+                    <button class="fitting-btn is-danger" @click="clearAllSlots" x-show="selectedShip">清空装配</button>
+                </div>
+                <div class="fitting-panel__body">
+                    <template x-if="selectedShip">
+                        <div>
+                            <div class="ship-summary">
+                                <img :src="selectedShip.image_url" :alt="shipDisplayName(selectedShip)">
+                                <div class="list-item__text">
+                                    <div class="item-name" x-text="shipDisplayName(selectedShip)"></div>
+                                    <div class="item-meta">先点槽位，再点左侧装备列表安装。</div>
+                                </div>
+                            </div>
+
+                            <template x-for="slotType in ['high', 'med', 'low', 'rig']" :key="slotType">
+                                <div class="slot-block" style="margin-bottom: 14px;">
+                                    <div class="slot-header">
+                                        <span x-text="slotLabel(slotType)"></span>
+                                        <span x-text="filledCount(slotType) + ' / ' + slotCapacity(slotType)"></span>
+                                    </div>
+
+                                    <template x-for="index in slotCapacity(slotType)" :key="slotType + '-' + index">
+                                        <div class="slot-item"
+                                             :class="{ 'is-selected': selectedSlot?.type === slotType && selectedSlot?.index === (index - 1) }"
+                                             @click="selectSlot(slotType, index - 1)">
+                                            <div class="slot-index" x-text="index"></div>
+                                            <template x-if="slotModule(slotType, index - 1)">
+                                                <img :src="slotModule(slotType, index - 1).image_url" :alt="moduleDisplayName(slotModule(slotType, index - 1))">
+                                            </template>
+                                            <template x-if="!slotModule(slotType, index - 1)">
+                                                <div style="width:40px;height:40px;border-radius:8px;background:rgba(30,41,59,0.65);"></div>
+                                            </template>
+                                            <div class="slot-item__text">
+                                                <div class="item-name" x-text="slotModule(slotType, index - 1) ? moduleDisplayName(slotModule(slotType, index - 1)) : '空槽位'"></div>
+                                                <div class="item-meta" x-text="selectedSlot?.type === slotType && selectedSlot?.index === (index - 1) ? '当前选中，左侧点装备即可安装' : '点击选择这个槽位'"></div>
+                                            </div>
+                                            <button class="fitting-btn" style="padding:6px 8px;" x-show="slotModule(slotType, index - 1)" @click.stop="removeModule(slotType, index - 1)">卸下</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!selectedShip">
+                        <div class="empty-state">先从左侧选一艘舰船，再开始装配。</div>
+                    </template>
+                </div>
+            </section>
+
+            <section class="fitting-panel">
+                <div class="fitting-panel__header">
+                    <div class="fitting-panel__title">资源与基础数据</div>
+                    <div style="font-size:12px;color:#94a3b8;">先显示基础值</div>
+                </div>
+                <div class="fitting-panel__body">
+                    <template x-if="selectedShip && shipStats">
+                        <div class="stats-block">
+                            <div class="stats-card">
+                                <div class="slot-header">
+                                    <span>资源占用</span>
+                                </div>
+                                <div class="resource-row" :class="{ 'is-danger': resourceUsage.cpu.used > resourceUsage.cpu.total }">
+                                    <span>CPU</span>
+                                    <strong x-text="formatUsage(resourceUsage.cpu.used, resourceUsage.cpu.total, ' tf')"></strong>
+                                </div>
+                                <div class="resource-row" :class="{ 'is-danger': resourceUsage.power.used > resourceUsage.power.total }" style="margin-top:8px;">
+                                    <span>电网</span>
+                                    <strong x-text="formatUsage(resourceUsage.power.used, resourceUsage.power.total, ' MW')"></strong>
+                                </div>
+                                <div class="resource-row" :class="{ 'is-danger': resourceUsage.calibration.used > resourceUsage.calibration.total }" style="margin-top:8px;">
+                                    <span>校准值</span>
+                                    <strong x-text="formatUsage(resourceUsage.calibration.used, resourceUsage.calibration.total, '')"></strong>
+                                </div>
+                                <div class="resource-row" style="margin-top:8px;">
+                                    <span>炮台硬点剩余</span>
+                                    <strong x-text="remainingHardpoints('turret')"></strong>
+                                </div>
+                                <div class="resource-row" style="margin-top:8px;">
+                                    <span>发射器硬点剩余</span>
+                                    <strong x-text="remainingHardpoints('launcher')"></strong>
+                                </div>
+                            </div>
+
+                            <div class="stats-card">
+                                <div class="slot-header">
+                                    <span>舰船基础属性</span>
+                                </div>
+                                <div class="stats-row"><span>护盾</span><strong x-text="numberAttr('shieldCapacity')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>装甲</span><strong x-text="numberAttr('armorHP')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>结构</span><strong x-text="numberAttr('hp')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>最大速度</span><strong x-text="numberAttr('maxVelocity', ' m/s')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>信号半径</span><strong x-text="numberAttr('signatureRadius', ' m')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>锁定距离</span><strong x-text="distanceAttr('maxTargetRange')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>扫描分辨率</span><strong x-text="numberAttr('scanResolution', ' mm')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>无人机带宽</span><strong x-text="numberAttr('droneBandwidth', ' Mbit/s')"></strong></div>
+                                <div class="stats-row" style="margin-top:8px;"><span>无人机容量</span><strong x-text="numberAttr('droneCapacity', ' m3')"></strong></div>
+                            </div>
+
+                            <div class="notice info">
+                                这一步先保证“选船、装装备、资源检查”稳定可用。更复杂的属性实时变化，会放到下一阶段单独做。
                             </div>
                         </div>
                     </template>
-                    
-                    <div x-show="Object.keys(getFilteredCategoryTree()).length === 0" class="empty-state" style="height: 100px;">
-                        <span>请选择槽位类型</span>
-                    </div>
+
+                    <template x-if="!selectedShip">
+                        <div class="empty-state">选中舰船后，这里会显示资源占用和基础属性。</div>
+                    </template>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 第二列：槽位列表 -->
-    <div class="panel">
-        <div class="panel-header">
-            <template x-if="selectedShip">
-                <div class="ship-info">
-                    <img :src="selectedShip?.image_url">
-                    <span x-text="selectedShip?.name_cn || selectedShip?.name"></span>
-                </div>
-            </template>
-            <template x-if="!selectedShip">
-                <span>装配槽位</span>
-            </template>
-            <button x-show="selectedShip" @click="clearAllSlots()" class="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30">
-                清空
-            </button>
-        </div>
-        <div class="panel-body">
-            <template x-if="selectedShip && shipStats">
-                <div>
-                    <!-- 高槽 -->
-                    <div class="slot-section">
-                        <div class="slot-header">
-                            <span>🔫 高槽</span>
-                            <span class="count" x-text="getFilledSlots('high') + '/' + (shipStats?.slots?.hi || 0)"></span>
-                        </div>
-                        <div class="slot-list">
-                            <template x-for="i in shipStats?.slots?.hi || 0" :key="'hi-' + i">
-                                <div class="slot-item" :class="{ 'empty': !getSlotModule('high', i-1), 'filled': getSlotModule('high', i-1) }" @click="selectSlotForModule('high', i-1)">
-                                    <span class="slot-num" x-text="i"></span>
-                                    <template x-if="getSlotModule('high', i-1)">
-                                        <img :src="getSlotModule('high', i-1)?.image_url">
-                                    </template>
-                                    <span class="module-name" x-text="getSlotModule('high', i-1)?.name_cn || getSlotModule('high', i-1)?.name || '空'"></span>
-                                    <template x-if="getSlotModule('high', i-1)">
-                                        <span class="remove-btn" @click.stop="removeModule('high', i-1)">✕</span>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                    
-                    <!-- 中槽 -->
-                    <div class="slot-section">
-                        <div class="slot-header">
-                            <span>🛡️ 中槽</span>
-                            <span class="count" x-text="getFilledSlots('med') + '/' + (shipStats?.slots?.med || 0)"></span>
-                        </div>
-                        <div class="slot-list">
-                            <template x-for="i in shipStats?.slots?.med || 0" :key="'med-' + i">
-                                <div class="slot-item" :class="{ 'empty': !getSlotModule('med', i-1), 'filled': getSlotModule('med', i-1) }" @click="selectSlotForModule('med', i-1)">
-                                    <span class="slot-num" x-text="i"></span>
-                                    <template x-if="getSlotModule('med', i-1)">
-                                        <img :src="getSlotModule('med', i-1)?.image_url">
-                                    </template>
-                                    <span class="module-name" x-text="getSlotModule('med', i-1)?.name_cn || getSlotModule('med', i-1)?.name || '空'"></span>
-                                    <template x-if="getSlotModule('med', i-1)">
-                                        <span class="remove-btn" @click.stop="removeModule('med', i-1)">✕</span>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                    
-                    <!-- 低槽 -->
-                    <div class="slot-section">
-                        <div class="slot-header">
-                            <span>⚙️ 低槽</span>
-                            <span class="count" x-text="getFilledSlots('low') + '/' + (shipStats?.slots?.low || 0)"></span>
-                        </div>
-                        <div class="slot-list">
-                            <template x-for="i in shipStats?.slots?.low || 0" :key="'low-' + i">
-                                <div class="slot-item" :class="{ 'empty': !getSlotModule('low', i-1), 'filled': getSlotModule('low', i-1) }" @click="selectSlotForModule('low', i-1)">
-                                    <span class="slot-num" x-text="i"></span>
-                                    <template x-if="getSlotModule('low', i-1)">
-                                        <img :src="getSlotModule('low', i-1)?.image_url">
-                                    </template>
-                                    <span class="module-name" x-text="getSlotModule('low', i-1)?.name_cn || getSlotModule('low', i-1)?.name || '空'"></span>
-                                    <template x-if="getSlotModule('low', i-1)">
-                                        <span class="remove-btn" @click.stop="removeModule('low', i-1)">✕</span>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                    
-                    <!-- 改装件 -->
-                    <div class="slot-section">
-                        <div class="slot-header">
-                            <span>🔧 改装件</span>
-                            <span class="count" x-text="getFilledSlots('rig') + '/' + (shipStats?.slots?.rig || 0)"></span>
-                        </div>
-                        <div class="slot-list">
-                            <template x-for="i in shipStats?.slots?.rig || 0" :key="'rig-' + i">
-                                <div class="slot-item" :class="{ 'empty': !getSlotModule('rig', i-1), 'filled': getSlotModule('rig', i-1) }" @click="selectSlotForModule('rig', i-1)">
-                                    <span class="slot-num" x-text="i"></span>
-                                    <template x-if="getSlotModule('rig', i-1)">
-                                        <img :src="getSlotModule('rig', i-1)?.image_url">
-                                    </template>
-                                    <span class="module-name" x-text="getSlotModule('rig', i-1)?.name_cn || getSlotModule('rig', i-1)?.name || '空'"></span>
-                                    <template x-if="getSlotModule('rig', i-1)">
-                                        <span class="remove-btn" @click.stop="removeModule('rig', i-1)">✕</span>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </template>
-            
-            <div x-show="!selectedShip" class="empty-state">
-                <span class="icon">🚀</span>
-                <span>请从左侧选择一艘舰船</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 第三列：舰船数据 -->
-    <div class="panel">
-        <div class="panel-header">
-            <span>📊 舰船数据</span>
-        </div>
-        <div class="panel-body" style="padding: 0;">
-            <template x-if="selectedShip && shipStats">
-                <div>
-                    <!-- 资源使用 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">📊 资源使用</div>
-                        <div style="margin-bottom: 8px;">
-                            <div class="stat-row">
-                                <span class="stat-label">CPU</span>
-                                <span class="stat-value" :class="{ 'danger': resourceUsage.cpu.percent > 100 }" x-text="resourceUsage.cpu.used.toFixed(1) + ' / ' + resourceUsage.cpu.total.toFixed(1) + ' tf'"></span>
-                            </div>
-                            <div class="resource-bar">
-                                <div class="resource-bar-fill cpu" :style="'width: ' + Math.min(resourceUsage.cpu.percent, 100) + '%'"></div>
-                            </div>
-                        </div>
-                        <div style="margin-bottom: 8px;">
-                            <div class="stat-row">
-                                <span class="stat-label">电网</span>
-                                <span class="stat-value" :class="{ 'danger': resourceUsage.power.percent > 100 }" x-text="resourceUsage.power.used.toFixed(1) + ' / ' + resourceUsage.power.total.toFixed(1) + ' MW'"></span>
-                            </div>
-                            <div class="resource-bar">
-                                <div class="resource-bar-fill power" :style="'width: ' + Math.min(resourceUsage.power.percent, 100) + '%'"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="stat-row">
-                                <span class="stat-label">校准值</span>
-                                <span class="stat-value" :class="{ 'danger': resourceUsage.calibration.percent > 100 }" x-text="resourceUsage.calibration.used + ' / ' + resourceUsage.calibration.total"></span>
-                            </div>
-                            <div class="resource-bar">
-                                <div class="resource-bar-fill calibration" :style="'width: ' + Math.min(resourceUsage.calibration.percent, 100) + '%'"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 护盾 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">🛡️ 护盾</div>
-                        <div class="stat-row">
-                            <span class="stat-label">HP</span>
-                            <span class="stat-value" x-text="formatNumber(displayAttributes?.shieldCapacity?.value)"></span>
-                        </div>
-                        <div class="resistance-row">
-                            <div class="resistance-item">
-                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (displayAttributes?.shieldEmDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.shieldEmDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (displayAttributes?.shieldExplosiveDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.shieldExplosiveDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (displayAttributes?.shieldKineticDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.shieldKineticDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (displayAttributes?.shieldThermalDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.shieldThermalDamageResonance?.value)"></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 装甲 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">🔧 装甲</div>
-                        <div class="stat-row">
-                            <span class="stat-label">HP</span>
-                            <span class="stat-value" x-text="formatNumber(displayAttributes?.armorHP?.value)"></span>
-                        </div>
-                        <div class="resistance-row">
-                            <div class="resistance-item">
-                                <div class="resistance-bar em" :style="'opacity: ' + (1 - (displayAttributes?.armorEmDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.armorEmDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar explosive" :style="'opacity: ' + (1 - (displayAttributes?.armorExplosiveDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.armorExplosiveDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar kinetic" :style="'opacity: ' + (1 - (displayAttributes?.armorKineticDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.armorKineticDamageResonance?.value)"></span>
-                            </div>
-                            <div class="resistance-item">
-                                <div class="resistance-bar thermal" :style="'opacity: ' + (1 - (displayAttributes?.armorThermalDamageResonance?.value || 1))"></div>
-                                <span x-text="formatResistance(displayAttributes?.armorThermalDamageResonance?.value)"></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 机动性 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">🚀 机动性</div>
-                        <div class="stat-row">
-                            <span class="stat-label">最大速度</span>
-                            <span class="stat-value" x-text="(displayAttributes?.maxVelocity?.value || 0).toFixed(1) + ' m/s'"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">惯性系数</span>
-                            <span class="stat-value" x-text="(displayAttributes?.agility?.value || 0).toFixed(3)"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">信号半径</span>
-                            <span class="stat-value" x-text="(displayAttributes?.signatureRadius?.value || 0).toFixed(0) + ' m'"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">曲速</span>
-                            <span class="stat-value" x-text="(displayAttributes?.warpSpeedMultiplier?.value || 1).toFixed(1) + ' AU/s'"></span>
-                        </div>
-                    </div>
-                    
-                    <!-- 锁定 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">🎯 锁定</div>
-                        <div class="stat-row">
-                            <span class="stat-label">锁定距离</span>
-                            <span class="stat-value" x-text="formatDistance(displayAttributes?.maxTargetRange?.value)"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">扫描分辨率</span>
-                            <span class="stat-value" x-text="(displayAttributes?.scanResolution?.value || 0).toFixed(0) + ' mm'"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">最大目标数</span>
-                            <span class="stat-value" x-text="displayAttributes?.maxLockedTargets?.value || 0"></span>
-                        </div>
-                    </div>
-                    
-                    <!-- 无人机 -->
-                    <div x-show="displayAttributes?.droneBandwidth?.value > 0" class="stats-section">
-                        <div class="stats-section-title">🤖 无人机</div>
-                        <div class="stat-row">
-                            <span class="stat-label">带宽</span>
-                            <span class="stat-value" x-text="(displayAttributes?.droneBandwidth?.value || 0) + ' Mbit/s'"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">舱容</span>
-                            <span class="stat-value" x-text="(displayAttributes?.droneCapacity?.value || 0) + ' m³'"></span>
-                        </div>
-                    </div>
-                    
-                    <!-- 电容 -->
-                    <div class="stats-section">
-                        <div class="stats-section-title">⚡ 电容</div>
-                        <div class="stat-row">
-                            <span class="stat-label">容量</span>
-                            <span class="stat-value" x-text="(displayAttributes?.capacitorCapacity?.value || 0).toFixed(0) + ' GJ'"></span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">充能时间</span>
-                            <span class="stat-value" x-text="formatTime(displayAttributes?.rechargeRate?.value)"></span>
-                        </div>
-                    </div>
-                </div>
-            </template>
-            
-            <div x-show="!selectedShip" class="empty-state">
-                <span class="icon">📊</span>
-                <span>选择舰船后显示数据</span>
-            </div>
+            </section>
         </div>
     </div>
 </div>
 
 <script>
-function fittingSimulator() {
-    return {
-        activeTab: 'ships',
-        categories: {},
-        filteredCategories: {},
-        allShips: {},
-        factionShips: {}, // 势力舰船缓存
-        shipSearchQuery: '',
-        selectedShip: null,
-        selectedGroup: null,
-        expandedCategories: [],
-        expandedGroups: [],
-        expandedFactions: [], // 展开的势力列表
-        shipStats: null,
-        displayAttributes: {},
-        fittedModules: { high: [], med: [], low: [], rig: [] },
-        moduleSearchQuery: '',
-        moduleSlotFilter: '',
-        moduleResults: [],
-        selectedSlot: null,
-        resourceUsage: {
-            cpu: { used: 0, total: 0, percent: 0 },
-            power: { used: 0, total: 0, percent: 0 },
-            calibration: { used: 0, total: 0, percent: 0 }
-        },
-        // 装备分类相关
-        moduleCategories: {},
-        allModules: {},
-        expandedModuleCategories: [],
-        expandedModuleGroups: [],
-        selectedModuleGroup: null,
-        // 新的四级分类相关
-        categoryTree: {},
-        expandedL2Categories: [],
-        expandedL3Categories: [],
-        expandedL4Categories: [],
-        categoryModules: {},
-        
-        async init() { 
-            await this.loadCategories(); 
-            await this.loadModuleCategories();
-            await this.loadCategoryTree();
-        },
-        
-        async loadCategories() {
-            try {
-                const response = await fetch('/api/public/fitting-simulator/categories');
-                this.categories = await response.json();
-                this.filteredCategories = this.categories;
-            } catch (e) { console.error('Failed to load categories:', e); }
-        },
-        
-        async loadModuleCategories() {
-            try {
-                const response = await fetch('/api/public/fitting-simulator/module-categories');
-                this.moduleCategories = await response.json();
-            } catch (e) { console.error('Failed to load module categories:', e); }
-        },
-        
-        async loadCategoryTree() {
-            try {
-                const response = await fetch('/api/public/fitting-simulator/module-category-tree');
-                this.categoryTree = await response.json();
-            } catch (e) { console.error('Failed to load category tree:', e); }
-        },
-        
-        // 获取过滤后的四级分类树
-        getFilteredCategoryTree() {
-            if (!this.moduleSlotFilter) {
-                return this.categoryTree;
-            }
-            // 按slot属性过滤
-            const filtered = {};
-            for (const [name, cat] of Object.entries(this.categoryTree)) {
-                if (cat.slot === this.moduleSlotFilter) {
-                    filtered[name] = cat;
-                }
-            }
-            return filtered;
-        },
-        
-        // 切换二级分类展开状态
-        toggleL2Category(l2Name) {
-            const idx = this.expandedL2Categories.indexOf(l2Name);
-            if (idx > -1) this.expandedL2Categories.splice(idx, 1);
-            else this.expandedL2Categories.push(l2Name);
-        },
-        
-        // 切换三级分类展开状态
-        toggleL3Category(l2Name, l3Name) {
-            const key = l2Name + '|' + l3Name;
-            const idx = this.expandedL3Categories.indexOf(key);
-            if (idx > -1) {
-                this.expandedL3Categories.splice(idx, 1);
-            } else {
-                this.expandedL3Categories.push(key);
-                // 检查是否有四级分类，如果没有则直接加载装备
-                const l3Data = this.categoryTree[l2Name]?.children?.[l3Name];
-                if (l3Data && Object.keys(l3Data.children || {}).length === 0) {
-                    this.loadCategoryModules(['舰船装备', l2Name, l3Name]);
-                }
-            }
-        },
-        
-        // 切换四级分类展开状态
-        toggleL4Category(l2Name, l3Name, l4Name) {
-            const key = l2Name + '|' + l3Name + '|' + l4Name;
-            const idx = this.expandedL4Categories.indexOf(key);
-            if (idx > -1) this.expandedL4Categories.splice(idx, 1);
-            else {
-                this.expandedL4Categories.push(key);
-                // 加载该分类下的装备
-                this.loadCategoryModules(['舰船装备', l2Name, l3Name, l4Name]);
-            }
-        },
-        
-        // 加载指定分类路径下的装备
-        async loadCategoryModules(path) {
-            const key = path.join('|');
-            if (this.categoryModules[key]) return;
-            
-            try {
-                const response = await fetch('/api/public/fitting-simulator/modules-by-category-path?path=' + encodeURIComponent(JSON.stringify(path)));
-                const data = await response.json();
-                this.categoryModules[key] = data.modules || [];
-            } catch (e) {
-                this.categoryModules[key] = [];
-            }
-        },
-        
-        // 获取指定分类路径下的装备
-        getCategoryModules(path) {
-            const key = path.join('|');
-            // 如果还没有加载，触发加载
-            if (!this.categoryModules[key]) {
-                this.loadCategoryModules(path);
-                return [];
-            }
-            return this.categoryModules[key] || [];
-        },
-        
-        // 设置装备过滤
-        setModuleFilter(filter) {
-            this.moduleSlotFilter = filter;
-            this.expandedModuleCategories = [];
-            this.expandedModuleGroups = [];
-            // 清空新的四级分类展开状态
-            this.expandedL2Categories = [];
-            this.expandedL3Categories = [];
-            this.expandedL4Categories = [];
-            if (this.moduleSearchQuery) {
-                this.searchModules();
-            }
-        },
-        
-        // 获取过滤后的装备分类
-        getFilteredModuleCategories() {
-            if (!this.moduleSlotFilter) {
-                return this.moduleCategories;
-            }
-            // 按slot属性过滤
-            const filtered = {};
-            for (const [key, cat] of Object.entries(this.moduleCategories)) {
-                if (cat.slot === this.moduleSlotFilter) {
-                    filtered[key] = cat;
-                }
-            }
-            return filtered;
-        },
-        
-        toggleModuleCategory(key) {
-            const idx = this.expandedModuleCategories.indexOf(key);
-            if (idx > -1) this.expandedModuleCategories.splice(idx, 1);
-            else this.expandedModuleCategories.push(key);
-        },
-        
-        toggleModuleGroup(groupId, slot) {
-            const idx = this.expandedModuleGroups.indexOf(groupId);
-            if (idx > -1) this.expandedModuleGroups.splice(idx, 1);
-            else {
-                this.expandedModuleGroups.push(groupId);
-                if (!this.allModules[groupId]) this.loadModulesByGroup(groupId, slot);
-            }
-            this.selectedModuleGroup = groupId;
-        },
-        
-        async loadModulesByGroup(groupId, slot) {
-            try {
-                let url = `/api/public/fitting-simulator/groups/${groupId}/modules`;
-                if (slot && slot !== 'drone') url += `?slot=${slot}`;
-                const response = await fetch(url);
-                this.allModules[groupId] = await response.json();
-            } catch (e) { this.allModules[groupId] = []; }
-        },
-        
-        getModulesByGroup(groupId) { return this.allModules[groupId] || []; },
-        
-        toggleCategory(key, groupId = null) {
-            const idx = this.expandedCategories.indexOf(key);
-            if (idx > -1) this.expandedCategories.splice(idx, 1);
-            else {
-                this.expandedCategories.push(key);
-                if (groupId) {
-                    this.loadShipsByGroup(groupId);
-                }
-            }
-        },
-        
-        toggleGroup(groupId) {
-            const idx = this.expandedGroups.indexOf(groupId);
-            if (idx > -1) {
-                this.expandedGroups.splice(idx, 1);
-            } else {
-                this.expandedGroups.push(groupId);
-                // 立即加载数据
-                this.loadShipsByGroup(groupId);
-            }
-            this.selectedGroup = groupId;
-        },
-        
-        async loadShipsByGroup(groupId) {
-            // 先设置为空数组，避免重复请求
-            if (this.allShips[groupId] && this.allShips[groupId].length > 0) return;
-            
-            this.allShips[groupId] = []; // 先设为空，表示正在加载
-            
-            try {
-                const response = await fetch('/api/public/fitting-simulator/groups/' + groupId + '/ships');
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
-                // 直接赋值触发响应
-                this.allShips[groupId] = data;
-                // 强制更新
-                this.allShips = JSON.parse(JSON.stringify(this.allShips));
-            } catch (e) {
-                console.error('加载舰船失败:', e);
-                this.allShips[groupId] = [];
-            }
-        },
-        
-        getShipsByGroup(groupId) { 
-            return this.allShips[groupId] || []; 
-        },
-        
-        toggleFaction(groupId, factionId) {
-            const key = groupId + '_' + factionId;
-            const idx = this.expandedFactions.indexOf(key);
-            if (idx > -1) {
-                this.expandedFactions.splice(idx, 1);
-            } else {
-                this.expandedFactions.push(key);
-                this.loadShipsByGroup(groupId);
-            }
-        },
-        
-        async loadShipsByGroupAndFaction(groupId, factionId) {
-            const key = groupId + '_' + factionId;
-            if (this.factionShips[key] && this.factionShips[key].length > 0) return;
-            
-            this.factionShips[key] = [];
-            
-            try {
-                const response = await fetch('/api/public/fitting-simulator/groups/' + groupId + '/faction/' + factionId + '/ships');
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
-                this.factionShips[key] = data;
-                this.factionShips = JSON.parse(JSON.stringify(this.factionShips));
-            } catch (e) {
-                console.error('加载势力舰船失败:', e);
-                this.factionShips[key] = [];
-            }
-        },
-        
-        getShipsByGroupAndFaction(groupId, factionId) {
-            const ships = this.allShips[groupId] || [];
-            return ships.filter(ship => Number(ship.faction_id ?? 0) === Number(factionId));
-        },
-        
-        async selectShip(ship) {
-            this.selectedShip = ship;
-            this.clearAllSlots();
-            try {
-                const response = await fetch(`/api/public/fitting-simulator/ships/${ship.type_id}`);
-                this.shipStats = await response.json();
-                this.resourceUsage.cpu.total = this.shipStats.resources?.cpu_output || 0;
-                this.resourceUsage.power.total = this.shipStats.resources?.power_output || 0;
-                this.resourceUsage.calibration.total = this.shipStats.resources?.upgrade_capacity || 350;
-                this.updateResourceUsage();
-                this.recalculateFittingStats();
-            } catch (e) { console.error('Failed to load ship details:', e); }
-        },
-        
-        filterShips() {
-            if (!this.shipSearchQuery) { this.filteredCategories = this.categories; return; }
-            const query = this.shipSearchQuery.toLowerCase();
-            const filtered = {};
-            for (const [key, cat] of Object.entries(this.categories)) {
-                const categoryMatch = (cat.name || '').toLowerCase().includes(query);
-                const factionMatch = Object.values(cat.factions || {}).some(f => (f.name || '').toLowerCase().includes(query));
-                if (categoryMatch || factionMatch) {
-                    filtered[key] = cat;
-                }
-            }
-            this.filteredCategories = filtered;
-        },
-        
-        async searchModules() {
-            if (!this.moduleSearchQuery) { this.moduleResults = []; return; }
-            try {
-                let url = `/api/public/fitting-simulator/search?q=${encodeURIComponent(this.moduleSearchQuery || '')}`;
-                if (this.moduleSlotFilter && this.moduleSlotFilter !== 'drone') url += `&slot=${this.moduleSlotFilter}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                this.moduleResults = data.results || [];
-            } catch (e) { this.moduleResults = []; }
-        },
-        
-        selectSlotForModule(slotType, index) {
-            const normalizedSlot = this.normalizeSlotType(slotType);
-            this.selectedSlot = { type: normalizedSlot, index: index };
-            this.moduleSlotFilter = normalizedSlot === 'rig' ? 'rig' : normalizedSlot;
-            this.activeTab = 'modules';
-            if (this.moduleSearchQuery) this.searchModules();
-        },
-        
-        async addModule(module) {
-            if (!this.selectedSlot) {
-                alert('请先点一下要安装的槽位，再点装备。');
-                return;
-            }
+    function fittingStageOne() {
+        return {
+            categories: @json($categories),
+            filteredCategories: @json($categories),
+            activeTab: 'ships',
+            shipSearchQuery: '',
+            moduleSearchQuery: '',
+            moduleSlotFilter: null,
+            moduleResults: [],
+            moduleLoading: false,
+            selectedShip: null,
+            shipStats: null,
+            selectedSlot: null,
+            expandedCategories: {},
+            categoryLoading: {},
+            shipsByGroup: {},
+            activeGroupId: null,
+            activeFactionId: null,
+            fittedModules: { high: [], med: [], low: [], rig: [] },
+            resourceUsage: {
+                cpu: { used: 0, total: 0 },
+                power: { used: 0, total: 0 },
+                calibration: { used: 0, total: 0 },
+            },
+            notice: { message: '', type: 'info' },
 
-            const slot = this.normalizeSlotType(this.selectedSlot.type);
-            if (!slot || !this.selectedShip) return;
-            
-            const maxSlots = this.getShipSlotCapacity(slot);
-            let slotIndex = this.selectedSlot?.index ?? -1;
-            
-            if (slotIndex === -1 || this.fittedModules[slot][slotIndex]) {
-                for (let i = 0; i < maxSlots; i++) {
-                    if (!this.fittedModules[slot][i]) { slotIndex = i; break; }
+            init() {
+                this.filterCategories();
+            },
+
+            setNotice(message, type = 'info') {
+                this.notice = { message, type };
+            },
+
+            filterCategories() {
+                if (!this.shipSearchQuery) {
+                    this.filteredCategories = this.categories;
+                    return;
                 }
-            }
-            
-            if (slotIndex === -1) { alert('该槽位已满！'); return; }
-            
-            let moduleDetails = module;
-            if (!module.attributes) {
+
+                const keyword = this.shipSearchQuery.toLowerCase();
+                const next = {};
+
+                Object.entries(this.categories).forEach(([key, category]) => {
+                    const inCategory = (category.name || '').toLowerCase().includes(keyword);
+                    const inFaction = Object.values(category.factions || {}).some((faction) => (faction.name || '').toLowerCase().includes(keyword));
+                    if (inCategory || inFaction) {
+                        next[key] = category;
+                    }
+                });
+
+                this.filteredCategories = next;
+            },
+
+            async toggleCategory(categoryKey, category) {
+                this.expandedCategories[categoryKey] = !this.expandedCategories[categoryKey];
+                if (!this.expandedCategories[categoryKey] || !category.group_id) {
+                    return;
+                }
+
+                await this.ensureGroupShips(category.group_id);
+
+                if (!Object.keys(category.factions || {}).length) {
+                    this.activeGroupId = category.group_id;
+                    this.activeFactionId = null;
+                }
+            },
+
+            async ensureGroupShips(groupId) {
+                if (this.shipsByGroup[groupId]) {
+                    return;
+                }
+
+                this.categoryLoading[groupId] = true;
                 try {
-                    const response = await fetch(`/api/public/fitting-simulator/types/${module.type_id}`);
-                    moduleDetails = await response.json();
-                } catch (e) {}
-            }
-            
-            if (slot === 'high') {
-                if (this.isTurretModule(moduleDetails) && this.getRemainingHardpoints('turret') <= 0) { alert('炮台硬点已用完！'); return; }
-                if (this.isLauncherModule(moduleDetails) && this.getRemainingHardpoints('launcher') <= 0) { alert('发射器硬点已用完！'); return; }
-            }
-            
-            this.fittedModules[slot][slotIndex] = { ...moduleDetails, slot: slot, slotIndex: slotIndex };
-            this.selectedSlot = null;
-            this.updateResourceUsage();
-            this.recalculateFittingStats();
-        },
-        
-        removeModule(slotType, index) {
-            this.fittedModules[slotType][index] = null;
-            this.updateResourceUsage();
-            this.recalculateFittingStats();
-        },
-        
-        clearAllSlots() {
-            this.fittedModules = { high: [], med: [], low: [], rig: [] };
-            this.updateResourceUsage();
-            this.recalculateFittingStats();
-        },
-        
-        getSlotModule(slotType, index) { return this.fittedModules[slotType]?.[index]; },
-        getFilledSlots(slotType) { return this.fittedModules[slotType]?.filter(m => m).length || 0; },
-
-        normalizeSlotType(slotType) {
-            const slotMap = {
-                hi: 'high',
-                high: 'high',
-                med: 'med',
-                mid: 'med',
-                low: 'low',
-                rig: 'rig',
-            };
-
-            return slotMap[slotType] || slotType || null;
-        },
-
-        getShipSlotCapacity(slotType) {
-            const keyMap = {
-                high: 'hi',
-                med: 'med',
-                low: 'low',
-                rig: 'rig',
-            };
-
-            const shipKey = keyMap[this.normalizeSlotType(slotType)];
-            return shipKey ? (this.shipStats?.slots?.[shipKey] || 0) : 0;
-        },
-        
-        updateResourceUsage() {
-            let cpuUsed = 0, powerUsed = 0, calibrationUsed = 0;
-            ['high', 'med', 'low', 'rig'].forEach(slot => {
-                this.fittedModules[slot]?.forEach(m => {
-                    if (m) {
-                        cpuUsed += m.attributes?.[50] || m.cpu || 0;
-                        powerUsed += m.attributes?.[30] || m.power || 0;
-                        calibrationUsed += m.attributes?.[1153] || m.upgrade_cost || 0;
+                    const response = await fetch(`/api/public/fitting-simulator/groups/${groupId}/ships`);
+                    if (!response.ok) {
+                        throw new Error('load ships failed');
                     }
-                });
-            });
-            this.resourceUsage.cpu.used = cpuUsed;
-            this.resourceUsage.cpu.percent = this.resourceUsage.cpu.total > 0 ? (cpuUsed / this.resourceUsage.cpu.total) * 100 : 0;
-            this.resourceUsage.power.used = powerUsed;
-            this.resourceUsage.power.percent = this.resourceUsage.power.total > 0 ? (powerUsed / this.resourceUsage.power.total) * 100 : 0;
-            this.resourceUsage.calibration.used = calibrationUsed;
-            this.resourceUsage.calibration.percent = this.resourceUsage.calibration.total > 0 ? (calibrationUsed / this.resourceUsage.calibration.total) * 100 : 0;
-        },
-
-        recalculateFittingStats() {
-            if (!this.shipStats?.attributes) {
-                this.displayAttributes = {};
-                return;
-            }
-
-            const attrs = this.cloneAttributes(this.shipStats.attributes);
-
-            ['high', 'med', 'low', 'rig'].forEach(slot => {
-                this.fittedModules[slot]?.forEach(module => {
-                    if (module) {
-                        this.applyModuleBonuses(attrs, module);
-                    }
-                });
-            });
-
-            this.displayAttributes = attrs;
-        },
-
-        cloneAttributes(attributes) {
-            const cloned = {};
-            for (const [key, value] of Object.entries(attributes || {})) {
-                cloned[key] = value ? { ...value } : { value: 0 };
-            }
-            return cloned;
-        },
-
-        applyModuleBonuses(attrs, module) {
-            const modAttrs = module.attributes || {};
-            const effectNames = (module.effects || []).map(effect => (effect.name || '').toLowerCase());
-
-            [267, 268, 269, 270, 271, 272, 273, 274].forEach(attrId => {
-                if (this.hasNumericAttr(modAttrs, attrId)) {
-                    this.multiplyAttributeById(attrs, attrId, modAttrs[attrId]);
+                    this.shipsByGroup[groupId] = await response.json();
+                } catch (error) {
+                    this.shipsByGroup[groupId] = [];
+                    this.setNotice('这类舰船刚才没有成功加载出来，我已经拦下错误了，你可以再点一次试试。', 'warn');
+                } finally {
+                    this.categoryLoading[groupId] = false;
                 }
-            });
+            },
 
-            if (this.hasNumericAttr(modAttrs, 72) && modAttrs[72] !== 0) {
-                this.addToAttribute(attrs, 'shieldCapacity', modAttrs[72]);
-            }
+            async selectFaction(category, faction) {
+                await this.ensureGroupShips(category.group_id);
+                this.activeGroupId = category.group_id;
+                this.activeFactionId = faction.faction_id;
+            },
 
-            if (this.hasNumericAttr(modAttrs, 1159) && modAttrs[1159] !== 0) {
-                this.addToAttribute(attrs, 'armorHP', modAttrs[1159]);
-            }
+            isCategorySelected(groupId) {
+                return this.activeGroupId === groupId;
+            },
 
-            if (this.hasNumericAttr(modAttrs, 20) && modAttrs[20] !== 0) {
-                this.applyPercentToAttribute(attrs, 'maxVelocity', modAttrs[20]);
-            }
+            isFactionSelected(groupId, factionId) {
+                return this.activeGroupId === groupId && this.activeFactionId === factionId;
+            },
 
-            if (this.hasNumericAttr(modAttrs, 983) && modAttrs[983] !== 0) {
-                this.applyPercentToAttribute(attrs, 'signatureRadius', modAttrs[983]);
-            }
+            visibleShips(groupId) {
+                const ships = this.shipsByGroup[groupId] || [];
+                if (this.activeGroupId !== groupId) {
+                    return [];
+                }
+                if (this.activeFactionId === null || this.activeFactionId === undefined) {
+                    return ships;
+                }
+                return ships.filter((ship) => Number(ship.faction_id || 0) === Number(this.activeFactionId));
+            },
 
-            if (this.hasNumericAttr(modAttrs, 150) && modAttrs[150] > 0) {
-                this.multiplyAttribute(attrs, 'agility', modAttrs[150]);
-            }
+            async selectShip(ship) {
+                try {
+                    const response = await fetch(`/api/public/fitting-simulator/ships/${ship.type_id}`);
+                    if (!response.ok) {
+                        throw new Error('load ship detail failed');
+                    }
 
-            const resonanceAttrIds = [984, 985, 986, 987];
-            if (resonanceAttrIds.some(attrId => this.hasNumericAttr(modAttrs, attrId) && modAttrs[attrId] !== 0)) {
-                const targetKeys = effectNames.some(name => name.includes('armor'))
-                    ? ['armorEmDamageResonance', 'armorExplosiveDamageResonance', 'armorKineticDamageResonance', 'armorThermalDamageResonance']
-                    : ['shieldEmDamageResonance', 'shieldExplosiveDamageResonance', 'shieldKineticDamageResonance', 'shieldThermalDamageResonance'];
+                    this.shipStats = await response.json();
+                    this.selectedShip = { ...ship, image_url: this.shipStats.image_url || ship.image_url };
+                    this.selectedSlot = null;
+                    this.fittedModules = {
+                        high: Array(this.slotCapacity('high')).fill(null),
+                        med: Array(this.slotCapacity('med')).fill(null),
+                        low: Array(this.slotCapacity('low')).fill(null),
+                        rig: Array(this.slotCapacity('rig')).fill(null),
+                    };
+                    this.resourceUsage.cpu.total = Number(this.shipStats.resources?.cpu_output || 0);
+                    this.resourceUsage.power.total = Number(this.shipStats.resources?.power_output || 0);
+                    this.resourceUsage.calibration.total = Number(this.shipStats.resources?.upgrade_capacity || 0);
+                    this.updateResourceUsage();
+                    this.setNotice('舰船已载入。下一步先点一个槽位，再去左侧点装备。', 'info');
+                } catch (error) {
+                    this.setNotice('舰船详情加载失败了，这次没有成功拿到数据。', 'warn');
+                }
+            },
 
-                resonanceAttrIds.forEach((attrId, index) => {
-                    if (this.hasNumericAttr(modAttrs, attrId) && modAttrs[attrId] !== 0) {
-                        this.applyPercentToAttribute(attrs, targetKeys[index], modAttrs[attrId]);
+            slotCapacity(slotType) {
+                if (!this.shipStats) {
+                    return 0;
+                }
+                const mapping = { high: 'hi', med: 'med', low: 'low', rig: 'rig' };
+                return Number(this.shipStats.slots?.[mapping[slotType]] || 0);
+            },
+
+            filledCount(slotType) {
+                return (this.fittedModules[slotType] || []).filter(Boolean).length;
+            },
+
+            slotModule(slotType, index) {
+                return this.fittedModules[slotType]?.[index] || null;
+            },
+
+            selectSlot(slotType, index) {
+                this.selectedSlot = { type: slotType, index };
+                this.activeTab = 'modules';
+                this.moduleSlotFilter = slotType;
+                this.searchModules();
+                this.setNotice(`已选中${this.slotLabel(slotType)}第 ${index + 1} 个槽位。现在点左侧装备即可安装。`, 'info');
+            },
+
+            setModuleSlotFilter(slotType) {
+                this.moduleSlotFilter = slotType;
+                this.searchModules();
+            },
+
+            async searchModules() {
+                if (!this.selectedShip && !this.moduleSearchQuery) {
+                    this.moduleResults = [];
+                    return;
+                }
+
+                this.moduleLoading = true;
+                try {
+                    const params = new URLSearchParams();
+                    params.set('q', this.moduleSearchQuery || '');
+                    if (this.moduleSlotFilter) {
+                        params.set('slot', this.moduleSlotFilter);
+                    }
+                    params.set('limit', '50');
+
+                    const response = await fetch(`/api/public/fitting-simulator/search?${params.toString()}`);
+                    if (!response.ok) {
+                        throw new Error('search failed');
+                    }
+
+                    const data = await response.json();
+                    this.moduleResults = data.results || [];
+                } catch (error) {
+                    this.moduleResults = [];
+                    this.setNotice('装备搜索刚才没有成功，可以稍后再试一次。', 'warn');
+                } finally {
+                    this.moduleLoading = false;
+                }
+            },
+
+            async addModule(module) {
+                if (!this.selectedShip) {
+                    this.setNotice('要先选舰船，才能开始装装备。', 'warn');
+                    return;
+                }
+                if (!this.selectedSlot) {
+                    this.setNotice('请先点中间的槽位，再点左侧装备。', 'warn');
+                    return;
+                }
+
+                let moduleDetails = module;
+                if (!moduleDetails.attributes || !moduleDetails.effects) {
+                    try {
+                        const response = await fetch(`/api/public/fitting-simulator/types/${module.type_id}`);
+                        if (!response.ok) {
+                            throw new Error('load type failed');
+                        }
+                        moduleDetails = await response.json();
+                    } catch (error) {
+                        this.setNotice('装备详情没有取到，所以这次没能安装。', 'warn');
+                        return;
+                    }
+                }
+
+                const slotType = this.selectedSlot.type;
+                const realSlot = moduleDetails.slot || module.slot || null;
+                if (!realSlot || realSlot !== slotType) {
+                    this.setNotice(`这个装备不是${this.slotLabel(slotType)}用的，所以不能装在这里。`, 'warn');
+                    return;
+                }
+
+                if (this.selectedSlot.index >= this.slotCapacity(slotType)) {
+                    this.setNotice('这个槽位超出了舰船可用范围。', 'warn');
+                    return;
+                }
+
+                if (slotType === 'high') {
+                    if (this.isTurretModule(moduleDetails) && this.remainingHardpoints('turret') <= 0) {
+                        this.setNotice('炮台硬点已经用完了。', 'warn');
+                        return;
+                    }
+                    if (this.isLauncherModule(moduleDetails) && this.remainingHardpoints('launcher') <= 0) {
+                        this.setNotice('发射器硬点已经用完了。', 'warn');
+                        return;
+                    }
+                }
+
+                this.fittedModules[slotType][this.selectedSlot.index] = {
+                    ...moduleDetails,
+                    slot: slotType,
+                };
+                this.updateResourceUsage();
+                this.setNotice(`已安装到${this.slotLabel(slotType)}第 ${this.selectedSlot.index + 1} 个槽位。`, 'info');
+            },
+
+            removeModule(slotType, index) {
+                if (!this.fittedModules[slotType]?.[index]) {
+                    return;
+                }
+                this.fittedModules[slotType][index] = null;
+                this.updateResourceUsage();
+                this.setNotice(`已从${this.slotLabel(slotType)}第 ${index + 1} 个槽位卸下装备。`, 'info');
+            },
+
+            clearAllSlots() {
+                if (!this.selectedShip) {
+                    return;
+                }
+                this.fittedModules = {
+                    high: Array(this.slotCapacity('high')).fill(null),
+                    med: Array(this.slotCapacity('med')).fill(null),
+                    low: Array(this.slotCapacity('low')).fill(null),
+                    rig: Array(this.slotCapacity('rig')).fill(null),
+                };
+                this.selectedSlot = null;
+                this.updateResourceUsage();
+                this.setNotice('当前舰船的装配已经清空。', 'info');
+            },
+
+            updateResourceUsage() {
+                let cpu = 0;
+                let power = 0;
+                let calibration = 0;
+
+                ['high', 'med', 'low', 'rig'].forEach((slotType) => {
+                    (this.fittedModules[slotType] || []).forEach((module) => {
+                        if (!module) {
+                            return;
+                        }
+                        cpu += Number(module.attributes?.[50] || module.cpu || 0);
+                        power += Number(module.attributes?.[30] || module.power || 0);
+                        calibration += Number(module.attributes?.[1153] || module.upgrade_cost || 0);
+                    });
+                });
+
+                this.resourceUsage.cpu.used = cpu;
+                this.resourceUsage.power.used = power;
+                this.resourceUsage.calibration.used = calibration;
+            },
+
+            remainingHardpoints(type) {
+                const total = Number(this.shipStats?.hardpoints?.[type] || 0);
+                let used = 0;
+                (this.fittedModules.high || []).forEach((module) => {
+                    if (!module) {
+                        return;
+                    }
+                    if (type === 'turret' && this.isTurretModule(module)) {
+                        used += 1;
+                    }
+                    if (type === 'launcher' && this.isLauncherModule(module)) {
+                        used += 1;
                     }
                 });
-            }
-        },
+                return Math.max(total - used, 0);
+            },
 
-        hasNumericAttr(modAttrs, attrId) {
-            return Number.isFinite(Number(modAttrs?.[attrId]));
-        },
+            isTurretModule(module) {
+                return (module.effects || []).some((effect) => [10, 42, 44, 46, 48, 50].includes(Number(effect.effect_id)));
+            },
 
-        multiplyAttributeById(attrs, attrId, factor) {
-            const key = this.getAttributeKeyById(attrId);
-            if (!key) return;
-            this.multiplyAttribute(attrs, key, factor);
-        },
+            isLauncherModule(module) {
+                return (module.effects || []).some((effect) => [11, 41, 43, 45, 47, 49, 51].includes(Number(effect.effect_id)));
+            },
 
-        getAttributeKeyById(attrId) {
-            const attributeMap = {
-                267: 'armorEmDamageResonance',
-                268: 'armorExplosiveDamageResonance',
-                269: 'armorKineticDamageResonance',
-                270: 'armorThermalDamageResonance',
-                271: 'shieldEmDamageResonance',
-                272: 'shieldExplosiveDamageResonance',
-                273: 'shieldKineticDamageResonance',
-                274: 'shieldThermalDamageResonance',
-            };
+            slotLabel(slotType) {
+                return { high: '高槽', med: '中槽', low: '低槽', rig: '改装槽' }[slotType] || slotType;
+            },
 
-            return attributeMap[attrId] || null;
-        },
+            shipDisplayName(ship) {
+                return ship?.name_cn || ship?.name || '未命名舰船';
+            },
 
-        ensureAttribute(attrs, key, fallbackId = null) {
-            if (!attrs[key]) {
-                attrs[key] = {
-                    attribute_id: fallbackId,
-                    value: 0,
-                    name: key,
-                    unit: null,
-                };
-            }
+            moduleDisplayName(module) {
+                return module?.name_cn || module?.name || '未命名装备';
+            },
 
-            return attrs[key];
-        },
+            moduleMeta(module) {
+                const parts = [];
+                parts.push(this.slotLabel(module.slot || '未知'));
+                if (module.cpu) {
+                    parts.push(`CPU ${Number(module.cpu).toFixed(1)}`);
+                }
+                if (module.power) {
+                    parts.push(`电网 ${Number(module.power).toFixed(1)}`);
+                }
+                if (module.upgrade_cost) {
+                    parts.push(`校准 ${Number(module.upgrade_cost).toFixed(0)}`);
+                }
+                return parts.join(' / ');
+            },
 
-        addToAttribute(attrs, key, value) {
-            const attr = this.ensureAttribute(attrs, key);
-            attr.value = Number(attr.value || 0) + Number(value || 0);
-        },
+            formatUsage(used, total, suffix) {
+                return `${Number(used).toFixed(1)} / ${Number(total).toFixed(1)}${suffix}`;
+            },
 
-        multiplyAttribute(attrs, key, factor) {
-            const attr = this.ensureAttribute(attrs, key);
-            attr.value = Number(attr.value || 0) * Number(factor || 1);
-        },
+            numberAttr(key, suffix = '') {
+                const value = Number(this.shipStats?.attributes?.[key]?.value || 0);
+                return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}${suffix}`;
+            },
 
-        applyPercentToAttribute(attrs, key, percent) {
-            const attr = this.ensureAttribute(attrs, key);
-            attr.value = Number(attr.value || 0) * (1 + (Number(percent || 0) / 100));
-        },
-        
-        getRemainingHardpoints(type) {
-            const total = this.shipStats?.hardpoints?.[type] || 0;
-            let used = 0;
-            this.fittedModules.high?.forEach(m => { if (m) { if (type === 'turret' && this.isTurretModule(m)) used++; if (type === 'launcher' && this.isLauncherModule(m)) used++; } });
-            return total - used;
-        },
-        
-        isTurretModule(m) { return m.effects?.some(e => [10, 42, 44, 46, 48, 50].includes(e.effect_id)); },
-        isLauncherModule(m) { return m.effects?.some(e => [11, 41, 43, 45, 47, 49, 51].includes(e.effect_id)); },
-        getSlotLabel(s) { return { high: '高槽', med: '中槽', low: '低槽', rig: '改装', drone: '无人机' }[s] || s; },
-        formatNumber(v) { return v ? Number(v).toLocaleString() : '0'; },
-        formatResistance(v) { return v ? Math.round((1 - v) * 100) + '%' : '0%'; },
-        formatDistance(v) { if (!v) return '0 m'; return v >= 1000 ? (v / 1000).toFixed(1) + ' km' : v.toFixed(0) + ' m'; },
-        formatTime(ms) {
-            if (!ms) return '0s';
-            const seconds = ms / 1000;
-            if (seconds >= 60) { const minutes = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${minutes}m ${secs}s`; }
-            return seconds.toFixed(1) + 's';
-        }
-    };
-}
+            distanceAttr(key) {
+                const value = Number(this.shipStats?.attributes?.[key]?.value || 0);
+                if (value >= 1000) {
+                    return `${(value / 1000).toFixed(1)} km`;
+                }
+                return `${value.toFixed(0)} m`;
+            },
+        };
+    }
 </script>
-</div>
-</div>
 @endsection
