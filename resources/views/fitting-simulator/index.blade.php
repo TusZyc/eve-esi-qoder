@@ -128,15 +128,25 @@
 
                         <input class="fitting-input" type="text" placeholder="输入装备名称搜索" x-model="moduleSearchQuery" @keydown.enter.prevent="searchModules" @input.debounce.300ms="searchModules">
 
-                        <div class="tiny-tip">先点中间的槽位，再点这里的装备，会更准确。阶段1先保留搜索安装，不做拖拽。</div>
+                        <div class="tiny-tip">先点中间的槽位，再点这里的装备，会更准确。现在会按本地中文分类分组显示，先不做拖拽。</div>
 
                         <div class="card-list" style="margin-top:12px;">
-                            <template x-for="module in moduleResults" :key="module.type_id">
-                                <div class="list-item" @click="addModule(module)">
-                                    <img :src="module.image_url" :alt="moduleDisplayName(module)">
-                                    <div class="list-item__text">
-                                        <div class="item-name" x-text="moduleDisplayName(module)"></div>
-                                        <div class="item-meta" x-text="moduleMeta(module)"></div>
+                            <template x-for="group in groupedModuleResults()" :key="group.label">
+                                <div class="tree-item">
+                                    <div class="tree-head" style="cursor:default;">
+                                        <span x-text="group.label"></span>
+                                        <span x-text="group.items.length + ' 件'"></span>
+                                    </div>
+                                    <div class="tree-children" style="padding-top:8px;">
+                                        <template x-for="module in group.items" :key="module.type_id">
+                                            <div class="list-item" @click="addModule(module)">
+                                                <img :src="module.image_url" :alt="moduleDisplayName(module)">
+                                                <div class="list-item__text">
+                                                    <div class="item-name" x-text="moduleDisplayName(module)"></div>
+                                                    <div class="item-meta" x-text="moduleMeta(module)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -606,6 +616,9 @@
             moduleMeta(module) {
                 const parts = [];
                 parts.push(this.slotLabel(module.slot || '未知'));
+                if (module.category_label) {
+                    parts.push(module.category_label);
+                }
                 if (module.cpu) {
                     parts.push(`CPU ${Number(module.cpu).toFixed(1)}`);
                 }
@@ -616,6 +629,19 @@
                     parts.push(`校准 ${Number(module.upgrade_cost).toFixed(0)}`);
                 }
                 return parts.join(' / ');
+            },
+
+            groupedModuleResults() {
+                const groups = {};
+                (this.moduleResults || []).forEach((module) => {
+                    const label = module.category_label || '其他';
+                    if (!groups[label]) {
+                        groups[label] = [];
+                    }
+                    groups[label].push(module);
+                });
+
+                return Object.entries(groups).map(([label, items]) => ({ label, items }));
             },
 
             formatUsage(used, total, suffix) {

@@ -101,6 +101,100 @@ class FittingDataService
     ];
 
     /**
+     * 舰船组中文名修正
+     */
+    private const SHIP_GROUP_NAME_MAP = [
+        25 => '护卫舰',
+        237 => '轻型护卫舰',
+        324 => '突击护卫舰',
+        420 => '驱逐舰',
+        541 => '拦截驱逐舰',
+        26 => '巡洋舰',
+        358 => '重型突击巡洋舰',
+        832 => '后勤巡洋舰',
+        833 => '武装侦察舰',
+        906 => '隐秘侦察舰',
+        894 => '重型拦截巡洋舰',
+        963 => '战略巡洋舰',
+        419 => '战列巡洋舰',
+        540 => '指挥舰',
+        1201 => '攻击战列巡洋舰',
+        27 => '战列舰',
+        898 => '黑隐特勤舰',
+        900 => '掠夺舰',
+        28 => '工业舰',
+        380 => '运输舰',
+        513 => '货舰',
+        902 => '战略货舰',
+        1202 => '封锁运输舰',
+        941 => '工业指挥舰',
+        883 => '旗舰工业舰',
+        463 => '采矿驳船',
+        543 => '采掘者',
+        830 => '隐形特勤舰',
+        831 => '拦截舰',
+        834 => '隐形轰炸机',
+        893 => '电子攻击舰',
+        1283 => '远征护卫舰',
+        1527 => '后勤护卫舰',
+        1305 => '战术驱逐舰',
+        1534 => '指挥驱逐舰',
+        1972 => '旗舰巡洋舰',
+        30 => '泰坦',
+        485 => '无畏舰',
+        4594 => '长矛无畏舰',
+        547 => '航母',
+        659 => '超级航母',
+        1538 => '战力辅助舰',
+        29 => '太空舱',
+        31 => '穿梭机',
+        1022 => '特别版舰船',
+    ];
+
+    /**
+     * 装备二级分类到槽位的映射
+     */
+    private const MODULE_SLOT_CATEGORY_MAP = [
+        '炮台和发射器' => 'high',
+        '立体炸弹' => 'high',
+        '炸弹' => 'high',
+        '采集设备' => 'high',
+        '扫描设备' => 'high',
+        '舰队辅助装备' => 'high',
+        '旗舰级装备' => 'high',
+        '旗舰级武器' => 'high',
+        '超级武器' => 'high',
+        '护盾' => 'med',
+        '电子战' => 'med',
+        '电子学和感应器升级' => 'med',
+        '推进器' => 'med',
+        '远程装甲维修器' => 'med',
+        '远程护盾传输装置' => 'med',
+        '远程电容传输装置' => 'med',
+        '指挥突发' => 'med',
+        '作战网络' => 'med',
+        '船体和装甲' => 'low',
+        '工程装备' => 'low',
+        '无人机升级模块' => 'low',
+        '压缩装置' => 'low',
+        '工程改装件' => 'rig',
+        '护盾改装件' => 'rig',
+        '装甲改装件' => 'rig',
+        '武器改装件' => 'rig',
+        '电子改装件' => 'rig',
+        '无人机改装件' => 'rig',
+        '旗舰改装件' => 'rig',
+        '采矿改装件' => 'rig',
+        '导航改装件' => 'rig',
+        '导弹改装件' => 'rig',
+        '扫描改装件' => 'rig',
+        '瞄准改装件' => 'rig',
+        '锚定改装件' => 'rig',
+        '改装件' => 'rig',
+        '无人机' => 'drone',
+    ];
+
+    /**
      * 获取舰船列表（按分类树形结构）
      */
     public function getShipTree(): array
@@ -150,7 +244,7 @@ class FittingDataService
                             'turret' => (int)($attrs[102] ?? 0),
                             'launcher' => (int)($attrs[101] ?? 0),
                         ],
-                        'image_url' => $this->getImageUrl($ship->type_id),
+                        'image_url' => $this->getImageUrl($ship->type_id, 128, 6),
                     ];
                 }
 
@@ -180,7 +274,7 @@ class FittingDataService
             ]];
         }
         
-        return Cache::remember('fitting_ship_categories_v4', 3600, function () {
+        return Cache::remember('fitting_ship_categories_v5', 3600, function () {
             $result = [];
             
             // 势力名称映射
@@ -198,7 +292,7 @@ class FittingDataService
                 ->where('category_id', 6)
                 ->where('published', 1)
                 ->where('group_id', '!=', 1022)
-                ->orderBy('name_cn')
+                ->orderBy('group_id')
                 ->get();
             
             foreach ($groups as $group) {
@@ -234,7 +328,7 @@ class FittingDataService
                     $result[$key] = [
                         'key' => $key,
                         'group_id' => $group->group_id,
-                        'name' => $group->name_cn ?? $group->name_en,
+                        'name' => $this->getShipGroupName((int)$group->group_id, $group->name_cn ?? $group->name_en),
                         'count' => $totalCount,
                         'factions' => $factions,
                     ];
@@ -583,7 +677,7 @@ class FittingDataService
                     'power' => (float)($attrs[30] ?? 0),
                     'upgrade_cost' => (float)($attrs[1153] ?? 0),
                     'meta_level' => (int)($attrs[422] ?? 0),
-                    'image_url' => $this->getImageUrl($mod->type_id),
+                    'image_url' => $this->getImageUrl($mod->type_id, 128, (int)$mod->category_id),
                 ];
             }
             
@@ -649,7 +743,7 @@ class FittingDataService
                 ],
                 'attributes' => $namedAttrs,
                 'effects' => $effects,
-                'image_url' => $this->getImageUrl($typeId),
+                'image_url' => $this->getImageUrl($typeId, 128, 6),
             ];
         });
     }
@@ -778,18 +872,9 @@ class FittingDataService
             });
         }
 
-        // 槽位类型过滤（通过效果判断）
-        if ($slotType && isset(self::SLOT_EFFECT_IDS[$slotType])) {
-            $effectIds = self::SLOT_EFFECT_IDS[$slotType];
-            $q->whereIn('type_id', function ($subQ) use ($effectIds) {
-                $subQ->select('type_id')
-                     ->from('fitting_type_effects')
-                     ->whereIn('effect_id', $effectIds);
-            });
-        }
-
+        $candidateLimit = $query ? max($limit * 4, 120) : max($limit * 10, 400);
         $results = $q->orderBy('name_en')
-                     ->limit($limit)
+                     ->limit($candidateLimit)
                      ->get();
 
         $modules = [];
@@ -797,18 +882,30 @@ class FittingDataService
             $attrs = $this->getTypeAttributes($mod->type_id);
             $slot = $this->determineModuleSlot($mod->type_id);
 
+            if ($slotType && $slot !== $slotType) {
+                continue;
+            }
+
+            $categoryPath = $this->getLocalItemCategoryPath((int)$mod->type_id);
+
             $modules[] = [
                 'type_id' => $mod->type_id,
                 'name' => $mod->name_en,
                 'name_cn' => $mod->name_cn ?? $mod->name_en,
                 'group_id' => $mod->group_id,
                 'slot' => $slot,
+                'category_label' => $this->buildModuleCategoryLabel($categoryPath),
+                'category_path' => $categoryPath,
                 'cpu' => (float)($attrs[50] ?? 0),
                 'power' => (float)($attrs[30] ?? 0),
                 'upgrade_cost' => (float)($attrs[1153] ?? 0),
                 'meta_level' => (int)($attrs[422] ?? 0),
-                'image_url' => $this->getImageUrl($mod->type_id),
+                'image_url' => $this->getImageUrl($mod->type_id, 128, (int)$mod->category_id),
             ];
+
+            if (count($modules) >= $limit) {
+                break;
+            }
         }
 
         return $modules;
@@ -819,6 +916,11 @@ class FittingDataService
      */
     public function determineModuleSlot(int $typeId): ?string
     {
+        $slotFromCategory = $this->inferSlotFromCategoryPath($this->getLocalItemCategoryPath($typeId));
+        if ($slotFromCategory) {
+            return $slotFromCategory;
+        }
+
         $effects = DB::connection('fitting')
             ->table('fitting_type_effects')
             ->where('type_id', $typeId)
@@ -850,6 +952,7 @@ class FittingDataService
 
             $attrs = $this->getTypeAttributes($typeId);
             $effects = $this->getTypeEffects($typeId);
+            $categoryPath = $this->getLocalItemCategoryPath($typeId);
 
             return [
                 'type_id' => $typeId,
@@ -858,9 +961,11 @@ class FittingDataService
                 'group_id' => $type->group_id,
                 'category_id' => $type->category_id,
                 'slot' => $this->determineModuleSlot($typeId),
+                'category_label' => $this->buildModuleCategoryLabel($categoryPath),
+                'category_path' => $categoryPath,
                 'attributes' => $attrs,
                 'effects' => $effects,
-                'image_url' => $this->getImageUrl($typeId),
+                'image_url' => $this->getImageUrl($typeId, 128, (int)$type->category_id),
             ];
         });
     }
@@ -868,7 +973,7 @@ class FittingDataService
     /**
      * 获取图片 URL（本地优先，CDN 兜底）
      */
-    public function getImageUrl(int $typeId, int $size = 128): string
+    public function getImageUrl(int $typeId, int $size = 128, ?int $categoryId = null): string
     {
         // 检查本地缓存
         $localPath = public_path("images/types/{$typeId}.png");
@@ -876,8 +981,16 @@ class FittingDataService
             return "/images/types/{$typeId}.png";
         }
 
-        // CDN 兜底
-        return "https://image.evepc.163.com/Render/{$typeId}_{$size}.png";
+        $categoryId = $categoryId ?? (int)(DB::connection('fitting')
+            ->table('fitting_types')
+            ->where('type_id', $typeId)
+            ->value('category_id') ?? 0);
+
+        if ($categoryId === 6) {
+            return "https://image.evepc.163.com/Render/{$typeId}_{$size}.png";
+        }
+
+        return "https://image.evepc.163.com/Type/{$typeId}_{$size}.png";
     }
 
     /**
@@ -908,7 +1021,7 @@ class FittingDataService
                         'low' => (int)($attrs[12] ?? 0),
                         'rig' => (int)($attrs[1137] ?? 0),
                     ],
-                    'image_url' => $this->getImageUrl($ship->type_id),
+                    'image_url' => $this->getImageUrl($ship->type_id, 128, 6),
                 ];
             }
 
@@ -945,7 +1058,7 @@ class FittingDataService
                         'low' => (int)($attrs[12] ?? 0),
                         'rig' => (int)($attrs[1137] ?? 0),
                     ],
-                    'image_url' => $this->getImageUrl($ship->type_id),
+                    'image_url' => $this->getImageUrl($ship->type_id, 128, 6),
                 ];
             }
 
@@ -1088,15 +1201,78 @@ class FittingDataService
      */
     private function inferSlotFromCategory(string $category): string
     {
-        $highSlot = ['炮台和发射器', '采集设备', '扫描设备', '立体炸弹', '舰队辅助装备'];
-        $medSlot = ['护盾', '推进器', '电子战', '电子学和感应器升级'];
-        $lowSlot = ['工程装备', '船体和装甲', '无人机升级模块', '压缩装置'];
-        
-        if (in_array($category, $highSlot)) return 'high';
-        if (in_array($category, $medSlot)) return 'med';
-        if (in_array($category, $lowSlot)) return 'low';
-        
-        return 'unknown';
+        return self::MODULE_SLOT_CATEGORY_MAP[$category] ?? 'unknown';
+    }
+
+    private function getShipGroupName(int $groupId, ?string $fallback = null): string
+    {
+        return self::SHIP_GROUP_NAME_MAP[$groupId] ?? ($fallback ?: "group_{$groupId}");
+    }
+
+    private function getLocalItemsIndex(): array
+    {
+        return Cache::remember('fitting_local_items_index_v1', 3600, function () {
+            $itemsFile = base_path('data/eve_items.json');
+            if (!file_exists($itemsFile)) {
+                return [];
+            }
+
+            $items = json_decode(file_get_contents($itemsFile), true);
+            return is_array($items) ? $items : [];
+        });
+    }
+
+    private function getLocalItemCategoryPath(int $typeId): array
+    {
+        $items = $this->getLocalItemsIndex();
+        $item = $items[(string)$typeId] ?? null;
+        $category = $item['category'] ?? [];
+        return is_array($category) ? array_values($category) : [];
+    }
+
+    private function inferSlotFromCategoryPath(array $categoryPath): ?string
+    {
+        if (empty($categoryPath)) {
+            return null;
+        }
+
+        $level1 = $categoryPath[0] ?? null;
+        $level2 = $categoryPath[1] ?? null;
+
+        if ($level1 === '无人机') {
+            return 'drone';
+        }
+
+        if ($level1 === '舰船装备' && $level2) {
+            return self::MODULE_SLOT_CATEGORY_MAP[$level2] ?? null;
+        }
+
+        if ($level1 && str_contains($level1, '改装件')) {
+            return 'rig';
+        }
+
+        return self::MODULE_SLOT_CATEGORY_MAP[$level1] ?? null;
+    }
+
+    private function buildModuleCategoryLabel(array $categoryPath): ?string
+    {
+        if (empty($categoryPath)) {
+            return null;
+        }
+
+        $level1 = $categoryPath[0] ?? null;
+        $level2 = $categoryPath[1] ?? null;
+        $level3 = $categoryPath[2] ?? null;
+
+        if ($level1 === '舰船装备') {
+            return $level3 ?: $level2;
+        }
+
+        if ($level1 && str_contains($level1, '改装件')) {
+            return $level2 ?: $level1;
+        }
+
+        return $level2 ?: $level1;
     }
 
     /**
@@ -1155,7 +1331,7 @@ class FittingDataService
                 'power' => (float)($attrs[30] ?? 0),
                 'upgrade_cost' => (float)($attrs[1153] ?? 0),
                 'meta_level' => (int)($attrs[422] ?? 0),
-                'image_url' => $this->getImageUrl($typeId),
+                'image_url' => $this->getImageUrl($typeId, 128, (int)$type->category_id),
             ];
         }
         
