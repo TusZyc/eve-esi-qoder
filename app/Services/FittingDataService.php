@@ -1026,6 +1026,10 @@ class FittingDataService
      */
     public function getImageUrl(int $typeId, int $size = 128, ?int $categoryId = null): string
     {
+        if ($size > 64) {
+            $size = 64;
+        }
+
         return $this->getRemoteImageUrl($typeId, $size);
     }
 
