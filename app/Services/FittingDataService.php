@@ -911,6 +911,73 @@ class FittingDataService
         return $modules;
     }
 
+    public function getShipCategoryTree(): array
+    {
+        if (!$this->isDatabaseReady()) {
+            return [];
+        }
+
+        return Cache::remember('fitting_ship_category_tree_v1', 3600, function () {
+            $ships = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('category_id', 6)
+                ->where('published', 1)
+                ->select('type_id')
+                ->get();
+
+            $tree = [];
+            foreach ($ships as $ship) {
+                $path = $this->getShipDisplayCategoryPath((int)$ship->type_id);
+                if (empty($path)) {
+                    continue;
+                }
+                $this->appendTreePath($tree, $path);
+            }
+
+            return $this->normalizeTreeNodes($tree);
+        });
+    }
+
+    public function getShipsByCategoryPath(array $path): array
+    {
+        if (!$this->isDatabaseReady() || empty($path)) {
+            return [];
+        }
+
+        $ships = DB::connection('fitting')
+            ->table('fitting_types')
+            ->where('category_id', 6)
+            ->where('published', 1)
+            ->orderBy('name_en')
+            ->get();
+
+        $result = [];
+        foreach ($ships as $ship) {
+            $shipPath = $this->getShipDisplayCategoryPath((int)$ship->type_id);
+            if (!$this->pathStartsWith($shipPath, $path)) {
+                continue;
+            }
+
+            $attrs = $this->getTypeAttributes((int)$ship->type_id);
+            $result[] = [
+                'type_id' => $ship->type_id,
+                'name' => $ship->name_en,
+                'name_cn' => $ship->name_cn ?? $ship->name_en,
+                'category_path' => $shipPath,
+                'faction_id' => (int)($ship->faction_id ?? 0),
+                'slots' => [
+                    'hi' => (int)($attrs[14] ?? 0),
+                    'med' => (int)($attrs[13] ?? 0),
+                    'low' => (int)($attrs[12] ?? 0),
+                    'rig' => (int)($attrs[1137] ?? 0),
+                ],
+                'image_url' => $this->getImageUrl((int)$ship->type_id, 64, 6),
+            ];
+        }
+
+        return $result;
+    }
+
     /**
      * 判断装备槽位类型
      */
@@ -975,21 +1042,11 @@ class FittingDataService
      */
     public function getImageUrl(int $typeId, int $size = 128, ?int $categoryId = null): string
     {
-        // 检查本地缓存
-        $localPath = public_path("images/types/{$typeId}.png");
-        if (file_exists($localPath)) {
-            return "/images/types/{$typeId}.png";
-        }
+        return "/api/public/fitting-simulator/image/{$typeId}?size={$size}";
+    }
 
-        $categoryId = $categoryId ?? (int)(DB::connection('fitting')
-            ->table('fitting_types')
-            ->where('type_id', $typeId)
-            ->value('category_id') ?? 0);
-
-        if ($categoryId === 6) {
-            return "https://image.evepc.163.com/Render/{$typeId}_{$size}.png";
-        }
-
+    public function getRemoteImageUrl(int $typeId, int $size = 128): string
+    {
         return "https://image.evepc.163.com/Type/{$typeId}_{$size}.png";
     }
 
@@ -1081,118 +1138,30 @@ class FittingDataService
     public function getModuleCategoryTree(?string $slotFilter = null): array
     {
         return Cache::remember('fitting_module_category_tree_' . ($slotFilter ?? 'all'), 3600, function () use ($slotFilter) {
-            // 加载eve_items.json获取分类信息
-            $itemsFile = base_path('data/eve_items.json');
-            if (!file_exists($itemsFile)) {
-                return [];
-            }
-            
-            $items = json_decode(file_get_contents($itemsFile), true);
-            if (empty($items)) {
-                return [];
-            }
-            
-            // 槽位到二级分类的映射
-            $slotToCategories = [
-                'high' => ['炮台和发射器', '采集设备', '扫描设备', '立体炸弹', '舰队辅助装备'],
-                'med' => ['护盾', '推进器', '电子战', '电子学和感应器升级'],
-                'low' => ['工程装备', '船体和装甲', '无人机升级模块', '压缩装置'],
-                'rig' => ['改装件'],  // 改装件单独处理
-            ];
-            
-            // 构建分类树
+            $modules = DB::connection('fitting')
+                ->table('fitting_types')
+                ->where('category_id', 7)
+                ->where('published', 1)
+                ->select('type_id')
+                ->get();
+
             $tree = [];
-            
-            foreach ($items as $typeId => $item) {
-                $category = $item['category'] ?? [];
-                
-                // 只处理舰船装备
-                if (count($category) < 2 || $category[0] !== '舰船装备') {
+            foreach ($modules as $module) {
+                $typeId = (int)$module->type_id;
+                $displayPath = $this->getModuleDisplayCategoryPath($typeId);
+                if (empty($displayPath)) {
                     continue;
                 }
-                
-                $level2 = $category[1];
-                $level3 = $category[2] ?? null;
-                $level4 = $category[3] ?? null;
-                
-                // 槽位过滤
-                if ($slotFilter) {
-                    $allowedCategories = $slotToCategories[$slotFilter] ?? [];
-                    if (!in_array($level2, $allowedCategories)) {
-                        continue;
-                    }
-                }
-                
-                // 检查物品是否存在于SDE数据库（有属性数据）
-                if (!$this->isDatabaseReady()) {
+
+                $slot = $this->determineModuleSlot($typeId);
+                if ($slotFilter && $slot !== $slotFilter) {
                     continue;
                 }
-                
-                $exists = DB::connection('fitting')
-                    ->table('fitting_types')
-                    ->where('type_id', $typeId)
-                    ->where('published', 1)
-                    ->exists();
-                
-                if (!$exists) {
-                    continue;
-                }
-                
-                // 初始化分类节点
-                if (!isset($tree[$level2])) {
-                    $tree[$level2] = [
-                        'name' => $level2,
-                        'slot' => $this->inferSlotFromCategory($level2),
-                        'children' => [],
-                    ];
-                }
-                
-                if ($level3) {
-                    if (!isset($tree[$level2]['children'][$level3])) {
-                        $tree[$level2]['children'][$level3] = [
-                            'name' => $level3,
-                            'children' => [],
-                            'items' => [],
-                        ];
-                    }
-                    
-                    if ($level4) {
-                        if (!isset($tree[$level2]['children'][$level3]['children'][$level4])) {
-                            $tree[$level2]['children'][$level3]['children'][$level4] = [
-                                'name' => $level4,
-                                'items' => [],
-                            ];
-                        }
-                        $tree[$level2]['children'][$level3]['children'][$level4]['items'][] = (int)$typeId;
-                    } else {
-                        $tree[$level2]['children'][$level3]['items'][] = (int)$typeId;
-                    }
-                }
+
+                $this->appendTreePath($tree, $displayPath);
             }
-            
-            // 排序四级分类（尺寸顺序）
-            $sizeOrder = ['微型', '小型', '中型', '大型', '旗舰', '超大型'];
-            foreach ($tree as &$l2) {
-                foreach ($l2['children'] as &$l3) {
-                    if (!empty($l3['children'])) {
-                        $sorted = [];
-                        foreach ($sizeOrder as $size) {
-                            if (isset($l3['children'][$size])) {
-                                $sorted[$size] = $l3['children'][$size];
-                            }
-                        }
-                        // 添加其他未在预设顺序中的四级分类
-                        foreach ($l3['children'] as $name => $data) {
-                            if (!isset($sorted[$name])) {
-                                $sorted[$name] = $data;
-                            }
-                        }
-                        $l3['children'] = $sorted;
-                    }
-                }
-            }
-            
-            return $tree;
+
+            return $this->normalizeTreeNodes($tree);
         });
     }
 
@@ -1207,6 +1176,59 @@ class FittingDataService
     private function getShipGroupName(int $groupId, ?string $fallback = null): string
     {
         return self::SHIP_GROUP_NAME_MAP[$groupId] ?? ($fallback ?: "group_{$groupId}");
+    }
+
+    private function appendTreePath(array &$tree, array $path, int $depth = 0): void
+    {
+        if (!isset($path[$depth])) {
+            return;
+        }
+
+        $name = $path[$depth];
+        if (!isset($tree[$name])) {
+            $tree[$name] = [
+                'name' => $name,
+                'path' => array_slice($path, 0, $depth + 1),
+                'count' => 0,
+                'children' => [],
+            ];
+        }
+
+        $tree[$name]['count']++;
+
+        if (isset($path[$depth + 1])) {
+            $this->appendTreePath($tree[$name]['children'], $path, $depth + 1);
+        }
+    }
+
+    private function normalizeTreeNodes(array $tree): array
+    {
+        $nodes = array_values($tree);
+
+        usort($nodes, function (array $a, array $b) {
+            return strcmp($a['name'], $b['name']);
+        });
+
+        foreach ($nodes as &$node) {
+            $node['children'] = $this->normalizeTreeNodes($node['children'] ?? []);
+        }
+
+        return $nodes;
+    }
+
+    private function pathStartsWith(array $fullPath, array $prefix): bool
+    {
+        if (count($prefix) > count($fullPath)) {
+            return false;
+        }
+
+        foreach ($prefix as $index => $part) {
+            if (($fullPath[$index] ?? null) !== $part) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function getLocalItemsIndex(): array
@@ -1228,6 +1250,36 @@ class FittingDataService
         $item = $items[(string)$typeId] ?? null;
         $category = $item['category'] ?? [];
         return is_array($category) ? array_values($category) : [];
+    }
+
+    private function getShipDisplayCategoryPath(int $typeId): array
+    {
+        $path = $this->getLocalItemCategoryPath($typeId);
+        if (empty($path)) {
+            return [];
+        }
+
+        if (($path[0] ?? null) === '运载舰和工业舰') {
+            $path[0] = '工业与运载舰';
+        }
+
+        return $path;
+    }
+
+    private function getModuleDisplayCategoryPath(int $typeId): array
+    {
+        $path = $this->getLocalItemCategoryPath($typeId);
+        if (empty($path)) {
+            return [];
+        }
+
+        $level1 = $path[0] ?? null;
+
+        if ($level1 === '舰船装备') {
+            return array_slice($path, 1);
+        }
+
+        return $path;
     }
 
     private function inferSlotFromCategoryPath(array $categoryPath): ?string
@@ -1286,52 +1338,37 @@ class FittingDataService
         if (!$this->isDatabaseReady() || empty($categoryPath)) {
             return [];
         }
-        
-        $itemsFile = base_path('data/eve_items.json');
-        if (!file_exists($itemsFile)) {
-            return [];
-        }
-        
-        $items = json_decode(file_get_contents($itemsFile), true);
+
+        $types = DB::connection('fitting')
+            ->table('fitting_types')
+            ->where('category_id', 7)
+            ->where('published', 1)
+            ->orderBy('name_en')
+            ->get();
+
         $result = [];
-        
-        foreach ($items as $typeId => $item) {
-            $category = $item['category'] ?? [];
-            
-            // 检查分类路径是否匹配
-            $matches = true;
-            foreach ($categoryPath as $i => $catName) {
-                if (!isset($category[$i]) || $category[$i] !== $catName) {
-                    $matches = false;
-                    break;
-                }
+        foreach ($types as $type) {
+            $typeId = (int)$type->type_id;
+            $displayPath = $this->getModuleDisplayCategoryPath($typeId);
+            if (!$this->pathStartsWith($displayPath, $categoryPath)) {
+                continue;
             }
-            
-            if (!$matches) continue;
-            
-            // 从SDE获取详细数据
-            $type = DB::connection('fitting')
-                ->table('fitting_types')
-                ->where('type_id', $typeId)
-                ->where('published', 1)
-                ->first();
-            
-            if (!$type) continue;
-            
+
             $attrs = $this->getTypeAttributes($typeId);
             $slot = $this->determineModuleSlot($typeId);
-            
+
             $result[] = [
-                'type_id' => (int)$typeId,
+                'type_id' => $typeId,
                 'name' => $type->name_en,
-                'name_cn' => $type->name_cn ?? $item['name'] ?? $type->name_en,
-                'category' => $category,
+                'name_cn' => $type->name_cn ?? $type->name_en,
+                'category' => $displayPath,
+                'category_label' => $this->buildModuleCategoryLabel($displayPath),
                 'slot' => $slot,
                 'cpu' => (float)($attrs[50] ?? 0),
                 'power' => (float)($attrs[30] ?? 0),
                 'upgrade_cost' => (float)($attrs[1153] ?? 0),
                 'meta_level' => (int)($attrs[422] ?? 0),
-                'image_url' => $this->getImageUrl($typeId, 128, (int)$type->category_id),
+                'image_url' => $this->getImageUrl($typeId, 64, (int)$type->category_id),
             ];
         }
         

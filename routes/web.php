@@ -307,9 +307,11 @@ Route::get('/fitting-simulator', [FittingSimulatorController::class, 'index'])->
 // 装配模拟器公开 API - 放宽限流以支持多级分类展开
 Route::middleware('throttle:600,1')->prefix('api/public/fitting-simulator')->group(function () {
     Route::get('/categories', [FittingSimulatorDataController::class, 'categories'])->name('api.public.fitting-simulator.categories');
+    Route::get('/ship-category-tree', [FittingSimulatorDataController::class, 'shipCategoryTree'])->name('api.public.fitting-simulator.ship-category-tree');
     Route::get('/module-categories', [FittingSimulatorDataController::class, 'moduleCategories'])->name('api.public.fitting-simulator.module-categories');
     Route::get('/module-category-tree', [FittingSimulatorDataController::class, 'moduleCategoryTree'])->name('api.public.fitting-simulator.module-category-tree');
     Route::get('/modules-by-category-path', [FittingSimulatorDataController::class, 'modulesByCategoryPath'])->name('api.public.fitting-simulator.modules-by-category-path');
+    Route::get('/ships-by-category-path', [FittingSimulatorDataController::class, 'shipsByCategoryPath'])->name('api.public.fitting-simulator.ships-by-category-path');
     Route::get('/groups/{groupId}/ships', [FittingSimulatorDataController::class, 'shipsByGroup'])->name('api.public.fitting-simulator.ships-by-group');
     Route::get('/groups/{groupId}/faction/{factionId}/ships', [FittingSimulatorDataController::class, 'shipsByGroupAndFaction'])->name('api.public.fitting-simulator.ships-by-group-faction');
     Route::get('/groups/{groupId}/modules', [FittingSimulatorDataController::class, 'modulesByGroup'])->name('api.public.fitting-simulator.modules-by-group');

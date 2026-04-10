@@ -27,6 +27,11 @@ class FittingSimulatorDataController extends Controller
         return response()->json($this->fittingService->getShipCategories());
     }
 
+    public function shipCategoryTree()
+    {
+        return response()->json($this->fittingService->getShipCategoryTree());
+    }
+
     /**
      * 获取指定组内的舰船列表
      */
@@ -118,7 +123,7 @@ class FittingSimulatorDataController extends Controller
     public function getImage(int $typeId, Request $request)
     {
         $size = $request->input('size', 128);
-        $localPath = public_path("images/types/{$typeId}.png");
+        $localPath = public_path("images/types/{$typeId}_{$size}.png");
 
         // 如果本地有缓存，直接返回
         if (file_exists($localPath)) {
@@ -129,7 +134,7 @@ class FittingSimulatorDataController extends Controller
         }
 
         // 从 CDN 获取
-        $cdnUrl = "https://image.evepc.163.com/Render/{$typeId}_{$size}.png";
+        $cdnUrl = $this->fittingService->getRemoteImageUrl($typeId, (int)$size);
         
         try {
             $imageData = \Illuminate\Support\Facades\Http::timeout(10)->get($cdnUrl)->body();
@@ -252,6 +257,24 @@ class FittingSimulatorDataController extends Controller
             'path' => $path,
             'total' => count($modules),
             'modules' => $modules,
+        ]);
+    }
+
+    public function shipsByCategoryPath(Request $request)
+    {
+        $pathJson = $request->input('path', '[]');
+        $path = json_decode($pathJson, true);
+
+        if (!is_array($path) || empty($path)) {
+            return response()->json(['error' => '请提供有效的分类路径'], 400);
+        }
+
+        $ships = $this->fittingService->getShipsByCategoryPath($path);
+
+        return response()->json([
+            'path' => $path,
+            'total' => count($ships),
+            'ships' => $ships,
         ]);
     }
 }

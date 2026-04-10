@@ -67,50 +67,32 @@
                     </div>
 
                     <div x-show="activeTab === 'ships'">
-                        <input class="fitting-input" type="text" placeholder="搜索舰船分类或势力" x-model="shipSearchQuery" @input="filterCategories">
+                        <div class="tiny-tip">现在舰船改成按本地分类树展开。点到最后一级后，下面才显示具体舰船。</div>
 
-                        <div class="tree-group">
-                            <template x-for="[categoryKey, category] in Object.entries(filteredCategories)" :key="categoryKey">
-                                <div class="tree-item">
-                                    <div class="tree-head" @click="toggleCategory(categoryKey, category)">
-                                        <span x-text="category.name + ' (' + category.count + ')'"></span>
-                                        <span x-text="expandedCategories[categoryKey] ? '收起' : '展开'"></span>
-                                    </div>
+                        <div class="tree-group" style="margin-top:12px;">
+                            <template x-for="node in visibleShipNodes()" :key="node.key">
+                                <div class="tree-head"
+                                     :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
+                                     @click="onShipNodeClick(node)">
+                                    <span x-text="(node.hasChildren ? (isExpanded(shipExpandedNodes, node.key) ? '▾ ' : '▸ ') : '· ') + node.name"></span>
+                                    <span x-text="node.count"></span>
+                                </div>
+                            </template>
+                        </div>
 
-                                    <div class="tree-children" x-show="expandedCategories[categoryKey]">
-                                        <template x-if="categoryLoading[category.group_id]">
-                                            <div class="empty-state">正在加载这类舰船...</div>
-                                        </template>
+                        <template x-if="shipLeafLoading">
+                            <div class="empty-state" style="margin-top:12px;">正在加载这个分类下的舰船...</div>
+                        </template>
 
-                                        <template x-if="Object.keys(category.factions || {}).length">
-                                            <div class="card-list">
-                                                <template x-for="[factionKey, faction] in Object.entries(category.factions || {})" :key="factionKey">
-                                                    <div class="faction-item"
-                                                         :class="{ 'is-active': isFactionSelected(category.group_id, faction.faction_id) }"
-                                                         @click="selectFaction(category, faction)">
-                                                        <span x-text="faction.name"></span>
-                                                        <span x-text="faction.count"></span>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-
-                                        <div class="card-list" x-show="isCategorySelected(category.group_id)">
-                                            <template x-for="ship in visibleShips(category.group_id)" :key="ship.type_id">
-                                                <div class="list-item"
-                                                     :class="{ 'is-active': selectedShip?.type_id === ship.type_id }"
-                                                     @click="selectShip(ship)">
-                                                    <img :src="ship.image_url" :alt="shipDisplayName(ship)">
-                                                    <div class="list-item__text">
-                                                        <div class="item-name" x-text="shipDisplayName(ship)"></div>
-                                                        <div class="item-meta" x-text="'高 ' + (ship.slots?.hi || 0) + ' / 中 ' + (ship.slots?.med || 0) + ' / 低 ' + (ship.slots?.low || 0) + ' / 改装 ' + (ship.slots?.rig || 0)"></div>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <template x-if="!visibleShips(category.group_id).length && !categoryLoading[category.group_id]">
-                                                <div class="empty-state">这个分类下暂时没有可显示的舰船。</div>
-                                            </template>
-                                        </div>
+                        <div class="card-list" style="margin-top:12px;" x-show="!shipLeafLoading && shipLeafResults.length">
+                            <template x-for="ship in shipLeafResults" :key="ship.type_id">
+                                <div class="list-item"
+                                     :class="{ 'is-active': selectedShip?.type_id === ship.type_id }"
+                                     @click="selectShip(ship)">
+                                    <img :src="ship.image_url" :alt="shipDisplayName(ship)">
+                                    <div class="list-item__text">
+                                        <div class="item-name" x-text="shipDisplayName(ship)"></div>
+                                        <div class="item-meta" x-text="'高 ' + (ship.slots?.hi || 0) + ' / 中 ' + (ship.slots?.med || 0) + ' / 低 ' + (ship.slots?.low || 0) + ' / 改装 ' + (ship.slots?.rig || 0)"></div>
                                     </div>
                                 </div>
                             </template>
@@ -128,9 +110,36 @@
 
                         <input class="fitting-input" type="text" placeholder="输入装备名称搜索" x-model="moduleSearchQuery" @keydown.enter.prevent="searchModules" @input.debounce.300ms="searchModules">
 
-                        <div class="tiny-tip">先点中间的槽位，再点这里的装备，会更准确。现在会按本地中文分类分组显示，先不做拖拽。</div>
+                        <div class="tiny-tip">先点中间的槽位，再点这里的装备。现在默认走分类树；只有你输入搜索词时，才走搜索列表。</div>
 
-                        <div class="card-list" style="margin-top:12px;">
+                        <div class="tree-group" style="margin-top:12px;" x-show="!moduleSearchQuery">
+                            <template x-for="node in visibleModuleNodes()" :key="node.key">
+                                <div class="tree-head"
+                                     :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
+                                     @click="onModuleNodeClick(node)">
+                                    <span x-text="(node.hasChildren ? (isExpanded(moduleExpandedNodes, node.key) ? '▾ ' : '▸ ') : '· ') + node.name"></span>
+                                    <span x-text="node.count"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <template x-if="moduleLeafLoading && !moduleSearchQuery">
+                            <div class="empty-state" style="margin-top:12px;">正在加载这个分类下的装备...</div>
+                        </template>
+
+                        <div class="card-list" style="margin-top:12px;" x-show="!moduleSearchQuery && !moduleLeafLoading && moduleLeafResults.length">
+                            <template x-for="module in moduleLeafResults" :key="module.type_id">
+                                <div class="list-item" @click="addModule(module)">
+                                    <img :src="module.image_url" :alt="moduleDisplayName(module)">
+                                    <div class="list-item__text">
+                                        <div class="item-name" x-text="moduleDisplayName(module)"></div>
+                                        <div class="item-meta" x-text="moduleMeta(module)"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="card-list" style="margin-top:12px;" x-show="moduleSearchQuery">
                             <template x-for="group in groupedModuleResults()" :key="group.label">
                                 <div class="tree-item">
                                     <div class="tree-head" style="cursor:default;">
@@ -153,7 +162,7 @@
                             <template x-if="moduleLoading">
                                 <div class="empty-state">正在查找装备...</div>
                             </template>
-                            <template x-if="!moduleLoading && !moduleResults.length">
+                            <template x-if="moduleSearchQuery && !moduleLoading && !moduleResults.length">
                                 <div class="empty-state">先搜索装备，或先点一个槽位后再搜索。</div>
                             </template>
                         </div>
@@ -280,22 +289,22 @@
 <script>
     function fittingStageOne() {
         return {
-            categories: @json($categories),
-            filteredCategories: @json($categories),
+            shipTree: @json($shipTree ?? []),
+            shipExpandedNodes: {},
+            shipLeafResults: [],
+            shipLeafLoading: false,
             activeTab: 'ships',
-            shipSearchQuery: '',
             moduleSearchQuery: '',
             moduleSlotFilter: null,
+            moduleTree: [],
+            moduleExpandedNodes: {},
+            moduleLeafResults: [],
+            moduleLeafLoading: false,
             moduleResults: [],
             moduleLoading: false,
             selectedShip: null,
             shipStats: null,
             selectedSlot: null,
-            expandedCategories: {},
-            categoryLoading: {},
-            shipsByGroup: {},
-            activeGroupId: null,
-            activeFactionId: null,
             fittedModules: { high: [], med: [], low: [], rig: [] },
             resourceUsage: {
                 cpu: { used: 0, total: 0 },
@@ -305,90 +314,110 @@
             notice: { message: '', type: 'info' },
 
             init() {
-                this.filterCategories();
+                this.loadModuleTree(null);
             },
 
             setNotice(message, type = 'info') {
                 this.notice = { message, type };
             },
 
-            filterCategories() {
-                if (!this.shipSearchQuery) {
-                    this.filteredCategories = this.categories;
-                    return;
-                }
+            flattenTree(nodes, expandedMap, depth = 0, list = []) {
+                (nodes || []).forEach((node) => {
+                    const path = node.path || [node.name];
+                    const key = path.join(' > ');
+                    const hasChildren = !!(node.children && node.children.length);
 
-                const keyword = this.shipSearchQuery.toLowerCase();
-                const next = {};
+                    list.push({
+                        key,
+                        name: node.name,
+                        path,
+                        count: node.count || 0,
+                        depth,
+                        hasChildren,
+                    });
 
-                Object.entries(this.categories).forEach(([key, category]) => {
-                    const inCategory = (category.name || '').toLowerCase().includes(keyword);
-                    const inFaction = Object.values(category.factions || {}).some((faction) => (faction.name || '').toLowerCase().includes(keyword));
-                    if (inCategory || inFaction) {
-                        next[key] = category;
+                    if (hasChildren && expandedMap[key]) {
+                        this.flattenTree(node.children, expandedMap, depth + 1, list);
                     }
                 });
 
-                this.filteredCategories = next;
+                return list;
             },
 
-            async toggleCategory(categoryKey, category) {
-                this.expandedCategories[categoryKey] = !this.expandedCategories[categoryKey];
-                if (!this.expandedCategories[categoryKey] || !category.group_id) {
+            visibleShipNodes() {
+                return this.flattenTree(this.shipTree, this.shipExpandedNodes);
+            },
+
+            visibleModuleNodes() {
+                return this.flattenTree(this.moduleTree, this.moduleExpandedNodes);
+            },
+
+            isExpanded(expandedMap, key) {
+                return !!expandedMap[key];
+            },
+
+            toggleNode(expandedMap, key) {
+                expandedMap[key] = !expandedMap[key];
+            },
+
+            async onShipNodeClick(node) {
+                if (node.hasChildren) {
+                    this.toggleNode(this.shipExpandedNodes, node.key);
                     return;
                 }
 
-                await this.ensureGroupShips(category.group_id);
-
-                if (!Object.keys(category.factions || {}).length) {
-                    this.activeGroupId = category.group_id;
-                    this.activeFactionId = null;
-                }
-            },
-
-            async ensureGroupShips(groupId) {
-                if (this.shipsByGroup[groupId]) {
-                    return;
-                }
-
-                this.categoryLoading[groupId] = true;
+                this.shipLeafLoading = true;
                 try {
-                    const response = await fetch(`/api/public/fitting-simulator/groups/${groupId}/ships`);
+                    const response = await fetch(`/api/public/fitting-simulator/ships-by-category-path?path=${encodeURIComponent(JSON.stringify(node.path))}`);
                     if (!response.ok) {
-                        throw new Error('load ships failed');
+                        throw new Error('load ships by path failed');
                     }
-                    this.shipsByGroup[groupId] = await response.json();
+                    const data = await response.json();
+                    this.shipLeafResults = data.ships || [];
                 } catch (error) {
-                    this.shipsByGroup[groupId] = [];
-                    this.setNotice('这类舰船刚才没有成功加载出来，我已经拦下错误了，你可以再点一次试试。', 'warn');
+                    this.shipLeafResults = [];
+                    this.setNotice('这个舰船分类暂时没有成功加载出来。', 'warn');
                 } finally {
-                    this.categoryLoading[groupId] = false;
+                    this.shipLeafLoading = false;
                 }
             },
 
-            async selectFaction(category, faction) {
-                await this.ensureGroupShips(category.group_id);
-                this.activeGroupId = category.group_id;
-                this.activeFactionId = faction.faction_id;
-            },
-
-            isCategorySelected(groupId) {
-                return this.activeGroupId === groupId;
-            },
-
-            isFactionSelected(groupId, factionId) {
-                return this.activeGroupId === groupId && this.activeFactionId === factionId;
-            },
-
-            visibleShips(groupId) {
-                const ships = this.shipsByGroup[groupId] || [];
-                if (this.activeGroupId !== groupId) {
-                    return [];
+            async loadModuleTree(slotType) {
+                try {
+                    const query = slotType ? `?slot=${slotType}` : '';
+                    const response = await fetch(`/api/public/fitting-simulator/module-category-tree${query}`);
+                    if (!response.ok) {
+                        throw new Error('load module tree failed');
+                    }
+                    this.moduleTree = await response.json();
+                    this.moduleExpandedNodes = {};
+                    this.moduleLeafResults = [];
+                } catch (error) {
+                    this.moduleTree = [];
+                    this.setNotice('装备分类树加载失败了。', 'warn');
                 }
-                if (this.activeFactionId === null || this.activeFactionId === undefined) {
-                    return ships;
+            },
+
+            async onModuleNodeClick(node) {
+                if (node.hasChildren) {
+                    this.toggleNode(this.moduleExpandedNodes, node.key);
+                    return;
                 }
-                return ships.filter((ship) => Number(ship.faction_id || 0) === Number(this.activeFactionId));
+
+                this.moduleLeafLoading = true;
+                try {
+                    const response = await fetch(`/api/public/fitting-simulator/modules-by-category-path?path=${encodeURIComponent(JSON.stringify(node.path))}`);
+                    if (!response.ok) {
+                        throw new Error('load modules by path failed');
+                    }
+                    const data = await response.json();
+                    this.moduleLeafResults = data.modules || [];
+                } catch (error) {
+                    this.moduleLeafResults = [];
+                    this.setNotice('这个装备分类暂时没有成功加载出来。', 'warn');
+                } finally {
+                    this.moduleLeafLoading = false;
+                }
             },
 
             async selectShip(ship) {
@@ -436,18 +465,24 @@
             selectSlot(slotType, index) {
                 this.selectedSlot = { type: slotType, index };
                 this.activeTab = 'modules';
-                this.moduleSlotFilter = slotType;
-                this.searchModules();
+                this.setModuleSlotFilter(slotType);
+                if (this.moduleSearchQuery) {
+                    this.searchModules();
+                }
                 this.setNotice(`已选中${this.slotLabel(slotType)}第 ${index + 1} 个槽位。现在点左侧装备即可安装。`, 'info');
             },
 
             setModuleSlotFilter(slotType) {
                 this.moduleSlotFilter = slotType;
-                this.searchModules();
+                this.loadModuleTree(slotType);
+                this.moduleLeafResults = [];
+                if (this.moduleSearchQuery) {
+                    this.searchModules();
+                }
             },
 
             async searchModules() {
-                if (!this.selectedShip && !this.moduleSearchQuery) {
+                if (!this.moduleSearchQuery) {
                     this.moduleResults = [];
                     return;
                 }

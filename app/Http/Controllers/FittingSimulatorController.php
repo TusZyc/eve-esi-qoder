@@ -21,11 +21,10 @@ class FittingSimulatorController extends BasePageController
      */
     public function index()
     {
-        // 获取舰船分类结构
-        $categories = $this->fittingService->getShipCategories();
+        $shipTree = $this->fittingService->getShipCategoryTree();
 
         return $this->renderPage('fitting-simulator.index', [
-            'categories' => $categories,
+            'shipTree' => $shipTree,
         ]);
     }
 }
