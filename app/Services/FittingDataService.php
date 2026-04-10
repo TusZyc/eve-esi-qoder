@@ -1024,7 +1024,7 @@ class FittingDataService
      */
     public function getImageUrl(int $typeId, int $size = 128, ?int $categoryId = null): string
     {
-        return "/api/public/fitting-simulator/image/{$typeId}?size={$size}";
+        return $this->getRemoteImageUrl($typeId, $size);
     }
 
     public function getRemoteImageUrl(int $typeId, int $size = 128): string
