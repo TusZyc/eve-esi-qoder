@@ -744,6 +744,7 @@ class FittingDataService
                 'attributes' => $namedAttrs,
                 'effects' => $effects,
                 'image_url' => $this->getImageUrl($typeId, 128, 6),
+                'render_url' => $this->getShipRenderUrl($typeId, 256),
             ];
         });
     }
@@ -954,6 +955,7 @@ class FittingDataService
                     'rig' => (int)($attrs[1137] ?? 0),
                 ],
                 'image_url' => $this->getImageUrl($typeId, 64, 6),
+                'render_url' => $this->getShipRenderUrl($typeId, 256),
             ];
         }
 
@@ -1030,6 +1032,11 @@ class FittingDataService
     public function getRemoteImageUrl(int $typeId, int $size = 128): string
     {
         return "https://image.evepc.163.com/Type/{$typeId}_{$size}.png";
+    }
+
+    public function getShipRenderUrl(int $typeId, int $size = 256): string
+    {
+        return "https://image.evepc.163.com/Render/{$typeId}_{$size}.png";
     }
 
     /**

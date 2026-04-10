@@ -71,29 +71,37 @@
 
                         <div class="tree-group" style="margin-top:12px;">
                             <template x-for="node in visibleShipNodes()" :key="node.key">
-                                <div class="tree-head"
-                                     :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
-                                     @click="onShipNodeClick(node)">
-                                    <span x-text="(node.hasChildren ? (isExpanded(shipExpandedNodes, node.key) ? '▾ ' : '▸ ') : '· ') + node.name"></span>
-                                    <span x-text="node.count"></span>
-                                </div>
-                            </template>
-                        </div>
-
-                        <template x-if="shipLeafLoading">
-                            <div class="empty-state" style="margin-top:12px;">正在加载这个分类下的舰船...</div>
-                        </template>
-
-                        <div class="card-list" style="margin-top:12px;" x-show="!shipLeafLoading && shipLeafResults.length">
-                            <template x-for="ship in shipLeafResults" :key="ship.type_id">
-                                <div class="list-item"
-                                     :class="{ 'is-active': selectedShip?.type_id === ship.type_id }"
-                                     @click="selectShip(ship)">
-                                    <img :src="ship.image_url" :alt="shipDisplayName(ship)">
-                                    <div class="list-item__text">
-                                        <div class="item-name" x-text="shipDisplayName(ship)"></div>
-                                        <div class="item-meta" x-text="'高 ' + (ship.slots?.hi || 0) + ' / 中 ' + (ship.slots?.med || 0) + ' / 低 ' + (ship.slots?.low || 0) + ' / 改装 ' + (ship.slots?.rig || 0)"></div>
+                                <div>
+                                    <div class="tree-head"
+                                         :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
+                                         @click="onShipNodeClick(node)">
+                                        <span x-text="(node.hasChildren ? (isExpanded(shipExpandedNodes, node.key) ? '▾ ' : '▸ ') : (isExpanded(shipExpandedNodes, node.key) ? '▾ ' : '▸ ')) + node.name"></span>
+                                        <span x-text="node.count"></span>
                                     </div>
+
+                                    <template x-if="!node.hasChildren && isExpanded(shipExpandedNodes, node.key)">
+                                        <div class="card-list" :style="'margin: 6px 0 10px ' + (18 + node.depth * 18) + 'px;'">
+                                            <template x-if="shipLeafLoadingKey === node.key">
+                                                <div class="empty-state">正在加载这个分类下的舰船...</div>
+                                            </template>
+
+                                            <template x-if="shipLeafLoadingKey !== node.key && !(shipLeafResults[node.key] || []).length">
+                                                <div class="empty-state">这个分类下暂时没有可用舰船。</div>
+                                            </template>
+
+                                            <template x-for="ship in (shipLeafResults[node.key] || [])" :key="ship.type_id">
+                                                <div class="list-item"
+                                                     :class="{ 'is-active': selectedShip?.type_id === ship.type_id }"
+                                                     @click="selectShip(ship)">
+                                                    <img :src="ship.image_url" :alt="shipDisplayName(ship)">
+                                                    <div class="list-item__text">
+                                                        <div class="item-name" x-text="shipDisplayName(ship)"></div>
+                                                        <div class="item-meta" x-text="'高 ' + (ship.slots?.hi || 0) + ' / 中 ' + (ship.slots?.med || 0) + ' / 低 ' + (ship.slots?.low || 0) + ' / 改装 ' + (ship.slots?.rig || 0)"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -114,27 +122,35 @@
 
                         <div class="tree-group" style="margin-top:12px;" x-show="!moduleSearchQuery">
                             <template x-for="node in visibleModuleNodes()" :key="node.key">
-                                <div class="tree-head"
-                                     :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
-                                     @click="onModuleNodeClick(node)">
-                                    <span x-text="(node.hasChildren ? (isExpanded(moduleExpandedNodes, node.key) ? '▾ ' : '▸ ') : '· ') + node.name"></span>
-                                    <span x-text="node.count"></span>
-                                </div>
-                            </template>
-                        </div>
-
-                        <template x-if="moduleLeafLoading && !moduleSearchQuery">
-                            <div class="empty-state" style="margin-top:12px;">正在加载这个分类下的装备...</div>
-                        </template>
-
-                        <div class="card-list" style="margin-top:12px;" x-show="!moduleSearchQuery && !moduleLeafLoading && moduleLeafResults.length">
-                            <template x-for="module in moduleLeafResults" :key="module.type_id">
-                                <div class="list-item" @click="addModule(module)">
-                                    <img :src="module.image_url" :alt="moduleDisplayName(module)">
-                                    <div class="list-item__text">
-                                        <div class="item-name" x-text="moduleDisplayName(module)"></div>
-                                        <div class="item-meta" x-text="moduleMeta(module)"></div>
+                                <div>
+                                    <div class="tree-head"
+                                         :style="'padding-left:' + (12 + node.depth * 18) + 'px'"
+                                         @click="onModuleNodeClick(node)">
+                                        <span x-text="(node.hasChildren ? (isExpanded(moduleExpandedNodes, node.key) ? '▾ ' : '▸ ') : (isExpanded(moduleExpandedNodes, node.key) ? '▾ ' : '▸ ')) + node.name"></span>
+                                        <span x-text="node.count"></span>
                                     </div>
+
+                                    <template x-if="!node.hasChildren && isExpanded(moduleExpandedNodes, node.key)">
+                                        <div class="card-list" :style="'margin: 6px 0 10px ' + (18 + node.depth * 18) + 'px;'">
+                                            <template x-if="moduleLeafLoadingKey === node.key">
+                                                <div class="empty-state">正在加载这个分类下的装备...</div>
+                                            </template>
+
+                                            <template x-if="moduleLeafLoadingKey !== node.key && !(moduleLeafResults[node.key] || []).length">
+                                                <div class="empty-state">这个分类下暂时没有可用装备。</div>
+                                            </template>
+
+                                            <template x-for="module in (moduleLeafResults[node.key] || [])" :key="module.type_id">
+                                                <div class="list-item" @click="addModule(module)">
+                                                    <img :src="module.image_url" :alt="moduleDisplayName(module)">
+                                                    <div class="list-item__text">
+                                                        <div class="item-name" x-text="moduleDisplayName(module)"></div>
+                                                        <div class="item-meta" x-text="moduleMeta(module)"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -179,7 +195,7 @@
                     <template x-if="selectedShip">
                         <div>
                             <div class="ship-summary">
-                                <img :src="selectedShip.image_url" :alt="shipDisplayName(selectedShip)">
+                                <img :src="selectedShip.render_url || selectedShip.image_url" :alt="shipDisplayName(selectedShip)">
                                 <div class="list-item__text">
                                     <div class="item-name" x-text="shipDisplayName(selectedShip)"></div>
                                     <div class="item-meta">先点槽位，再点左侧装备列表安装。</div>
@@ -291,15 +307,15 @@
         return {
             shipTree: @json($shipTree ?? []),
             shipExpandedNodes: {},
-            shipLeafResults: [],
-            shipLeafLoading: false,
+            shipLeafResults: {},
+            shipLeafLoadingKey: null,
             activeTab: 'ships',
             moduleSearchQuery: '',
             moduleSlotFilter: null,
             moduleTree: [],
             moduleExpandedNodes: {},
-            moduleLeafResults: [],
-            moduleLeafLoading: false,
+            moduleLeafResults: {},
+            moduleLeafLoadingKey: null,
             moduleResults: [],
             moduleLoading: false,
             selectedShip: null,
@@ -366,19 +382,29 @@
                     return;
                 }
 
-                this.shipLeafLoading = true;
+                if (this.isExpanded(this.shipExpandedNodes, node.key)) {
+                    this.toggleNode(this.shipExpandedNodes, node.key);
+                    return;
+                }
+
+                this.shipExpandedNodes[node.key] = true;
+                if (this.shipLeafResults[node.key]) {
+                    return;
+                }
+
+                this.shipLeafLoadingKey = node.key;
                 try {
                     const response = await fetch(`/api/public/fitting-simulator/ships-by-category-path?path=${encodeURIComponent(JSON.stringify(node.path))}`);
                     if (!response.ok) {
                         throw new Error('load ships by path failed');
                     }
                     const data = await response.json();
-                    this.shipLeafResults = data.ships || [];
+                    this.shipLeafResults[node.key] = data.ships || [];
                 } catch (error) {
-                    this.shipLeafResults = [];
+                    this.shipLeafResults[node.key] = [];
                     this.setNotice('这个舰船分类暂时没有成功加载出来。', 'warn');
                 } finally {
-                    this.shipLeafLoading = false;
+                    this.shipLeafLoadingKey = null;
                 }
             },
 
@@ -391,7 +417,8 @@
                     }
                     this.moduleTree = await response.json();
                     this.moduleExpandedNodes = {};
-                    this.moduleLeafResults = [];
+                    this.moduleLeafResults = {};
+                    this.moduleLeafLoadingKey = null;
                 } catch (error) {
                     this.moduleTree = [];
                     this.setNotice('装备分类树加载失败了。', 'warn');
@@ -404,7 +431,17 @@
                     return;
                 }
 
-                this.moduleLeafLoading = true;
+                if (this.isExpanded(this.moduleExpandedNodes, node.key)) {
+                    this.toggleNode(this.moduleExpandedNodes, node.key);
+                    return;
+                }
+
+                this.moduleExpandedNodes[node.key] = true;
+                if (this.moduleLeafResults[node.key]) {
+                    return;
+                }
+
+                this.moduleLeafLoadingKey = node.key;
                 try {
                     const query = new URLSearchParams({
                         path: JSON.stringify(node.path),
@@ -418,12 +455,12 @@
                         throw new Error('load modules by path failed');
                     }
                     const data = await response.json();
-                    this.moduleLeafResults = data.modules || [];
+                    this.moduleLeafResults[node.key] = data.modules || [];
                 } catch (error) {
-                    this.moduleLeafResults = [];
+                    this.moduleLeafResults[node.key] = [];
                     this.setNotice('这个装备分类暂时没有成功加载出来。', 'warn');
                 } finally {
-                    this.moduleLeafLoading = false;
+                    this.moduleLeafLoadingKey = null;
                 }
             },
 
@@ -435,7 +472,11 @@
                     }
 
                     this.shipStats = await response.json();
-                    this.selectedShip = { ...ship, image_url: this.shipStats.image_url || ship.image_url };
+                    this.selectedShip = {
+                        ...ship,
+                        image_url: this.shipStats.image_url || ship.image_url,
+                        render_url: this.shipStats.render_url || ship.render_url,
+                    };
                     this.selectedSlot = null;
                     this.fittedModules = {
                         high: Array(this.slotCapacity('high')).fill(null),
@@ -482,7 +523,8 @@
             setModuleSlotFilter(slotType) {
                 this.moduleSlotFilter = slotType;
                 this.loadModuleTree(slotType);
-                this.moduleLeafResults = [];
+                this.moduleLeafResults = {};
+                this.moduleLeafLoadingKey = null;
                 if (this.moduleSearchQuery) {
                     this.searchModules();
                 }
