@@ -35,6 +35,13 @@ return [
             'foreign_key_constraints' => true,
         ],
 
+        'fitting_official' => [
+            'driver' => 'sqlite',
+            'database' => database_path('fitting_official.sqlite'),
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),

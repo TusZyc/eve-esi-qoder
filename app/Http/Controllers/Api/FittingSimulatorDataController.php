@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\FittingDataService;
+use App\Services\FittingOfficialDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -13,10 +14,12 @@ use Illuminate\Support\Facades\Storage;
 class FittingSimulatorDataController extends Controller
 {
     private FittingDataService $fittingService;
+    private FittingOfficialDataService $officialFittingService;
 
-    public function __construct(FittingDataService $fittingService)
+    public function __construct(FittingDataService $fittingService, FittingOfficialDataService $officialFittingService)
     {
         $this->fittingService = $fittingService;
+        $this->officialFittingService = $officialFittingService;
     }
 
     /**
@@ -29,7 +32,11 @@ class FittingSimulatorDataController extends Controller
 
     public function shipCategoryTree()
     {
-        return response()->json($this->fittingService->getShipCategoryTree());
+        $tree = $this->officialFittingService->isDatabaseReady()
+            ? $this->officialFittingService->getShipCategoryTree()
+            : $this->fittingService->getShipCategoryTree();
+
+        return response()->json($tree);
     }
 
     /**
@@ -53,7 +60,9 @@ class FittingSimulatorDataController extends Controller
      */
     public function shipDetails(int $typeId)
     {
-        $ship = $this->fittingService->getShipDetails($typeId);
+        $ship = $this->officialFittingService->isDatabaseReady()
+            ? $this->officialFittingService->getShipDetails($typeId)
+            : $this->fittingService->getShipDetails($typeId);
         
         if (!$ship) {
             return response()->json(['error' => '舰船不存在'], 404);
@@ -73,6 +82,16 @@ class FittingSimulatorDataController extends Controller
             return response()->json(['error' => '物品不存在'], 404);
         }
 
+        if ($this->officialFittingService->isDatabaseReady()) {
+            $officialType = $this->officialFittingService->findType($typeId);
+            if ($officialType && !empty($officialType['slot_type'])) {
+                $type['slot'] = $officialType['slot_type'];
+                $type['slot_source'] = $officialType['slot_source'] ?? $type['slot_source'] ?? null;
+                $type['volume'] = (float) ($officialType['volume'] ?? $type['volume'] ?? 0);
+                $type['image_url'] = "https://image.evepc.163.com/Type/{$typeId}_64.png";
+            }
+        }
+
         return response()->json($type);
     }
 
@@ -83,15 +102,17 @@ class FittingSimulatorDataController extends Controller
     {
         $query = $request->input('q', '');
         $slot = $request->input('slot', null);
-        $limit = $request->input('limit', 50);
+        $limit = (int) $request->input('limit', 50);
 
         // 验证 slot 参数
-        $validSlots = ['high', 'med', 'low', 'rig'];
-        if ($slot && !in_array($slot, $validSlots)) {
+        $validSlots = ['high', 'med', 'low', 'rig', 'drone'];
+        if ($slot && !in_array($slot, $validSlots, true)) {
             $slot = null;
         }
 
-        $results = $this->fittingService->searchModules((string)$query, $slot, $limit);
+        $results = $this->officialFittingService->isDatabaseReady()
+            ? $this->officialFittingService->searchModules((string) $query, $slot, $limit)
+            : $this->fittingService->searchModules((string) $query, $slot, $limit);
 
         return response()->json([
             'query' => $query,
@@ -236,6 +257,30 @@ class FittingSimulatorDataController extends Controller
         return response()->json($tree);
     }
 
+    public function officialSubsetSummary()
+    {
+        if (!$this->officialFittingService->isDatabaseReady()) {
+            return response()->json(['error' => '官方装配子集尚未生成'], 503);
+        }
+
+        return response()->json($this->officialFittingService->getSummary());
+    }
+
+    public function officialModuleCategoryTree(Request $request)
+    {
+        if (!$this->officialFittingService->isDatabaseReady()) {
+            return response()->json(['error' => '官方装配子集尚未生成'], 503);
+        }
+
+        $slot = $request->input('slot', null);
+        $validSlots = ['high', 'med', 'low', 'rig', 'drone'];
+        if ($slot && !in_array($slot, $validSlots, true)) {
+            $slot = null;
+        }
+
+        return response()->json($this->officialFittingService->getModuleCategoryTree($slot, $this->moduleFilterOptions($request)));
+    }
+
     /**
      * 获取指定分类路径下的装备列表
      * 
@@ -267,6 +312,35 @@ class FittingSimulatorDataController extends Controller
         ]);
     }
 
+    public function officialModulesByCategoryPath(Request $request)
+    {
+        if (!$this->officialFittingService->isDatabaseReady()) {
+            return response()->json(['error' => '官方装配子集尚未生成'], 503);
+        }
+
+        $pathJson = $request->input('path', '[]');
+        $slot = $request->input('slot', null);
+        $path = json_decode($pathJson, true);
+
+        if (!is_array($path) || empty($path)) {
+            return response()->json(['error' => '请提供有效的分类路径'], 400);
+        }
+
+        $validSlots = ['high', 'med', 'low', 'rig', 'drone'];
+        if ($slot && !in_array($slot, $validSlots, true)) {
+            $slot = null;
+        }
+
+        $modules = $this->officialFittingService->getModulesByCategoryPath($path, $slot, $this->moduleFilterOptions($request));
+
+        return response()->json([
+            'path' => $path,
+            'slot' => $slot,
+            'total' => count($modules),
+            'modules' => $modules,
+        ]);
+    }
+
     public function shipsByCategoryPath(Request $request)
     {
         $pathJson = $request->input('path', '[]');
@@ -276,12 +350,36 @@ class FittingSimulatorDataController extends Controller
             return response()->json(['error' => '请提供有效的分类路径'], 400);
         }
 
-        $ships = $this->fittingService->getShipsByCategoryPath($path);
+        $ships = $this->officialFittingService->isDatabaseReady()
+            ? $this->officialFittingService->getShipsByCategoryPath($path)
+            : $this->fittingService->getShipsByCategoryPath($path);
 
         return response()->json([
             'path' => $path,
             'total' => count($ships),
             'ships' => $ships,
         ]);
+    }
+
+    private function moduleFilterOptions(Request $request): array
+    {
+        return [
+            'ship_filter' => $request->boolean('filter_ship'),
+            'resource_filter' => $request->boolean('filter_resources'),
+            'ship_type_id' => (int) $request->input('ship_type_id', 0),
+            'ship_group_id' => (int) $request->input('ship_group_id', 0),
+            'ship_is_capital_size' => $request->boolean('ship_is_capital_size') || (int) $request->input('ship_is_capital_size', 0) === 1,
+            'slot_high' => (int) $request->input('slot_high', 0),
+            'slot_med' => (int) $request->input('slot_med', 0),
+            'slot_low' => (int) $request->input('slot_low', 0),
+            'slot_rig' => (int) $request->input('slot_rig', 0),
+            'ship_rig_size' => (int) $request->input('ship_rig_size', 0),
+            'drone_bay_capacity' => (float) $request->input('drone_bay_capacity', 0),
+            'remaining_cpu' => (float) $request->input('remaining_cpu', 0),
+            'remaining_power' => (float) $request->input('remaining_power', 0),
+            'remaining_calibration' => (float) $request->input('remaining_calibration', 0),
+            'remaining_drone_bay' => (float) $request->input('remaining_drone_bay', 0),
+            'remaining_drone_bandwidth' => (float) $request->input('remaining_drone_bandwidth', 0),
+        ];
     }
 }

@@ -311,6 +311,9 @@ Route::middleware('throttle:600,1')->prefix('api/public/fitting-simulator')->gro
     Route::get('/module-categories', [FittingSimulatorDataController::class, 'moduleCategories'])->name('api.public.fitting-simulator.module-categories');
     Route::get('/module-category-tree', [FittingSimulatorDataController::class, 'moduleCategoryTree'])->name('api.public.fitting-simulator.module-category-tree');
     Route::get('/modules-by-category-path', [FittingSimulatorDataController::class, 'modulesByCategoryPath'])->name('api.public.fitting-simulator.modules-by-category-path');
+    Route::get('/official/summary', [FittingSimulatorDataController::class, 'officialSubsetSummary'])->name('api.public.fitting-simulator.official-summary');
+    Route::get('/official/module-category-tree', [FittingSimulatorDataController::class, 'officialModuleCategoryTree'])->name('api.public.fitting-simulator.official-module-category-tree');
+    Route::get('/official/modules-by-category-path', [FittingSimulatorDataController::class, 'officialModulesByCategoryPath'])->name('api.public.fitting-simulator.official-modules-by-category-path');
     Route::get('/ships-by-category-path', [FittingSimulatorDataController::class, 'shipsByCategoryPath'])->name('api.public.fitting-simulator.ships-by-category-path');
     Route::get('/groups/{groupId}/ships', [FittingSimulatorDataController::class, 'shipsByGroup'])->name('api.public.fitting-simulator.ships-by-group');
     Route::get('/groups/{groupId}/faction/{factionId}/ships', [FittingSimulatorDataController::class, 'shipsByGroupAndFaction'])->name('api.public.fitting-simulator.ships-by-group-faction');
